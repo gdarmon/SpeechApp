@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22.22.2"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Choose Frankfurt in the Netlify dashboard if your plan supports region selection.
+# Leaving region unset keeps this repository importable on Free/Personal plans.
+# On Pro/Enterprise you may alternatively uncomment:
+# [functions.api]
+#   region = "fra"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
