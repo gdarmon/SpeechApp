@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { Auth, googleLoginSchema, type VerifyGoogle } from "./auth.js";
 import { z } from "zod";
 import type { Settings } from "./config.js";
 import type { Database } from "./database.js";
@@ -13,6 +13,7 @@ type Dependencies = {
   database: (settings: Settings) => Database;
   provider?: (settings: Settings, timing: Timing) => AIProvider;
   region?: () => string;
+  verifyGoogle?: VerifyGoogle;
 };
 
 async function body(request: Request): Promise<unknown> {
@@ -32,15 +33,8 @@ async function body(request: Request): Promise<unknown> {
   catch { throw new AppError(400, "Invalid JSON request."); }
 }
 
-function authorize(request: Request, token: string) {
-  const digest = (value: string) => createHash("sha256").update(value).digest();
-  if (!timingSafeEqual(digest(request.headers.get("Authorization") || ""), digest(`Bearer ${token}`))) {
-    throw new AppError(401, "Connect using your server's device token.");
-  }
-}
-
 export function createHandler(dependencies: Dependencies) {
-  return async (request: Request): Promise<Response> => {
+  return async (request: Request, clientAddress = "local"): Promise<Response> => {
     const timing = new Timing();
     const respond = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
       status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store",
@@ -50,14 +44,28 @@ export function createHandler(dependencies: Dependencies) {
       const path = new URL(request.url).pathname.replace(/^\/api(?=\/)/, "").replace(/\/$/, "") || "/";
       if (path === "/health" && request.method === "GET") return respond({ status: "ok" });
       const settings = dependencies.settings();
-      authorize(request, settings.token);
-      const store = new Store(dependencies.database(settings), timing);
+      const database = dependencies.database(settings);
+      const auth = new Auth(settings, database, timing, dependencies.verifyGoogle);
+      if (path === "/auth/config" && request.method === "GET") return respond(auth.config());
+      if (path === "/auth/google/challenge" && request.method === "POST") {
+        z.strictObject({}).parse(await body(request));
+        return respond(await auth.challenge(clientAddress));
+      }
+      if (path === "/auth/google" && request.method === "POST") return respond(await auth.signIn(googleLoginSchema.parse(await body(request)), clientAddress));
+      const user = await auth.authorize(request);
+      if (path === "/auth/logout" && request.method === "POST") { await auth.signOut(request); return respond({ signed_out: true }); }
+      const store = new Store(database, timing, user.id, settings.dailyUserLimit, settings.dailyAppLimit);
+      if (path === "/account" && request.method === "DELETE") {
+        if (user.operator) throw new AppError(403, "Sign in with Google to delete your account.");
+        await store.mutate(tx => tx.deleteAccount()); return respond({ deleted: true });
+      }
       const ai = dependencies.provider?.(settings, timing) || (settings.demo ? new DemoProvider() : new CompatibleProvider(settings, timing));
       const sessions = new Sessions(store, ai);
       const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey) || ai.demo };
       if (request.method === "GET") {
         if (path === "/status") { await store.ping(); return respond(status); }
         if (path === "/diagnostics") {
+          if (!user.operator) throw new AppError(403, "Operator access required.");
           await store.ping();
           const host = new URL(settings.databaseUrl).hostname;
           return respond({ ...status, database_ready: true, function_region: dependencies.region?.() || "local/unknown",
@@ -97,9 +105,9 @@ export function createHandler(dependencies: Dependencies) {
       if (error instanceof AppError) return respond({ detail: error.message }, error.status);
       if (error instanceof z.ZodError) return respond({ detail: "Check the request fields, text length, language, and request ID." }, 422);
       const code = (error as { code?: string })?.code;
-      if (code === "42P01" || code === "3F000") return respond({ detail: "Run the Fala SQL migration in your Supabase project's SQL Editor." }, 503);
+      if (code === "42P01" || code === "3F000") return respond({ detail: "Fala is being updated. Please try again shortly." }, 503);
       // Deliberately do not log raw exceptions: drivers can embed credentials, SQL or transcripts.
-      return respond({ detail: "The database is unavailable. Check its connection settings and retry." }, 503);
+      return respond({ detail: "Fala is temporarily unavailable. Please try again shortly." }, 503);
     }
   };
 }

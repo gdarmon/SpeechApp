@@ -3,11 +3,20 @@ import { AppError } from "./models.js";
 export interface Settings {
   token: string; databaseUrl: string; apiKey: string; baseUrl: string; model: string;
   demo: boolean; aiTimeoutMs: number; databaseCa: string; localDatabase: boolean;
+  googleClientId: string; dailyUserLimit: number; dailyAppLimit: number;
 }
 
 export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings {
   const timeout = Number(env.AI_TIMEOUT_MS ?? 25000);
-  if (!env.FALA_TOKEN || env.FALA_TOKEN.length < 32) throw new AppError(503, "Set FALA_TOKEN on the server to a random value of at least 32 characters.");
+  const googleClientId = (env.GOOGLE_WEB_CLIENT_ID || "").trim();
+  if (googleClientId && !/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(googleClientId)) throw new AppError(503, "The Google web client ID is invalid.");
+  const dailyUserLimit = Number(env.FALA_DAILY_USER_LIMIT || 200);
+  const dailyAppLimit = Number(env.FALA_DAILY_APP_LIMIT || 2000);
+  if (![dailyUserLimit, dailyAppLimit].every(n => Number.isInteger(n) && n > 0 && n <= 1000000)) {
+    throw new AppError(503, "Daily conversation limits must be positive integers up to 1000000.");
+  }
+  const token = env.FALA_TOKEN || "";
+  if (!googleClientId && token.length < 32) throw new AppError(503, "Google sign-in is not configured on the service yet.");
   if (!env.DATABASE_URL) throw new AppError(503, "Set the Supabase transaction-pooler DATABASE_URL on the server.");
   if (!Number.isInteger(timeout) || timeout < 5000 || timeout > 35000) throw new AppError(503, "AI_TIMEOUT_MS must be between 5000 and 35000.");
   const baseUrl = env.OPENAI_BASE_URL || "https://api.groq.com/openai/v1";
@@ -22,7 +31,7 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings 
   if (provider.username || provider.password || provider.search || provider.hash) throw new AppError(503, "Use a plain AI endpoint URL; set its key separately.");
   const localDatabase = env.FALA_LOCAL_DATABASE === "true";
   if (localDatabase && (!loopback(database) || env.NETLIFY)) throw new AppError(503, "Unencrypted database connections are allowed only for local development.");
-  return { token: env.FALA_TOKEN, databaseUrl: env.DATABASE_URL, apiKey: env.OPENAI_API_KEY || "", baseUrl,
+  return { token: token.length >= 32 ? token : "", googleClientId, dailyUserLimit, dailyAppLimit, databaseUrl: env.DATABASE_URL, apiKey: env.OPENAI_API_KEY || "", baseUrl,
     model: env.OPENAI_MODEL || "openai/gpt-oss-120b", demo: env.FALA_DEMO === "true", aiTimeoutMs: timeout,
     databaseCa: (env.DATABASE_CA_CERT || "").replace(/\\n/g, "\n"), localDatabase };
 }

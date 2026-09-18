@@ -11,8 +11,25 @@ android {
         applicationId = "com.fala.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
+        buildConfigField("String", "API_BASE_URL", "\"https://legendary-florentine-6b3c1f.netlify.app\"")
+    }
+    signingConfigs {
+        create("upload") {
+            val keystore = System.getenv("FALA_UPLOAD_KEYSTORE")
+            if (!keystore.isNullOrBlank()) {
+                storeFile = file(keystore)
+                storePassword = System.getenv("FALA_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("FALA_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("FALA_UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            if (!System.getenv("FALA_UPLOAD_KEYSTORE").isNullOrBlank()) signingConfig = signingConfigs.getByName("upload")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
@@ -25,6 +42,9 @@ android {
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")
     implementation(platform("androidx.compose:compose-bom:2025.08.01"))
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")

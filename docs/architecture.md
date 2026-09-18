@@ -27,6 +27,7 @@ netlify/functions/api.ts   function entry and warm connection reuse
 src/
   api.ts                   authentication and HTTP routes
   config.ts                server-only configuration
+  auth.ts                  Google token verification, nonces, hashed sessions, login limits
   models.ts                validated contracts
   provider.ts              AI interface and compatible HTTP adapter
   prompts.ts               Brazilian conversation and coaching rules
@@ -43,7 +44,9 @@ docs/
 
 MVP: onboarding and microphone permission, a short adaptive spoken assessment, one Talk action, turn-based voice conversation with automatic listening, tap-to-interrupt playback, recognition retry, English/Hebrew rescue, optional transcript, session history, up to three corrections, personal mistake memory, and progress based on real sessions.
 
-V1 excludes iOS, public multiuser signup, subscriptions, games, XP, generic flashcards, fully offline conversation, automatic simultaneous barge-in, streaming speech-to-speech, and phoneme-level pronunciation scores. A single-user pairing token protects the private API over HTTPS. Authenticated AI requests have a database-backed 30-per-minute budget. Public multiuser use would need proper account/device enrollment and a different data isolation design.
+V1 excludes iOS, subscriptions, games, XP, generic flashcards, fully offline conversation, automatic simultaneous barge-in, streaming speech-to-speech, and phoneme-level pronunciation scores. Google Credential Manager sign-in identifies each learner by the signed Google subject, never by email. A one-time server nonce prevents login replay. Device sessions are random, hashed in PostgreSQL, encrypted by Android Keystore, revocable, and expire after 90 days. All learner reads, writes, history, aggregates and AI context are scoped to the authenticated user. Google client IDs and service URLs are public configuration; provider/database/operator secrets remain server-side.
+
+Public signup has per-IP/global login throttles, a 30/minute per-user conversation limit, and configurable per-user/app daily limits. These constrain requests, not monetary spending. The optional operator token accesses only diagnostics and the isolated legacy learner.
 
 ## F–G. Risks and voice architecture
 
@@ -67,7 +70,9 @@ Feedback is separate from conversation and limited to three evidenced correction
 
 ## I. Learner memory and deletion
 
-PostgreSQL entities in the private `fala` schema:
+PostgreSQL entities in the private `fala` schema include `users`, `device_sessions`, `login_challenges`, `auth_rate_limits`, `usage_limits`, and the learning tables below. Sessions reference their owning user; `(user_id, request_id)` is unique. Original single-user records belong to a separate legacy operator account.
+
+Learning tables:
 
 | Entity | Stored information |
 |---|---|
@@ -78,9 +83,9 @@ PostgreSQL entities in the private `fala` schema:
 
 Mistakes are aggregated by normalized construction key. Occurrences count distinct sessions, not repeated processing. Due dates bring weaknesses into later natural conversations. Initial recurrence uses a conservative next-day schedule; successful retrieval and interval expansion are a later phase, not a claimed feature. Help situations remain visible in session history and progress. Review material is tied to its source evidence.
 
-Deleting a session cascades to its turns and memory evidence; aggregates and profile are recomputed. Delete-all removes all retained learner records. This is logical database deletion, not physical erasure of PostgreSQL storage, backups, or external provider logs. Configure backup retention separately. Application code does not log transcripts or raw database/provider errors. Android backup is disabled, and the device access token is encrypted with Android Keystore.
+Deleting a session cascades to its turns and memory evidence; aggregates and profile are recomputed. Delete-all removes only the signed-in learner's records. Account deletion also removes their user row and all device sessions; cascades remove their conversations/evidence. Other learners are unaffected. This is logical database deletion, not physical erasure of PostgreSQL storage, backups, or external provider logs. Configure backup retention separately. Application code does not log transcripts or raw database/provider errors. Android backup is disabled, and the device access token is encrypted with Android Keystore.
 
-Every mutation takes a transaction-scoped PostgreSQL advisory lock. This coordinates independent Netlify instances through Supabase's transaction pooler. Request IDs and original normalized payloads make start/turn retries idempotent; conflicting reuse returns 409. Report and evidence writes commit together. For one learner, a short transaction spans the bounded AI call; no transaction stays open between spoken turns. The DB lock is tried without waiting, so competing requests can retry. A module-scoped pool uses at most one connection per warm instance with prepared statements disabled. This coordination is designed for a private learner, not a multiuser scale claim.
+Every mutation takes a transaction-scoped PostgreSQL advisory lock derived from the authenticated user ID. After locking it verifies the account still exists, preventing an in-flight request from recreating data after account deletion. This coordinates independent Netlify instances through Supabase's transaction pooler. Request IDs and original normalized payloads make start/turn retries idempotent; conflicting reuse returns 409. Report and evidence writes commit together. For each learner, a short transaction spans the bounded AI call; no transaction stays open between spoken turns. The DB lock is tried without waiting, so competing requests can retry. A module-scoped pool uses at most one connection per warm instance with prepared statements disabled. Different learners use different locks. Database connection capacity and production throughput still require load measurement; no multiuser scale guarantee is made.
 
 Supabase's public roles have no access to `fala`; all tables have RLS enabled with no public policies. A server-only owner connection accesses them. No Supabase secret or AI key is sent to Android. Connection setup is in [deployment](deployment.md), including Personal-plan region constraints and Haifa latency measurements.
 

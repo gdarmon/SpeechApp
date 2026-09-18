@@ -1,5 +1,7 @@
 package com.fala.app
 
+import com.fala.app.data.GoogleSignIn
+import androidx.compose.ui.platform.LocalUriHandler
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,7 +17,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,14 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
+    private val google by lazy { GoogleSignIn(this) }
     private lateinit var controller: SessionController
     private var permissionAction: (() -> Unit)? = null
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
                 background = Color(0xFFFFFCF5), surface = Color(0xFFFFFCF5),
                 secondaryContainer = Color(0xFFE3EEE6), onSecondaryContainer = Color(0xFF164734)
             )) {
-                FalaApp(controller, ::withMicrophone,
+                FalaApp(controller, ::withMicrophone, google,
                     appSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
                     voiceSettings = { runCatching { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                         .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } })
@@ -67,10 +67,10 @@ private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { get
 private fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
 
 @Composable
-private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings: () -> Unit, voiceSettings: () -> Unit) {
+private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: GoogleSignIn, appSettings: () -> Unit, voiceSettings: () -> Unit) {
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var finishDialog by remember { mutableStateOf(false) }
-    BackHandler(c.screen != "home" && c.screen != "settings") { if (!c.busy) c.navigate("home") }
+    BackHandler(c.screen != "home" && c.screen != "welcome") { if (!c.busy) c.navigate("home") }
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -79,7 +79,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings
                     modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)))
                 Text("PORTUGUÊS BRASILEIRO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            if (c.screen != "home" && c.settings.consent) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
+            if (c.screen != "home" && c.screen != "welcome" && c.settings.signedIn) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
             if (c.demo) Notice("Connection test mode · scripted replies, no AI teaching or assessment.")
             if (c.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("One moment…", style = MaterialTheme.typography.labelMedium) }
             if (c.error.isNotBlank()) {
@@ -91,7 +91,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings
                 }
             }
             when (c.screen) {
-                "settings" -> Connection(c, appSettings, voiceSettings, onDelete = { deleteTarget = "all" })
+                "welcome" -> Welcome(c, google)
+                "settings" -> AccountSettings(c, google, appSettings, voiceSettings, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })
                 "home" -> Home(c, mic)
                 "talk" -> Conversation(c, mic) { c.pause(); finishDialog = true }
                 "history" -> {
@@ -117,9 +118,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings
         }
     }
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
-        text = { Text(if (deleteTarget == "all") "This deletes all conversations, assessments, and personal mistake memory from your server. It cannot be undone."
+        text = { Text(if (deleteTarget == "account") "This permanently deletes your Fala account, conversations, and learning progress and signs out all your devices. It does not delete your Google account."
+            else if (deleteTarget == "all") "This deletes all your conversations, assessments, and learning memory. It cannot be undone."
             else "This deletes the conversation, its feedback, and the memory learned from it.") },
-        confirmButton = { TextButton(onClick = { val id = deleteTarget; deleteTarget = null; if (id == "all") c.deleteAll() else if (id != null) c.deleteSession(id) }) { Text("Delete") } },
+        confirmButton = { TextButton(onClick = { val id = deleteTarget; deleteTarget = null; if (id == "account") c.deleteAccount(google::clear) else if (id == "all") c.deleteAll() else if (id != null) c.deleteSession(id) }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Keep") } })
     if (finishDialog) AlertDialog(onDismissRequest = { finishDialog = false }, title = { Text("How did speaking feel?") },
         text = { Column {
@@ -206,29 +208,51 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings
     OutlinedButton(onClick = finish, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Finish conversation") }
 }
 
-@Composable private fun Connection(c: SessionController, appSettings: () -> Unit, voiceSettings: () -> Unit, onDelete: () -> Unit) {
-    var url by remember { mutableStateOf(c.settings.url) }
-    var token by remember { mutableStateOf(c.settings.token) }
+@Composable private fun PrivacyLink() {
+    val uri = LocalUriHandler.current
+    TextButton(onClick = { uri.openUri(BuildConfig.API_BASE_URL + "/privacy.html") }) { Text("Privacy policy") }
+}
+
+@Composable private fun Welcome(c: SessionController, google: GoogleSignIn) {
     var network by remember { mutableStateOf(c.settings.networkRecognition) }
     var consent by remember { mutableStateOf(c.settings.consent) }
     Title("Make room for speaking.", "A Brazilian conversation partner that helps you find your own words.")
-    Text("One-time connection", fontWeight = FontWeight.Bold)
-    OutlinedTextField(url, { url = it }, label = { Text("Server address") }, placeholder = { Text("https://your-server") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
-    OutlinedTextField(token, { token = it }, label = { Text("Device token") }, supportingText = { Text("From your Fala server setup; not your AI provider key.") }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
+    Text("Sign in to keep your conversations and progress together, wherever you practice.")
+    Text("Fala sends your transcript to its conversation service and AI provider. Your conversations and learning memory are saved to your account until you delete them. Fala does not record audio.")
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(network, { network = it })
-        Text("Use the phone's network speech service", Modifier.padding(start = 12.dp))
+        Switch(network, { network = it }, enabled = !c.busy)
+        Text("Use network speech recognition", Modifier.padding(start = 12.dp))
     }
-    Text("On-device recognition is preferred. Network recognition may send audio to your phone's speech provider. Brazilian voice playback may also use a network voice if no local voice is installed.")
-    Text("Fala does not save audio. Your transcript is sent to your private server and its AI provider. Conversations and learning memory stay on your server until you delete them. External providers may apply their own retention policies.")
+    Text("On-device speech recognition is preferred. Network recognition may send audio to your phone's speech provider. Voice playback can also use the network.")
+    PrivacyLink()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(consent, { consent = it })
-        Text("I understand and want to start speaking.", Modifier.padding(start = 4.dp))
+        Checkbox(consent, { consent = it }, enabled = !c.busy)
+        Text("I understand how my speech and conversations are processed.", Modifier.padding(start = 4.dp))
     }
-    Button(onClick = { c.connect(url, token, network) }, enabled = consent && !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Connect") }
+    OutlinedButton(onClick = { c.signIn(network, google::credential) }, enabled = consent && !c.busy,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F))) {
+        Image(painterResource(R.drawable.google_g), contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text("Sign in with Google")
+    }
+}
+
+@Composable private fun AccountSettings(c: SessionController, google: GoogleSignIn, appSettings: () -> Unit,
+    voiceSettings: () -> Unit, onDelete: () -> Unit, onDeleteAccount: () -> Unit) {
+    var network by remember { mutableStateOf(c.settings.networkRecognition) }
+    Title("Your Fala", c.settings.email)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(network, { network = it; c.settings.networkRecognition = it }, enabled = !c.busy)
+        Text("Use network speech recognition", Modifier.padding(start = 12.dp))
+    }
+    Text("Network recognition may send audio to your phone's speech provider. Voice playback may also use a network voice if no local voice is installed.")
     TextButton(onClick = appSettings) { Text("Microphone permissions") }
     TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
-    if (c.settings.consent) TextButton(onClick = onDelete, enabled = !c.busy) { Text("Delete all my learning data") }
+    PrivacyLink()
+    OutlinedButton(onClick = { c.signOut(google::clear) }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+    TextButton(onClick = onDelete, enabled = !c.busy) { Text("Delete all my learning data") }
+    TextButton(onClick = onDeleteAccount, enabled = !c.busy) { Text("Delete my Fala account") }
 }
 
 @Composable private fun Progress(p: JSONObject) {

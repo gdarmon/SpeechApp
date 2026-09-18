@@ -1,25 +1,26 @@
 # Validation — 18 September 2026
 
-Completed locally:
+Completed locally for 0.3.0:
 
-- Android 0.2.0 debug APK built with the new Fala logo and reduced network requests per spoken turn.
-- Android lint: no errors; 12 advisory warnings (dependency updates, Kotlin conveniences, and resource cleanup). APK v2 signature verified with `apksigner`.
-- Release manifest disables cleartext traffic and backups; extraction rules exclude private data from cloud/device transfer. Local HTTP is enabled only in the debug variant.
-- **16 TypeScript tests passed** against an embedded PostgreSQL engine (PGlite). They exercise the actual SQL migration and application queries: repeat migration, public-role denial/RLS, authenticated API, cross-handler retries and payload conflicts, provider rollback, atomic report/evidence rollback, lock contention response, bounded requests, persisted rate limiting, assessment/correction evidence, valid age statements, English/Hebrew help, due memory, demo exclusion, and cascading deletion.
-- TypeScript checks and static-site build passed.
-- Follow-up after the Netlify import: reproduced `npm ci` failing under npm 10.9.2 because transitive peer packages were missing from the npm-12-generated lockfile. Regenerated the lockfile with npm 10 without changing any declared dependency or existing resolved version. An isolated clean install, typecheck, all 16 original tests, and full `netlify build --offline` then passed. These checks cover this repository; Netlify's separately edited deployment reports 18 tests and has not yet been synced here.
-- Netlify's function packaging completed; the generated route manifest includes all Android API paths and `/api/*` aliases.
-- Dependency audit reported **zero known vulnerabilities** after pinning the patched transitive image library used by Netlify's development tools.
-- Official Gradle wrapper distribution checksum is pinned.
+- Android debug APK and **signed release App Bundle** built with Google Credential Manager, a built-in service address, account switching, encrypted session storage, and account deletion. There are no editable server/token fields.
+- Debug and release lint: **0 errors, 12 advisory warnings** each. Debug APK signature and release bundle signature verified. Every bundled native library's ELF load segments support at least 16 KB alignment; physical 16 KB device behavior and Play processing still need validation.
+- Release manifest disables cleartext traffic and backups. Extraction rules exclude private data from cloud/device transfer.
+- **24 TypeScript tests passed** using embedded PostgreSQL (PGlite) and real SQL migrations. They cover Google JWT signature/issuer/audience/expiry/nonce/email checks, nonce mismatch/replay/concurrent exchange, hashed and expiring device credentials, arbitrary Google subjects and email changes, cross-account session reads/writes/deletions/retry IDs, progress/memory separation, logout, account-deletion cascades, per-user/app budgets, public database role denial, and the original conversation/feedback regression suite.
+- TypeScript checks and static-site build passed. Netlify's full offline build packaged the function successfully, including `/auth/*`, `/account`, learning routes, and `/api/*` aliases. No site deploy was triggered.
+- New Google dependency and lockfile were installed with npm 10. A separate clean `npm ci` under npm 10.9.2 passed. Dependency audit: zero known vulnerabilities at install time.
+- Account-deletion JavaScript passes the syntax check. Google OAuth and browser flow still require the actual registered client ID and deployed origin; no live Google sign-in is claimed.
+- The optional manual Play workflow restores a supplied upload key, checks/builds the bundle and publishes only the AAB artifact. It does not upload to Google Play. Stable debug signing in CI is optional via a private repository secret.
+- Official Gradle wrapper distribution checksum remains pinned.
 
 The PostgreSQL tests run locally with a fake AI provider. PGlite serializes its transactions; concurrency tests establish idempotent replay through independent handlers, and simulated lock contention checks the conflict response. They do not establish real cloud connection pooling or distributed load performance.
 
-Still requires your cloud configuration and phone:
+Still requires cloud configuration and a phone:
 
-- New Supabase project creation, SQL migration in that project, Netlify import, and production secrets. No remote database migration or site deployment was performed by these local checks.
-- Live AI replies and Portuguese coaching quality. The existing local provider key was empty.
-- Actual Supabase transaction-pooler connectivity and measured Haifa latency. Run the included read-only benchmark after deployment.
-- Physical microphone, pt-BR recognition/voice naturalness, loudspeaker/headset and lifecycle behavior. Follow [device checks](device-checks.md).
-- Play Store release/signing. The local APK is signed with a development key; GitHub CI debug builds may use another key.
+- Reconciliation of the separately reported Netlify Database/AI Gateway source changes with GitHub. This checkout still uses explicit database and provider settings; blindly replacing the existing deployment is not validated.
+- Google Cloud Web/Android OAuth clients, correct debug and Play app signing fingerprints, production database migration, and one deliberate Netlify deployment. These account settings are not accessible merely through a pasted Play Console link.
+- Actual Google chooser/sign-in, account switching, browser-based account deletion and the deployed CSP, as well as the Play-delivered installation.
+- Live AI replies, Portuguese coaching quality, actual Supabase/PostgreSQL connectivity, Haifa latency and capacity under multiple users. Local test AI is simulated and the database runs in-process.
+- Physical microphone, pt-BR recognition/voice, speaker/headset and lifecycle behavior. See [device checks](device-checks.md).
+- Play Console app creation/upload, screenshots/listing graphics, actual-provider privacy/retention details, Data safety/target audience declarations, account-specific testing requirements, and production review. See [Play preparation](google-play.md).
 
-The locally built APK is `artifacts/fala-debug.apk` with a sibling SHA-256 file. Build outputs, private configuration, learner databases, downloaded toolchains, and local caches are excluded from Git. GitHub Actions builds a downloadable APK from source. See [deployment steps](deployment.md).
+The locally built APK is `artifacts/fala-debug.apk` with a sibling SHA-256 file. Build outputs, private configuration, learner databases, downloaded toolchains, and local caches are excluded from Git. The signed upload bundle is `artifacts/fala-release.aab`; private upload signing material is also ignored and must be backed up securely. GitHub Actions builds a downloadable debug APK from source. See [deployment steps](deployment.md).

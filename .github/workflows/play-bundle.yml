@@ -1,0 +1,44 @@
+name: Build Play bundle
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build with the existing upload key
+        working-directory: android
+        env:
+          FALA_UPLOAD_KEYSTORE_BASE64: ${{ secrets.FALA_UPLOAD_KEYSTORE_BASE64 }}
+          FALA_UPLOAD_STORE_PASSWORD: ${{ secrets.FALA_UPLOAD_STORE_PASSWORD }}
+          FALA_UPLOAD_KEY_ALIAS: ${{ secrets.FALA_UPLOAD_KEY_ALIAS }}
+          FALA_UPLOAD_KEY_PASSWORD: ${{ secrets.FALA_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -eu
+          : "${FALA_UPLOAD_KEYSTORE_BASE64:?Add the existing Fala upload key to repository secrets}"
+          : "${FALA_UPLOAD_STORE_PASSWORD:?Missing store password}"
+          : "${FALA_UPLOAD_KEY_ALIAS:?Missing upload alias}"
+          : "${FALA_UPLOAD_KEY_PASSWORD:?Missing key password}"
+          export FALA_UPLOAD_KEYSTORE="$RUNNER_TEMP/fala-upload.jks"
+          trap 'rm -f "$FALA_UPLOAD_KEYSTORE"' EXIT
+          umask 077
+          printf '%s' "$FALA_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$FALA_UPLOAD_KEYSTORE"
+          ./gradlew --no-daemon :app:bundleRelease :app:lintRelease
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fala-play-bundle
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

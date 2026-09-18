@@ -8,6 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fala.app.data.ConnectionSettings
 import com.fala.app.data.SessionApi
+import com.fala.app.data.ServerFailure
+import com.fala.app.data.SignInCancelled
 import com.fala.app.voice.AndroidSpeechInput
 import com.fala.app.voice.AndroidSpeechOutput
 import com.fala.app.voice.SpeechInput
@@ -25,7 +27,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     private val api = SessionApi(settings)
     private val input: SpeechInput = AndroidSpeechInput(application)
     private val output: SpeechOutput = AndroidSpeechOutput(application)
-    var screen by mutableStateOf(if (settings.consent && settings.token.isNotBlank()) "home" else "settings")
+    var screen by mutableStateOf(if (settings.consent && settings.signedIn) "home" else "welcome")
         private set
     var busy by mutableStateOf(false)
         private set
@@ -62,37 +64,52 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     init { if (screen == "home") refresh() }
 
-    private fun execute(action: suspend () -> Unit) {
+    private fun execute(retryable: Boolean = true, action: suspend () -> Unit) {
         if (busy) return
-        busy = true; error = ""; retryAvailable = false; retryAction = action
+        busy = true; error = ""; retryAvailable = false; retryAction = if (retryable) action else null
         job = viewModelScope.launch {
             try { action(); retryAction = null }
             catch (cancel: CancellationException) { throw cancel }
+            catch (_: SignInCancelled) { retryAction = null }
             catch (failure: Exception) {
+                if (failure is ServerFailure && failure.status == 401) clearAccount()
                 error = failure.message?.take(350) ?: "Something interrupted the conversation. Please retry."
-                phase = "Paused"; retryAvailable = true
+                phase = "Paused"; retryAvailable = retryable && screen != "welcome"
             } finally { busy = false }
         }
     }
 
-    fun retry() { retryAction?.let { execute(it) } }
+    fun retry() { retryAction?.let { execute(action = it) } }
     fun report(message: String) { error = message }
 
-    fun connect(url: String, token: String, network: Boolean) {
-        if (token.length < 32) { error = "Enter the device token from your server setup."; return }
-        pause()
-        settings.url = url; settings.token = token; settings.networkRecognition = network
-        settings.activeSession = ""
-        execute {
-            val dashboard = api.get("/dashboard")
-            val status = dashboard.getJSONObject("status")
-            if (!status.optBoolean("ai_configured")) throw IllegalStateException("The server is reachable. Add its AI provider key to enable conversations.")
-            demo = status.optBoolean("demo")
-            settings.consent = true
+    fun signIn(network: Boolean, credential: suspend (String, String) -> String) {
+        execute(retryable = false) {
+            val challenge = api.post("/auth/google/challenge")
+            val idToken = credential(challenge.getString("google_client_id"), challenge.getString("nonce"))
+            val result = api.post("/auth/google", JSONObject().put("challenge_id", challenge.getString("challenge_id")).put("id_token", idToken))
+            settings.saveSession(result)
+            settings.networkRecognition = network; settings.consent = true
             screen = "home"
-            progress = dashboard.getJSONObject("progress")
-            history = dashboard.getJSONArray("history")
+            loadProgress()
         }
+    }
+
+    private fun clearAccount() {
+        pause(); settings.clearSession()
+        history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
+        feedback = JSONObject(); heard = ""; demo = false; transcriptVisible = false
+        retryAction = null; retryAvailable = false; screen = "welcome"
+    }
+
+    fun signOut(clearGoogle: suspend () -> Unit) = execute(retryable = false) {
+        try { api.post("/auth/logout") } catch (_: java.io.IOException) { /* Local sign-out still works offline. */ }
+        catch (_: ServerFailure) { /* An expired session already needs local cleanup. */ }
+        clearAccount(); clearGoogle()
+    }
+
+    fun deleteAccount(clearGoogle: suspend () -> Unit) = execute(retryable = false) {
+        pause(); api.delete("/account")
+        clearAccount(); clearGoogle()
     }
 
     private suspend fun loadProgress() {
@@ -105,7 +122,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun refresh() = execute { loadProgress() }
 
     fun navigate(destination: String) {
-        if (busy) return
+        if (busy || !settings.signedIn) return
         pause()
         error = ""; retryAction = null; retryAvailable = false
         screen = destination

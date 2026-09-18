@@ -1,5 +1,8 @@
 package com.fala.app.data
 
+import com.fala.app.BuildConfig
+import org.json.JSONObject
+import java.time.Instant
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -12,9 +15,24 @@ import javax.crypto.spec.GCMParameterSpec
 
 class ConnectionSettings(context: Context) {
     private val prefs = context.getSharedPreferences("connection", Context.MODE_PRIVATE)
-    var url: String
-        get() = prefs.getString("url", "") ?: ""
-        set(value) { prefs.edit().putString("url", value.trim().trimEnd('/')).apply() }
+    val url = BuildConfig.API_BASE_URL
+    val email: String get() = prefs.getString("email", "").orEmpty()
+    val signedIn: Boolean get() = token.startsWith("fala_") && prefs.getLong("expires", 0) > System.currentTimeMillis()
+
+    fun saveSession(session: JSONObject) {
+        val value = session.getString("token")
+        require(value.matches(Regex("fala_[A-Za-z0-9_-]{43}"))) { "Please sign in again." }
+        val expires = Instant.parse(session.getString("expires_at")).toEpochMilli()
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+        val encrypted = Base64.encodeToString(cipher.doFinal(value.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+        prefs.edit().putString("token", "$iv:$encrypted").putString("origin", url)
+            .putString("email", session.getString("email")).putLong("expires", expires).remove("active").remove("url").apply()
+    }
+    fun clearSession() {
+        prefs.edit().remove("token").remove("origin").remove("email").remove("expires").remove("active").remove("url").apply()
+    }
     var activeSession: String
         get() = prefs.getString("active", "") ?: ""
         set(value) { prefs.edit().putString("active", value).apply() }
@@ -35,19 +53,13 @@ class ConnectionSettings(context: Context) {
         }.generateKey()
     }
 
-    var token: String
+    val token: String
         get() = runCatching {
+            if (prefs.getString("origin", "") != url) return ""
             val encoded = prefs.getString("token", null) ?: return ""
             val pieces = encoded.split(":")
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(pieces[0], Base64.NO_WRAP)))
             String(cipher.doFinal(Base64.decode(pieces[1], Base64.NO_WRAP)), Charsets.UTF_8)
         }.getOrDefault("")
-        set(value) {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key())
-            val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
-            val encrypted = Base64.encodeToString(cipher.doFinal(value.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
-            prefs.edit().putString("token", "$iv:$encrypted").apply()
-        }
 }

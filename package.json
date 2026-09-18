@@ -1,6 +1,6 @@
 {
   "name": "fala-speech-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.22.0 <23" },
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@netlify/functions": "6.0.0",
+    "jose": "6.2.12",
     "postgres": "3.4.9",
     "zod": "4.6.5"
   },

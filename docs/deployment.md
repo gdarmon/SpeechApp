@@ -1,6 +1,6 @@
 # Netlify + Supabase setup
 
-This guide starts with no Supabase project and a Netlify Personal account. Building the repository does not create cloud projects. GitHub contains source and migrations, never your secrets.
+This guide covers explicit Supabase/PostgreSQL configuration with Netlify Personal. If your current Netlify deployment uses its own Database/AI Gateway integration, reconcile those source changes before switching it to this branch. Building the repository does not create cloud projects. GitHub contains source and migrations, never your secrets.
 
 ## 1. Import into Netlify and check the region
 
@@ -12,7 +12,7 @@ Choose **Add new project → Import an existing project → GitHub**, then `gdar
 | Build command | `npm run build` |
 | Publish directory | `dist` |
 | Functions directory | `netlify/functions` |
-| Node version | 22.22.2, already configured |
+| Node version | 22.x, already configured |
 
 These settings are in `netlify.toml`. The first build works before secrets exist: the landing page and `/health` work, while protected API requests report missing configuration. Android conversations require the remaining steps.
 
@@ -22,8 +22,8 @@ Open **Cloud compute → Functions → Region**. Current documentation says new 
 
 1. Choose **New project**, name it `fala`, set a strong database password, and save it privately.
 2. Select a **specific region** matching Netlify: normally **East US (Ohio), `us-east-2`** for a new Personal site. Avoid the broad automatic Americas choice if you want a precise match.
-3. Wait for the project to be ready. Supabase Free is sufficient to begin testing this private app.
-4. Open **SQL Editor**, paste the entire [migration](../supabase/migrations/202609180001_fala.sql), and run it as the default database owner. It creates four tables in the private `fala` schema. Rerunning this initial migration does not clear your data.
+3. Wait for the project to be ready. Supabase Free is sufficient to begin initial testing.
+4. Open **SQL Editor**, run both migration files in `supabase/migrations/` in filename order as the database owner. They create the private schema, Google accounts, device sessions, and per-user ownership. Old single-learner records remain isolated in a legacy operator account.
 5. Open **Connect**, select **Transaction pooler**, port **6543**, and copy its connection string. Replace the password placeholder with your database password, URL-encoding reserved characters if necessary. This is not the project HTTPS URL or an API key.
 
 Illustrative shape only:
@@ -34,7 +34,7 @@ postgresql://postgres.PROJECT_REF:ENCODED_PASSWORD@aws-0-us-east-2.pooler.supaba
 
 Use the exact host and username copied from **your project**; the host prefix may differ. The server uses TLS, one reusable connection per warm instance, and `prepare: false`, compatible with transaction pooling. [Supabase connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [available regions](https://supabase.com/docs/guides/platform/regions).
 
-Do not expose `fala` through the Data API or grant `anon`/`authenticated` access. The migration enables RLS and revokes their access. Netlify accesses the schema through the server-only database connection. Supabase Auth, Storage, publishable keys and service-role keys are not needed for this single-learner app.
+Do not expose `fala` through the Data API or grant `anon`/`authenticated` access. The migration enables RLS and revokes their access. Netlify accesses the schema through the server-only database connection. Supabase Auth, Storage, publishable keys and service-role keys are not needed: Google ID tokens are verified by the API, which issues its own revocable device sessions.
 
 ## 3. Configure Netlify secrets
 
@@ -43,19 +43,16 @@ In **Project configuration → Environment variables**, add the following. Use *
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | Your transaction-pooler connection string |
-| `FALA_TOKEN` | Random private device token, at least 32 characters |
+| `GOOGLE_WEB_CLIENT_ID` | Public Web OAuth client ID from [Google setup](google-sign-in.md) |
+| `FALA_TOKEN` | Optional random 32+ character **operator** token; never shared with users |
+| `FALA_DAILY_USER_LIMIT` | Optional daily AI request limit per user; default 200 |
+| `FALA_DAILY_APP_LIMIT` | Optional daily AI request limit for the whole service; default 2000 |
 | `OPENAI_API_KEY` | Your **Groq** key for the default provider |
 | `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
 | `OPENAI_MODEL` | `openai/gpt-oss-120b` |
 | `FALA_DEMO` | `false` |
 
-Generate a token locally, then copy it into Netlify and Android's connection settings:
-
-```bash
-node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-```
-
-The token grants access to this learner's conversations, including deletion. It is **not** the AI key or database password. To revoke a lost device, replace it in Netlify, redeploy, and update your remaining device.
+Google sign-in is enabled through the Web and Android OAuth clients in [Google setup](google-sign-in.md). No Google client secret or email allowlist is required. Only set `FALA_TOKEN` if you want operator diagnostics or access to legacy records; generate a random value of at least 32 characters. App users never receive it.
 
 Optional: `AI_TIMEOUT_MS=25000` (allowed 5000–35000); `DATABASE_CA_CERT` containing Supabase's PEM root certificate for explicit certificate verification. Literal `\n` sequences are accepted in the certificate value. Without a CA, the driver encrypts transport with `ssl: "require"`; supplying the CA also verifies the certificate. Leave `FALA_LOCAL_DATABASE` unset/false on Netlify.
 
@@ -65,12 +62,7 @@ Use a key for the configured provider. You can copy the adjacent chatbot's AI se
 
 ## 4. Connect Android
 
-Install the APK from GitHub Actions or a local build. In Fala, enter:
-
-- Server address: `https://YOUR-SITE.netlify.app`, or your HTTPS custom domain.
-- Device token: the exact `FALA_TOKEN` above.
-
-Use the site root, with no `/.netlify/functions/...` suffix. An `/api` prefix also works. Read the processing notice, select recognition preference, connect, and tap **Talk**.
+Install the APK from GitHub Actions or a local build. Fala already knows `https://legendary-florentine-6b3c1f.netlify.app`. Read the processing notice, choose the recognition preference, **sign in with Google**, and tap **Talk**. A publisher changing the deployment URL must rebuild Android with the new `API_BASE_URL` and update the Google web origin; users do not configure it.
 
 Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connectivity and phone audio. The app labels scripted mode and excludes it from progress. Set false again and start a new conversation for real practice.
 
@@ -80,7 +72,7 @@ Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connec
 
 **If you later obtain region selection, benchmark Frankfurt functions + Frankfurt Supabase.** This is a reasonable candidate for lower latency from Israel, not a measured guarantee. Netlify uses `fra`; Supabase uses `eu-central-1`. Move both together. A Supabase region change requires a new project and data migration, so plan that before moving an existing database. [Supabase regions](https://supabase.com/docs/guides/platform/regions).
 
-The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, short replies, and low reasoning effort for Groq GPT-OSS. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries for this private app; redesign that coordination before serving many learners.
+The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, short replies, and low reasoning effort for Groq GPT-OSS. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
 
 To measure your Haifa connection, use Node 22 on a computer on the same network. In a local ignored `.env`, set `FALA_URL=https://YOUR-SITE.netlify.app` and `FALA_TOKEN`, then run:
 
@@ -105,6 +97,6 @@ Netlify Personal covers hosting allowances, not AI inference. Check actual usage
 | AI rejected/incomplete response | Provider quota, model availability and compatible JSON output; tap Retry |
 | Processing conflict | Wait briefly and retry; avoid competing sessions |
 | No Brazilian speech | Install pt-BR in Android voice settings |
-| APK update refused | Different debug signing keys; use the original key or reinstall after saving connection settings |
+| APK update refused | Different debug signing keys; use the original key or reinstall then sign in again |
 
-Only `/health` is public. `/diagnostics` needs the device token and reports no credentials or transcripts. Application errors avoid raw SQL/provider logs. Database backups and upstream retention remain separate from in-app deletion.
+`/health`, `/auth/config`, and the rate-limited Google sign-in endpoints are public. Learning/account routes require a user session. `/diagnostics` needs the optional operator token and reports no credentials or transcripts. Application errors avoid raw SQL/provider logs. Database backups and upstream retention remain separate from in-app deletion.

@@ -10,7 +10,9 @@ import { CompatibleProvider, type AIProvider } from "../src/provider.js";
 import { Timing } from "../src/timing.js";
 
 const settings = settingsFromEnv({ FALA_TOKEN: "private-test-token-32-characters-long", DATABASE_URL: "postgres://local:pass@localhost/fala", OPENAI_API_KEY: "test-key" });
-const migration = await readFile(new URL("../supabase/migrations/202609180001_fala.sql", import.meta.url), "utf8");
+const firstMigration = await readFile(new URL("../supabase/migrations/202609180001_fala.sql", import.meta.url), "utf8");
+const secondMigration = await readFile(new URL("../supabase/migrations/202609180002_google_sign_in.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration;
 let pg: PGlite;
 let db: Database;
 let coach: Coach;
@@ -48,7 +50,7 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
-  await pg.exec("TRUNCATE fala.sessions, fala.turns, fala.evidence, fala.rate_limit RESTART IDENTITY;");
+  await pg.exec("TRUNCATE fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits RESTART IDENTITY;");
   coach = new Coach(); handler = instance();
 });
 
@@ -194,7 +196,7 @@ describe("Netlify API against PostgreSQL", () => {
     const session = (await start()).data;
     expect((await turn(session.id, { language: "he-IL", help: false })).status).toBe(422);
     expect((await turn(session.id, { speech_ms: -1 })).status).toBe(422);
-    await pg.exec("UPDATE fala.rate_limit SET requests=30");
+    await pg.exec("UPDATE fala.usage_limits SET requests=30");
     const limited = await call("/sessions", "POST", { request_id: randomUUID() }, instance());
     expect(limited.status).toBe(429); expect(limited.headers.get("Retry-After")).toBe("60");
     expect((await call("/sessions")).status).toBe(200);

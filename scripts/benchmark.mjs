@@ -1,7 +1,7 @@
 // Read-only timing check. Does not send transcripts, invoke the AI, or print the token.
 const url = process.env.FALA_URL;
 const token = process.env.FALA_TOKEN;
-if (!url || !token) throw new Error("Set FALA_URL to your deployed HTTPS site and FALA_TOKEN to its device token.");
+if (!url || !token) throw new Error("Set FALA_URL to your deployed HTTPS site and FALA_TOKEN to its optional operator token.");
 if (new URL(url).protocol !== "https:" && !["localhost", "127.0.0.1"].includes(new URL(url).hostname)) throw new Error("Use HTTPS for a hosted server.");
 const samples = [];
 for (let index = 0; index < 8; index++) {
