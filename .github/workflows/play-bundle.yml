@@ -1,13 +1,63 @@
-name: Build Play bundle
+name: Publish Play internal testing
 on:
+  workflow_run:
+    workflows: [Build and check Fala]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
+concurrency:
+  group: fala-play-internal
+  cancel-in-progress: false
+
 jobs:
-  bundle:
+  select:
+    if: >-
+      vars.FALA_PLAY_UPLOAD_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.source.outputs.current }}
+      sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select the checked main commit
+        id: source
+        env:
+          FALA_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -eu
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" = "$FALA_BUILD_SHA" ]; then
+            printf 'current=true\nsha=%s\n' "$FALA_BUILD_SHA" >> "$GITHUB_OUTPUT"
+          else
+            printf 'current=false\n' >> "$GITHUB_OUTPUT"
+            printf 'A newer main commit exists; skipping this older build.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+  bundle:
+    needs: select
+    if: needs.select.outputs.current == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -18,6 +68,8 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Allocate a new Play version
+        run: node scripts/play-upload.mjs version
       - name: Build with the existing upload key
         working-directory: android
         env:
@@ -39,6 +91,19 @@ jobs:
           jarsigner -verify app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: fala-play-bundle
+          name: fala-play-bundle-${{ env.FALA_VERSION_CODE }}
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+      - name: Upload to internal testing
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          FALA_PLAY_RELEASE_STATUS: ${{ vars.FALA_PLAY_RELEASE_STATUS || 'completed' }}
+          FALA_BUILD_SHA: ${{ needs.select.outputs.sha }}
+        run: |
+          set -eu
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$FALA_BUILD_SHA" ]; then
+            printf 'A newer main commit arrived during the build; skipping upload.\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/play-upload.mjs upload

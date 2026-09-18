@@ -1,6 +1,6 @@
 # Fala — Google Play release preparation
 
-Publisher console: [your developer account](https://play.google.com/console/u/0/developers/8995855757695563557/app-list).
+Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The user created this app in the Console; the shared screenshot showed an empty internal-testing track.
 
 Prepared application: **Fala**, package **com.fala.app**, version **0.3.0 (3)**, Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
@@ -14,7 +14,35 @@ Prepared application: **Fala**, package **com.fala.app**, version **0.3.0 (3)**,
 
 To rebuild a signed bundle locally, export the four `FALA_UPLOAD_*` variables from your private signing file and run `./gradlew :app:bundleRelease :app:lintRelease` from `android/`. Without signing variables, `bundleRelease` is an unsigned verification build, not an upload-ready release.
 
-The manual **Build Play bundle** workflow requires four repository secrets: `FALA_UPLOAD_KEYSTORE_BASE64`, `FALA_UPLOAD_STORE_PASSWORD`, `FALA_UPLOAD_KEY_ALIAS`, `FALA_UPLOAD_KEY_PASSWORD`. Store the base64 of the existing upload keystore, not a replacement key. It builds and checks the bundle; it does not upload or publish automatically.
+## Automatic updates after the first upload
+
+The **Publish Play internal testing** workflow runs after **Build and check Fala** succeeds for a push to `main`. A manual run is also available from `main`. The publishing workflow must be present on the default branch; publishing is inactive until `FALA_PLAY_UPLOAD_ENABLED=true` and the credentials below are installed.
+
+It checks/builds a signed AAB from the checked commit, verifies it, and uploads through Google's publishing API to **internal testing**. Each run gets version code `100000 + (workflow run number × 100) + run attempt`, so normal updates and reruns do not require editing the Android version manually. The user-facing version name remains 0.3.0 until intentionally changed. Do not reset the workflow's run numbering or upload unrelated larger version codes without adjusting this scheme.
+
+Publishing runs are serialized. Older commits are skipped if main has advanced, checked both before building and immediately before uploading. The publisher rejects a used/older code, checks Google's uploaded bundle hash and version, and commits only the internal track. It fails if another Google review is already in progress instead of canceling it. There is no automatic production rollout. Google may still require review or account actions; “completed” in the API is a track release status, not a promise of immediate review approval.
+
+### One-time account connection
+
+1. In Play Console, finish the first manual AAB upload/release using the existing `artifacts/fala-release.aab` and Play App Signing. Add yourself under the internal track's **Testers** tab. Google's edit API requires an existing app with an initial Console upload. [Google edit API prerequisites](https://developers.google.com/android-publisher/edits).
+2. In your Google Cloud project, enable the [Google Play Android Developer API](https://console.cloud.google.com/apis/library/androidpublisher.googleapis.com). Create a service account called `fala-github-publisher`. Broad Cloud project Owner/Editor roles are not required for this workflow.
+3. In Play Console → **Users and permissions**, invite the service account's email. Limit app access to **Fala** and grant **View app information (read only)** and **Release apps to testing tracks**. App signing setup and tester-list changes are handled once by the owner. Production, financial, and account-admin permissions are not needed by the upload script. [API account setup](https://developers.google.com/android-publisher/getting_started), [Play permissions](https://support.google.com/googleplay/android-developer/answer/10019561).
+4. In Google Cloud → service account → **Keys**, create/download a JSON key. Save it locally as `artifacts/play-service-account.json` (ignored by Git). This publishing key is separate from the Google Web client ID used for user sign-in.
+5. Authenticate [GitHub CLI](https://cli.github.com/) with `gh auth login`, then run from this checkout:
+
+```bash
+python3 scripts/configure-play-publishing.py artifacts/play-service-account.json
+```
+
+The helper sends secrets privately to GitHub using stdin. It reads the existing signing key/passwords from the ignored `artifacts/fala-signing.env`, installs the four signing secrets and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, and enables uploads only after setup succeeds. It does not upload an app immediately. The next successful main check, or a manual publishing run from main, uploads a new build. The helper intentionally disables publishing while replacing credentials so incomplete setup cannot start a release.
+
+For setup through GitHub's web UI instead, add repository Actions secrets `FALA_UPLOAD_KEYSTORE_BASE64`, `FALA_UPLOAD_STORE_PASSWORD`, `FALA_UPLOAD_KEY_ALIAS`, `FALA_UPLOAD_KEY_PASSWORD`, and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. Use the existing upload keystore, not a newly generated key. Add Actions variables `FALA_PLAY_UPLOAD_ENABLED=true` and `FALA_PLAY_RELEASE_STATUS=completed`. Temporarily use `draft` only if the app's first-release state requires draft uploads; drafts need a Console rollout and are not automatic tester updates.
+
+Set `FALA_PLAY_UPLOAD_ENABLED=false` to stop subsequent publishing runs. App users still need the Google sign-in/backend setup; an uploaded bundle does not provision those settings.
+
+### Current connection status
+
+The automation has been implemented and tested locally with a simulated publishing API. No Google publishing service-account key or authenticated GitHub API session was available in this workspace, so repository publishing secrets/variables were not set and no Google Play upload was performed. The signed browser tab is not accessible to the agent's available tools. The first upload and one-time service-account connection remain required.
 
 ## First release: internal testing
 
@@ -58,4 +86,4 @@ Account deletion is available in-app and on the web and cascades through account
 
 [Google's Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469), [account deletion requirement](https://support.google.com/googleplay/android-developer/answer/13327111).
 
-No Play Console upload, production release, paid plan change, or Netlify deployment is performed by this preparation.
+This preparation does not upload to Play or deploy Netlify. After the one-time connection, the workflow uploads internal-testing releases on successful main updates.

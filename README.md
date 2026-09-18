@@ -12,7 +12,7 @@ A native Android app for learning to **speak Brazilian Portuguese** through natu
 2. Apply both files in `supabase/migrations/` in filename order to the app's PostgreSQL database. Existing single-learner data stays isolated in a legacy operator account.
 3. Configure `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider on Netlify. See [deployment and Haifa latency](docs/deployment.md).
 4. Deploy once the database and Google settings are ready, install the APK, and test with two Google accounts before inviting users.
-5. Follow [Google Play preparation](docs/google-play.md) for the signed app bundle, listing, privacy/deletion pages, and internal testing.
+5. Follow [Google Play setup](docs/google-play.md) for the first app-bundle upload and one-time publishing credentials. Thereafter, successful `main` checks trigger a newly versioned, signed internal-testing upload when enabled.
 
 The current service URL is `https://legendary-florentine-6b3c1f.netlify.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
 
