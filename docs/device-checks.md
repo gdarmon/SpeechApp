@@ -36,3 +36,12 @@ Release readiness also requires deployment/authentication hardening, retention/b
 - Complete ten Portuguese answers, with a support-language help request in between. The help request must not advance the counter. After answer ten, hear the closing reply and automatically receive the summary, pointers and vocabulary. No eleventh-answer prompt.
 - Interrupt playback, background, rotate, or lose network during the tenth answer/summary. Resume/retry: no duplicated turn or summary, no microphone restart, and the finished summary remains accessible in History.
 - Check vocabulary translations and Listen buttons, repeated-word counts, new-to-retained-history labels, and Hebrew layout. Reuse a word in a later session; it should be marked seen elsewhere. Deleting its only other source should remove that prior exposure from future summaries.
+
+## Focused reviews and practice levels (0.6.0)
+
+- Confirm **0.6.0** under the logo. Choose Capoeira class, level 1. Hear one simple instruction and a question; directions/pace/clarification should replace cafe role-play. Everyday life should still be available, and the topic choice should survive restarting the app.
+- Complete a session and reopen an older long review: both should show at most five useful words, with translations and Listen buttons. No long filler-word list.
+- Try level 4: prompts and answer examples should invite connected multi-sentence answers without making level 1 harder. Resume an earlier level-1 session; it must still show level 1.
+- Enable Listen first. Initially hear the prompt with its text and answer ideas hidden. Reveal the Portuguese/Hebrew question independently, or show answer ideas when needed. Test Hebrew layout, Talk composer access and scrolling on a small display and with larger fonts.
+- Use Try without answer ideas. Ideas should stay hidden on subsequent questions until requested. Showing then hiding an idea still counts that answer as guided. Speech recognition and hold/release behavior should match the working 0.5.0 behavior.
+- Check the recommended level and roadmap in Progress. Merely choosing a harder level, typing answers, or reading examples should not raise the recommendation. Two qualifying conversations should; deleting the evidence should recompute it. These are practice levels, not capoeira ranks or formal language grades.

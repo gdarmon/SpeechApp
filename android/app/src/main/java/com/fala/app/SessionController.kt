@@ -54,6 +54,14 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var supportLanguage by mutableStateOf(settings.supportLanguage)
         private set
+    var practiceTopic by mutableStateOf(settings.practiceTopic)
+        private set
+    var selectedLevel by mutableStateOf(0)
+        private set
+    var listenFirst by mutableStateOf(settings.listenFirst)
+        private set
+    internal var replySupport by mutableStateOf(ReplySupport.start(settings.listenFirst, settings.showReplyIdeas))
+        private set
     val conversationLanguage: String get() = session.optString("support_language", supportLanguage.ifBlank { "en-US" })
     var draft by mutableStateOf(ReplyDraft())
         private set
@@ -110,6 +118,24 @@ class SessionController(application: Application) : AndroidViewModel(application
         settings.supportLanguage = language; supportLanguage = language
     }
 
+    fun chooseTopic(topic: String) { if (!busy) { practiceTopic = topic; settings.practiceTopic = topic } }
+    fun chooseLevel(level: Int) { if (!busy && level in 0..5) selectedLevel = level }
+    fun chooseListenFirst(enabled: Boolean) { if (!busy) { listenFirst = enabled; settings.listenFirst = enabled } }
+    fun revealText() { replySupport = replySupport.revealText() }
+    fun revealIdeas() {
+        if (busy || recording) return
+        replySupport = replySupport.revealIdeas()
+    }
+    fun hideIdeas() {
+        if (busy || recording) return
+        settings.showReplyIdeas = false
+        replySupport = replySupport.hideIdeas()
+        voiceNotice = "Try your own words from the next question. Answer ideas are always available."
+    }
+    private fun resetReplySupport(resuming: Boolean = false) {
+        replySupport = ReplySupport.start(listenFirst, settings.showReplyIdeas, resuming || reply.optString("practice_phrase").isNotBlank())
+    }
+
     fun finishLanguageSetup() {
         if (supportLanguage.isBlank() || busy) return
         screen = "home"; refresh()
@@ -133,6 +159,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
         feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
+        selectedLevel = 0
     }
 
     fun signOut(clearGoogle: suspend () -> Unit) = execute(retryable = false) {
@@ -163,17 +190,19 @@ class SessionController(application: Application) : AndroidViewModel(application
         if (destination in listOf("home", "history", "progress")) refresh()
     }
 
-    fun start(assessment: Boolean, topic: String = "choose for me") {
+    fun start(assessment: Boolean, topic: String = practiceTopic) {
         if (busy) return
         audioEnabled = true
         val request = JSONObject().put("request_id", UUID.randomUUID().toString())
             .put("kind", if (assessment) "assessment" else "conversation").put("topic", topic)
             .put("support_language", supportLanguage.ifBlank { "en-US" })
+        if (selectedLevel != 0) request.put("practice_level", selectedLevel)
         execute {
             val result = api.post("/sessions", request)
             session = result; settings.activeSession = result.getString("id")
             reply = result.getJSONObject("opening"); heard = ""; feedback = JSONObject()
             screen = "talk"; helpMode = false; draft = ReplyDraft(); voiceNotice = ""
+            resetReplySupport()
             playReply()
         }
     }
@@ -188,6 +217,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             val turns = session.getJSONArray("turns")
             reply = if (turns.length() > 0) turns.getJSONObject(turns.length() - 1).getJSONObject("reply") else session.getJSONObject("opening")
             screen = "talk"; phase = "Your turn"; heard = ""; helpMode = false; draft = ReplyDraft(); voiceNotice = ""; feedback = JSONObject()
+            resetReplySupport(resuming = true)
             if (practiceComplete) completePractice(id)
         }
     }
@@ -338,7 +368,8 @@ class SessionController(application: Application) : AndroidViewModel(application
         val body = JSONObject().put("request_id", UUID.randomUUID().toString())
             .put("text", answer.text.trim()).put("help", help)
             .put("language", if (help) conversationLanguage else "pt-BR")
-            .put("speech_ms", answer.speechMs).put("source", answer.source).put("assisted", answer.assisted)
+            .put("speech_ms", answer.speechMs).put("source", answer.source).put("assisted", answer.assisted || replySupport.usedIdeas)
+            .put("ideas_hidden", !replySupport.usedIdeas && !answer.assisted)
         val id = session.getString("id")
         execute {
             val resultReply = api.post("/sessions/$id/turns", body)
@@ -350,6 +381,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             }
             session = updated; heard = answer.text; draft = ReplyDraft()
             reply = resultReply; helpMode = false
+            resetReplySupport()
             playReply()
             if (practiceComplete) completePractice(id)
         }

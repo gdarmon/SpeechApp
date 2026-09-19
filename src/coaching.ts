@@ -1,4 +1,5 @@
 import { replySchema, type TurnInput } from "./models.js";
+import { coachingLimits } from "./learning.js";
 
 export const wordCount = (text: string) => text.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
 const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}]+/gu)?.join(" ") ?? "";
@@ -6,6 +7,7 @@ const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{
 // Validate teaching constraints before a generated response can reach speech playback.
 // The saved reply schema stays compatible with conversations created by older versions.
 export function coachingReplySchema(context: Record<string, unknown>) {
+  const limits = coachingLimits(context);
   return replySchema.superRefine((reply, ctx) => {
     const reject = (message: string) => ctx.addIssue({ code: "custom", message });
     const start = context.action === "start";
@@ -17,13 +19,13 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const supportText = [reply.translation, ...reply.suggested_replies.map(idea => idea.translation), ...(reply.turn_feedback ? [reply.turn_feedback.message] : [])];
     if (context.support_language === "he-IL" && supportText.some(value => !/\p{Script=Hebrew}/u.test(value))) reject("Use Hebrew for every translation and feedback message; do not copy English examples.");
     if (context.support_language === "en-US" && supportText.some(value => /\p{Script=Hebrew}/u.test(value))) reject("Use English for every translation and feedback message.");
-    if (wordCount(reply.text) > (start ? 8 : 16) || reply.text.length > (start ? 70 : 110)) reject("Use a short, simple spoken turn.");
+    if (wordCount(reply.text) > limits.text_words || reply.text.length > limits.text_chars) reject(`Keep this level's spoken turn within ${limits.text_words} words and ${limits.text_chars} characters.`);
     const questions = reply.text.match(/\?/g)?.length ?? 0;
     if (questions > 1) reject("Ask only one question at a time.");
     if (!final && !help && questions !== 1) reject("Ask one simple next question in text so the learner can reply.");
     if (final && reply.text.includes("?")) reject("Close the practice without asking a new question.");
     if (start && reply.pace !== "slow") reject("Start at a gentle speaking pace.");
-    if (reply.suggested_replies.some(idea => wordCount(idea.text) > 7 || idea.text.length > 60)) reject("Offer short replies a beginner can say.");
+    if (reply.suggested_replies.some(idea => wordCount(idea.text) > limits.idea_words || idea.text.length > limits.idea_chars)) reject(`Keep reply ideas within ${limits.idea_words} words and ${limits.idea_chars} characters for this level.`);
     if (wordCount(reply.practice_phrase) > 10) reject("Help with one short phrase at a time.");
     const feedback = reply.turn_feedback;
     if (start || help) {

@@ -60,8 +60,8 @@ it("counts actual Portuguese exposure while excluding help-language words and tr
     { text: "I want coffee", help: true, reply: replySchema.parse({ text: "Quero café.", practice_phrase: "Quero café." }) },
   ] } as Session;
   const counts = sessionVocabulary(session);
-  expect(counts.get("café")).toBe(4);
-  expect(counts.get("chá")).toBe(2);
+  expect(counts.get("café")).toBe(3);
+  expect(counts.get("chá")).toBe(1);
   expect(counts.get("leite")).toBe(1);
   for (const word of ["coffee", "milk", "nice", "want", "tea"]) expect(counts.has(word)).toBe(false);
 });

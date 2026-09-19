@@ -80,6 +80,32 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("persists practice levels, advances only after evidence, and recomputes after deletion", async () => {
+    const answers = ["Primeiro vou levantar a mão direita.", "Depois eu vou trocar de lado.", "Eu quero repetir o movimento devagar.", "Agora vou formar uma dupla aqui.", "Vou prestar atenção no meu professor.", "Eu vou seguir o ritmo agora.", "Sim.", "Tudo bem.", "Claro.", "Obrigado."];
+    const ids: string[] = [];
+    const requests = [randomUUID(), randomUUID()];
+    for (let i = 0; i < 2; i++) {
+      const input = { practice_level: 2, topic: "capoeira class", request_id: requests[i] };
+      const session = (await start(input)).data; ids.push(session.id);
+      expect(session.practice.level).toBe(2);
+      expect(coach.calls.at(-1)?.practice).toMatchObject({ level: 2 });
+      for (const text of answers) expect((await turn(session.id, { text, source: "speech", assisted: false })).status).toBe(200);
+      const result = await finish(session.id);
+      expect(result.status).toBe(200);
+      expect(result.data.practice_result).toMatchObject({ level: 2, successful_answers: 6, ready: true });
+      expect(result.data.vocabulary.length).toBeLessThanOrEqual(5);
+      expect((await call("/progress")).data.practice.level).toBe(i === 0 ? 1 : 3);
+    }
+    expect((await start({ practice_level: 2, topic: "capoeira class", request_id: requests[0] })).data.id).toBe(ids[0]);
+    const next = (await start()).data;
+    expect(next.practice.level).toBe(3);
+    expect((await call(`/sessions/${ids[0]}`)).data.practice.level).toBe(2);
+    await call(`/sessions/${ids[0]}`, "DELETE");
+    expect((await call("/progress")).data.practice.level).toBe(1);
+    expect((await start({ practice_level: 6 })).status).toBe(422);
+    expect((await start({ resolved_level: 5 })).status).toBe(422);
+    expect((await turn(next.id, { ideas_hidden: true, assisted: true })).status).toBe(422);
+  });
   it("can continue and summarize replies saved before translations and feedback existed", async () => {
     const session = (await start()).data;
     await turn(session.id);

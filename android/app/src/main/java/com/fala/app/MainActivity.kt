@@ -165,14 +165,40 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 }
 
 @Composable private fun Home(c: SessionController) {
-    val assessment = c.progress.optJSONObject("assessment")
-    Title("One small conversation.", "Listen, try a short answer, get a little help.")
-    if (assessment == null && !c.demo) Notice("We'll start with easy questions. Knowing words and having a conversation are different skills.")
-    Button(onClick = { c.start(assessment == null) }, enabled = !c.busy,
+    val recommended = c.progress.optJSONObject("practice")?.optInt("level", 1)?.coerceIn(1,5) ?: 1
+    val level = if (c.selectedLevel == 0) recommended else c.selectedLevel
+    var chooseLevel by remember { mutableStateOf(false) }
+    Title("A little further, in Portuguese.", "Listen, answer, and build toward longer conversations.")
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Practice level $level · ${practiceLevels[level - 1].first}", fontWeight = FontWeight.Bold)
+            Text(practiceLevels[level - 1].second)
+            TextButton(onClick = { chooseLevel = true }, enabled = !c.busy) { Text("Choose an easier or harder level") }
+        }
+    }
+    if (chooseLevel) AlertDialog(onDismissRequest = { chooseLevel = false }, title = { Text("Your practice level") }, text = {
+        Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+            Text("A conversation difficulty, not a formal language qualification. You can explore any level.")
+            TextButton(onClick = { c.chooseLevel(0); chooseLevel = false }) { Text("Follow Fala's recommendation · level $recommended") }
+            practiceLevels.forEachIndexed { index, item ->
+                TextButton(onClick = { c.chooseLevel(index + 1); chooseLevel = false }) { Text("${index + 1}. ${item.first}\n${item.second}") }
+            }
+        }
+    }, confirmButton = { TextButton(onClick = { chooseLevel = false }) { Text("Close") } })
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FilterChip(selected = c.practiceTopic == "capoeira class", onClick = { c.chooseTopic("capoeira class") }, enabled = !c.busy, label = { Text("Capoeira class") })
+        FilterChip(selected = c.practiceTopic == "choose for me", onClick = { c.chooseTopic("choose for me") }, enabled = !c.busy, label = { Text("Everyday life") })
+    }
+    if (c.practiceTopic == "capoeira class") Text("Understand your instructor, follow directions, and ask for clarification.")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(c.listenFirst, c::chooseListenFirst, enabled = !c.busy)
+        Text("Listen first · reveal the text when needed", Modifier.padding(start = 8.dp).weight(1f))
+    }
+    Button(onClick = { c.start(false) }, enabled = !c.busy,
         modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(28.dp)) {
         Text("Talk", style = MaterialTheme.typography.headlineLarge)
     }
-    Text("10 answers · quick feedback · a summary and words to keep")
+    Text("10 answers · quick feedback · up to 5 words to keep")
     if (c.settings.activeSession.isNotBlank()) OutlinedButton(onClick = { c.resume() }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Resume your conversation") }
     val memory = c.progress.optJSONArray("memory")?.takeIf { it.length() > 0 }
         ?: c.progress.optJSONArray("help_patterns")
@@ -184,7 +210,6 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     c.history.objects().firstOrNull { it.optInt("demo") == 0 }?.let { recent ->
         TextButton(onClick = { c.start(false, recent.getString("topic")) }, enabled = !c.busy) { Text("Continue topic: ${recent.getString("topic")}") }
     }
-    if (assessment == null) TextButton(onClick = { c.start(false) }, enabled = !c.busy) { Text("Just have a conversation") }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = { c.navigate("history") }, enabled = !c.busy) { Text("History") }
         TextButton(onClick = { c.navigate("progress") }, enabled = !c.busy) { Text("Progress") }
@@ -260,6 +285,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     val languageName = if (language == "he-IL") "Hebrew" else "English"
     Text("${c.completedTurns.coerceAtMost(c.targetTurns)} of ${c.targetTurns} answers · ${c.session.optString("topic")}",
         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    c.session.optJSONObject("practice")?.let { practice ->
+        Text("Level ${practice.optInt("level", 1)} · ${practice.optString("answer_goal")}", style = MaterialTheme.typography.bodyMedium)
+    }
     c.reply.optJSONObject("turn_feedback")?.let { feedback ->
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -274,9 +302,14 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(if (c.phase == "Speaking") "Fala · speaking Portuguese…" else "Fala", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(c.reply.optString("text"), style = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr))
-            if (c.reply.optString("translation").isNotBlank()) TranslatedText(c.reply.optString("translation"), language)
-            else Text("Translations will appear with the next reply.", style = MaterialTheme.typography.bodySmall)
+            if (c.replySupport.textVisible || c.practiceComplete) {
+                Text(c.reply.optString("text"), style = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr))
+                if (c.reply.optString("translation").isNotBlank()) TranslatedText(c.reply.optString("translation"), language)
+                else Text("Translations will appear with the next reply.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text("Listen, then try to answer. You can replay as often as you need.")
+                OutlinedButton(onClick = c::revealText) { Text("Show Portuguese and $languageName") }
+            }
             Row {
                 TextButton(onClick = c::play, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text("▶ Listen") }
                 TextButton(onClick = { c.slow = !c.slow }, enabled = !c.recording) { Text(if (c.slow) "Slow ✓" else "Slower") }
@@ -285,7 +318,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         }
     }
     val ideas = c.reply.optJSONArray("suggested_replies")?.objects().orEmpty()
-    if (ideas.isNotEmpty()) {
+    if (ideas.isNotEmpty() && c.replySupport.ideasVisible) {
         Text("You could say…", style = MaterialTheme.typography.titleMedium)
         ideas.forEach { idea ->
             OutlinedCard(onClick = { c.chooseSuggestion(idea.getString("text")) }, enabled = !c.busy && !c.recording && !c.retryAvailable,
@@ -298,7 +331,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             }
         }
         Text("Tap an idea to use or adapt it. Your own words are welcome, too.", style = MaterialTheme.typography.bodySmall)
-    } else if (c.reply.optString("practice_phrase").isNotBlank()) {
+        TextButton(onClick = c::hideIdeas, enabled = !c.busy && !c.recording) { Text("Try without answer ideas") }
+    } else if (ideas.isNotEmpty()) {
+        OutlinedButton(onClick = c::revealIdeas, enabled = !c.busy && !c.recording && !c.retryAvailable, modifier = Modifier.fillMaxWidth()) { Text("Show answer ideas") }
+    } else if (c.replySupport.textVisible && c.reply.optString("practice_phrase").isNotBlank()) {
         OutlinedButton(onClick = { c.chooseSuggestion(c.reply.getString("practice_phrase")) }, enabled = !c.busy && !c.recording) {
             Text(c.reply.getString("practice_phrase"))
         }
@@ -414,6 +450,15 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 
 @Composable private fun Progress(p: JSONObject) {
     Title("More of your own words.", "Useful practice, without points or streaks.")
+    val practice = p.optJSONObject("practice")
+    val level = practice?.optInt("level", 1)?.coerceIn(1,5) ?: 1
+    Notice("Recommended level $level · ${practiceLevels[level - 1].first}\n${practiceLevels[level - 1].second}")
+    Text("Fala recommends a harder level after two complete conversations with at least six varied, clear spoken answers of the target length, without answer ideas. You can also choose a level yourself.")
+    Text("Use ‘Try without answer ideas’ during a conversation. Reading suggestions and typing are useful guided practice; they don't raise the recommendation.", style = MaterialTheme.typography.bodySmall)
+    if (level < 5) Text("${practice?.optInt("ready_sessions") ?: 0} of 2 qualifying conversations at this level", style = MaterialTheme.typography.labelLarge)
+    Text("The path ahead", style = MaterialTheme.typography.titleMedium)
+    practiceLevels.forEachIndexed { index, item -> Text("${index + 1}. ${item.first} · ${item.second}") }
+    Text("These are practice goals, not CEFR grades or a promise tied to days studied. Listening without text and speaking aloud both take practice.", style = MaterialTheme.typography.bodySmall)
     Notice("${p.optInt("conversations")} conversations · ${p.optLong("speech_ms") / 60000} minutes speaking")
     Text("Speaking time is approximate and excludes English/Hebrew help. Connection tests are excluded.")
     Text("${p.optInt("learner_turns")} spoken replies · ${p.optInt("typed_turns")} typed replies · ${p.optInt("help_requests")} requests for help")
@@ -476,28 +521,21 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         Text("Keep these close", style = MaterialTheme.typography.titleLarge)
         review.forEach { Notice(it) }
     }
-    val vocabulary = f.optJSONArray("vocabulary")?.objects().orEmpty()
+    val vocabulary = f.optJSONArray("vocabulary")?.objects().orEmpty().take(5)
     if (vocabulary.isNotEmpty()) {
-        Text("Words from this conversation", style = MaterialTheme.typography.titleLarge)
-        Text("Includes Fala’s questions, answer ideas, and your replies. New here does not mean you didn't already know the word.", style = MaterialTheme.typography.bodySmall)
-        if (f.optInt("vocabulary_total") > vocabulary.size) Text("Showing ${vocabulary.size} of ${f.optInt("vocabulary_total")} words, with frequent words first.", style = MaterialTheme.typography.bodySmall)
-        listOf(false to "New in your saved Fala history", true to "Seen in other conversations").forEach { (seen, title) ->
-            val words = vocabulary.filter { it.optBoolean("seen_before") == seen }
-            if (words.isNotEmpty()) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                words.forEach { word ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text(word.getString("word"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
-                                TextButton(onClick = { c.listenTo(word.getString("word")) }, enabled = !c.busy) { Text("▶ Listen") }
-                            }
-                            TranslatedText(word.optString("translation").ifBlank { "Translation unavailable" }, language)
-                            val count = word.optInt("occurrences")
-                            Text(if (count == 1) "Appeared once" else "Repeated · $count appearances", style = MaterialTheme.typography.labelSmall)
-                        }
+        Text("${vocabulary.size} words to keep", style = MaterialTheme.typography.titleLarge)
+        Text("A few useful words to practise again.", style = MaterialTheme.typography.bodySmall)
+        vocabulary.forEach { word ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(word.getString("word"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
+                        TextButton(onClick = { c.listenTo(word.getString("word")) }, enabled = !c.busy) { Text("▶ Listen") }
                     }
+                    TranslatedText(word.optString("translation").ifBlank { "Translation unavailable" }, language)
+                    val count = word.optInt("occurrences")
+                    Text((if (word.optBoolean("seen_before")) "Seen before" else "New in your Fala history") + (if (count > 1) " · used $count times in this conversation" else ""), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

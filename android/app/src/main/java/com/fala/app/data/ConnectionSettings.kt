@@ -39,6 +39,15 @@ class ConnectionSettings(context: Context) {
     var networkRecognition: Boolean
         get() = prefs.getBoolean("networkRecognition", false)
         set(value) { prefs.edit().putBoolean("networkRecognition", value).apply() }
+    var practiceTopic: String
+        get() = prefs.getString("practiceTopic", "capoeira class") ?: "capoeira class"
+        set(value) { prefs.edit().putString("practiceTopic", value).apply() }
+    var listenFirst: Boolean
+        get() = prefs.getBoolean("listenFirst", false)
+        set(value) { prefs.edit().putBoolean("listenFirst", value).apply() }
+    var showReplyIdeas: Boolean
+        get() = prefs.getBoolean("showReplyIdeas", true)
+        set(value) { prefs.edit().putBoolean("showReplyIdeas", value).apply() }
     var consent: Boolean
         get() = prefs.getBoolean("consent", false)
         set(value) { prefs.edit().putBoolean("consent", value).apply() }

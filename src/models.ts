@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PracticeProgress, PracticeResult } from "./learning.js";
 
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
 export const PRACTICE_TURNS = 10;
@@ -7,6 +8,7 @@ export const startSchema = z.strictObject({
   kind: z.enum(["conversation", "assessment"]).default("conversation"),
   topic: text(120, 1).default("choose for me"),
   support_language: z.enum(["en-US", "he-IL"]).optional(),
+  practice_level: z.number().int().min(1).max(5).optional(),
 });
 export const turnSchema = z.strictObject({
   request_id: text(80, 8), text: text(2500, 1),
@@ -15,8 +17,10 @@ export const turnSchema = z.strictObject({
   speech_ms: z.number().int().min(0).max(180000).default(0),
   source: z.enum(["speech", "typed"]).optional(),
   assisted: z.boolean().optional(),
+  ideas_hidden: z.boolean().optional(),
 }).refine((v) => v.help || v.language === "pt-BR", "Use pt-BR for conversation turns.")
-  .refine((v) => v.source !== "typed" || v.speech_ms === 0, "Typed replies cannot count as speaking time.");
+  .refine((v) => v.source !== "typed" || v.speech_ms === 0, "Typed replies cannot count as speaking time.")
+  .refine((v) => v.ideas_hidden !== true || v.assisted !== true, "An assisted answer cannot claim hidden guidance.");
 export const finishSchema = z.strictObject({
   confidence: z.enum(["hard", "okay", "comfortable"]).nullable().default(null),
 });
@@ -54,22 +58,23 @@ export type Start = z.infer<typeof startSchema>;
 export type TurnInput = z.infer<typeof turnSchema>;
 export type Finish = z.infer<typeof finishSchema>;
 export type Reply = z.infer<typeof replySchema>;
-export type Feedback = z.infer<typeof feedbackSchema> & {
+export type Feedback = Omit<z.infer<typeof feedbackSchema>, "vocabulary"> & {
   review_phrases?: string[]; vocabulary_total?: number;
+  practice_result?: PracticeResult;
   vocabulary: { word: string; translation: string; occurrences?: number; seen_before?: boolean }[];
 };
 export type Correction = z.infer<typeof correctionSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type Turn = TurnInput & { id?: number; session_id: string; reply: Reply; request?: TurnInput };
 export type Session = {
-  id: string; request_id: string; request: Start; kind: Start["kind"]; topic: string;
+  id: string; request_id: string; request: Start & { resolved_level?: number }; kind: Start["kind"]; topic: string;
   started_at: string; ended_at: string | null; opening: Reply; feedback: Feedback | null;
   demo: boolean; turns: Turn[];
 };
 export type Memory = Partial<Correction> & {
   natural: string; category: string; occurrences: number; last_seen: string; due_at: string; topic?: string;
 };
-export type LearnerContext = { assessment: Assessment | null; memory: Memory[]; help_patterns: Memory[]; recent_topics: string[] };
+export type LearnerContext = { assessment: Assessment | null; memory: Memory[]; help_patterns: Memory[]; recent_topics: string[]; practice: PracticeProgress };
 
 export class AppError extends Error {
   constructor(public status: number, message: string) { super(message); }

@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { AppError, PRACTICE_TURNS, type Start, type TurnInput, type Finish, type Feedback, type Reply, type Session, type LearnerContext } from "./models.js";
-import { sessionVocabulary } from "./vocabulary.js";
+import { compactFeedback, focusWords, sessionVocabulary } from "./vocabulary.js";
+import { independentAnswer, practiceLevel, practiceResult } from "./learning.js";
 import type { AIProvider } from "./provider.js";
 import type { Store } from "./store.js";
 
@@ -19,6 +20,7 @@ function context(kind: string, topic: string, learner: LearnerContext, session?:
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
     support_language: session?.request.support_language ?? "en-US",
     practice_target: PRACTICE_TURNS,
+    practice: practiceLevel(session ? session.request.resolved_level : learner.practice.level),
     weaknesses: [...learner.memory, ...learner.help_patterns].filter(m => new Date(m.due_at).getTime() <= Date.now())
       .sort((a,b) => b.occurrences-a.occurrences || a.due_at.localeCompare(b.due_at)).slice(0,3),
     known_pattern_keys: learner.memory.map(m => m.key).filter(Boolean).slice(0,30),
@@ -34,12 +36,14 @@ export class Sessions {
     return this.store.mutate(async tx => {
       const previous = await tx.started(input.request_id);
       if (previous) {
-        if (!isDeepStrictEqual(previous.request, input)) throw new AppError(409, "This request ID was already used with different content.");
+        const { resolved_level: _resolved, ...original } = previous.request;
+        if (!isDeepStrictEqual(original, input)) throw new AppError(409, "This request ID was already used with different content.");
         return previous;
       }
       const { learner } = await tx.snapshot();
-      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), support_language: input.support_language ?? "en-US", action: "start" });
-      return tx.create(input, reply, this.ai.demo);
+      const level = practiceLevel(input.practice_level ?? learner.practice.level);
+      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), practice: level, support_language: input.support_language ?? "en-US", action: "start" });
+      return tx.create(input, reply, this.ai.demo, level.level);
     });
   }
 
@@ -69,11 +73,11 @@ export class Sessions {
     return this.store.mutate(async tx => {
       const { session, learner } = await tx.snapshot(id);
       if (!session) throw new AppError(404, "Conversation not found.");
-      if (session.feedback) return session.feedback;
+      if (session.feedback) return compactFeedback(session.feedback, session);
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
       const counts = sessionVocabulary(session);
-      const words = [...counts.keys()].slice(0, 180);
-      const seenBefore = await tx.previouslySeenWords(id, words);
+      const seenBefore = await tx.previouslySeenWords(id, [...counts.keys()]);
+      const words = focusWords(session, counts, seenBefore);
       const feedback = await this.ai.feedback({ ...context(session.kind, session.topic, learner, session),
         turns: session.turns.map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply) })),
         action: "feedback", self_report: input.confidence, vocabulary_words: words,
@@ -83,6 +87,7 @@ export class Sessions {
       result.vocabulary = words.map(word => ({ word, translation: translations.get(word) ?? "",
         occurrences: counts.get(word)!, seen_before: seenBefore.has(word) }));
       result.vocabulary_total = counts.size;
+      result.practice_result = practiceResult(session);
       await tx.finish(id, result, session.demo);
       return result;
     });
@@ -92,12 +97,7 @@ export class Sessions {
 export function sanitizeFeedback(feedback: Feedback, session: Session, input: Finish): Feedback {
   const result = structuredClone(feedback);
   const spoken = session.turns.filter(t => !t.help).map(t => t.text);
-  const spontaneous = session.turns.filter((turn, index) => {
-    const previous = index === 0 ? session.opening : session.turns[index - 1].reply;
-    const suggestions = [...(previous.suggested_replies || []).map(s => s.text), previous.practice_phrase].filter(Boolean);
-    return !turn.help && turn.source !== "typed" && !turn.assisted
-      && !suggestions.some(text => normalized(text) === normalized(turn.text));
-  }).map(t => t.text);
+  const spontaneous = session.turns.filter((turn, index) => independentAnswer(session, turn, index)).map(t => t.text);
   const seen = new Set<string>();
   const coached = session.turns.some(t => t.reply.turn_feedback);
   const observed = coachedCorrections(session);

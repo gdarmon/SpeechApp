@@ -1,5 +1,14 @@
 # Validation
 
+## 0.6.0 — 19 September 2026
+
+- 61 backend tests passed, including hidden-idea provenance, five-word selection, compact legacy reviews, unused suggestion exclusion, level-specific reply limits, qualification exclusions, saved level/retry behavior, advancement, deletion and cross-account isolation. TypeScript/site build and Netlify API packaging passed.
+- Nine Android JVM tests passed, including sticky guidance provenance and separate question/answer reveals. Debug APK, signed version-7 AAB (0.6.0), and debug/release lint built successfully with zero lint errors. Recognition and speech adapters are unchanged.
+- The local updated API with actual OpenAI GPT-5.6 Terra and Supabase completed ten Hebrew-supported capoeira answers, a Hebrew clarification request, a closing turn, a five-word review and an idempotent finish. Guided answers did not count toward advancement. A level-4 scenario then produced connected answers explaining a misunderstanding; its continuation passed. Temporary accounts and practice data were removed.
+- In that sample, the five review items were devagar, repetir, ginga, lado and esquivar. A later regression refinement excludes unused generated answer ideas from vocabulary counts/history because the new UI can hide them. No claim of comprehensive language or pronunciation assessment is made.
+- Levels and qualification metadata use existing JSON columns. No database migration is required. Older clients retain their existing controls and receive compact reviews; the new level picker, capoeira shortcut and listen-first display require 0.6.0.
+- Phone layout, hint controls, automatic playback and the existing hold/release behavior still require physical verification. Practice levels are application heuristics; no CEFR certification or calendar-based learning guarantee is claimed. Play upload remains disabled pending publisher credentials; a signed bundle does not update installed phones by itself.
+
 ## 0.5.0 — 19 September 2026
 
 - 51 backend tests passed, including short opening/follow-up constraints, selected-language checks, required current-answer feedback, grounded corrections and final reviews, closing after ten answers, help-turn counting, summary persistence/retries, vocabulary exposure counts, cross-account word-history isolation, paid-provider credential routing, and compatibility with older saved replies. Netlify API packaging and TypeScript/site builds passed.

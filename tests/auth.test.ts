@@ -85,6 +85,31 @@ it("keeps prior vocabulary exposure private to each learner", async () => {
   expect(repeated.vocabulary.find((v: { word: string }) => v.word === "abacaxi").seen_before).toBe(true);
 });
 
+it("keeps level evidence scoped to its learner and removes it with practice history", async () => {
+  const alice = await login("alice"), bob = await login("bob");
+  for (let i = 0; i < 2; i++) {
+    const saved = (await start(alice)).data;
+    await call(`/sessions/${saved.id}/finish`, "POST", alice, {});
+    await db.query("UPDATE fala.sessions SET feedback=jsonb_set(feedback,'{practice_result}',$2::text::jsonb) WHERE id=$1::uuid", [saved.id, JSON.stringify({ level: 3, ready: true, successful_answers: 6, independent_answers: 10 })]);
+  }
+  expect((await call("/progress", "GET", alice)).data.practice.level).toBe(4);
+  expect((await call("/progress", "GET", bob)).data.practice.level).toBe(1);
+  await start(bob);
+  expect(contexts.at(-1)?.practice).toMatchObject({ level: 1 });
+  await call("/learner", "DELETE", alice);
+  expect((await call("/progress", "GET", alice)).data.practice.level).toBe(1);
+});
+
+it("does not count an unused hidden answer idea as prior vocabulary exposure", async () => {
+  const token = await login("alice");
+  const first = (await start(token)).data;
+  await db.query("UPDATE fala.sessions SET opening=jsonb_set(opening,'{suggested_replies}',$2::text::jsonb) WHERE id=$1::uuid", [first.id, JSON.stringify([{ text: "Abacaxi", translation: "Pineapple" }])]);
+  const next = (await start(token)).data;
+  await call(`/sessions/${next.id}/turns`, "POST", token, { request_id: randomUUID(), text: "Abacaxi." });
+  const review = (await call(`/sessions/${next.id}/finish`, "POST", token, {})).data;
+  expect(review.vocabulary.find((word: { word: string }) => word.word === "abacaxi").seen_before).toBe(false);
+});
+
 it("rejects mismatched, expired, and replayed challenges, including concurrent exchanges", async () => {
   const c = await challenge();
   const saved = (await db.query<{ nonce_hash: string }>("SELECT nonce_hash FROM fala.login_challenges WHERE id=$1", [c.challenge_id]))[0];

@@ -4,6 +4,7 @@ import { AppError, feedbackSchema, replySchema, turnFeedbackSchema, type Feedbac
 import { PARTNER, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
 import { coachingReplySchema } from "./coaching.js";
+import { coachingLimits } from "./learning.js";
 
 export interface AIProvider {
   demo: boolean;
@@ -14,14 +15,15 @@ export interface AIProvider {
 // Generate the wire shape from the same contracts we validate. Defaults are for older
 // saved replies, not optional fields in a newly generated response.
 function generationSchema(context: Record<string, unknown>, feedback: boolean) {
+  const limits = coachingLimits(context);
   const answerFeedback = z.union([
     turnFeedbackSchema.extend({ kind: z.literal("correction") }),
     turnFeedbackSchema.extend({ kind: z.enum(["ok", "clarify", "guided"]), said: z.literal(""), natural: z.literal("") }),
   ]);
-  const schema = feedback ? feedbackSchema : replySchema.extend({
+  const schema = feedback ? feedbackSchema.extend({ vocabulary: feedbackSchema.shape.vocabulary.unwrap().max(5) }) : replySchema.extend({
     turn_feedback: context.action === "continue" ? answerFeedback : z.null(),
     suggested_replies: replySchema.shape.suggested_replies.unwrap().length(context.last_turn === true ? 0 : 2),
-    text: z.string().min(1).max(context.action === "start" ? 70 : 110),
+    text: z.string().min(1).max(limits.text_chars),
   });
   return JSON.parse(JSON.stringify(z.toJSONSchema(schema), (key, value) =>
     key === "default" || key === "$schema" ? undefined : value));
@@ -101,12 +103,15 @@ export class CompatibleProvider implements AIProvider {
     });
   }
   reply(context: Record<string, unknown>) {
+    const limits = coachingLimits(context);
     const language = context.support_language === "he-IL" ? "HEBREW" : "ENGLISH";
     const action = ["start", "help", "continue"].includes(String(context.action)) ? String(context.action).toUpperCase() : "START";
-    const instruction = `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
+    const instruction = `\nPractice level ${limits.level}: ${limits.title}. Goal: ${limits.goal} Target learner answer: ${limits.answer_goal}. `
+      + `Spoken text maximum ${limits.text_words} words / ${limits.text_chars} characters; each answer idea maximum ${limits.idea_words} words / ${limits.idea_chars} characters. `
+      + `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
       + (action === "CONTINUE" ? "turn_feedback MUST be an object with kind, message, said and natural; NEVER null. " : "turn_feedback MUST be null. ")
       + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
-        : `Give two short translated answer ideas. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Keep the conversation going with one real, simple question; it is not time for a farewell.`);
+        : `Give two translated answer ideas that model this level's target answer length. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Keep the conversation going with one relevant question at this level; it is not time for a farewell.`);
     return this.complete(PARTNER + instruction, context, coachingReplySchema(context));
   }
   feedback(context: Record<string, unknown>) {
