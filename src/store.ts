@@ -107,25 +107,26 @@ export class Store {
 
   async create(input: Start, opening: Reply, demo: boolean): Promise<Session> {
     const id = randomUUID();
+    // Bind serialized JSON as text first: Postgres.js JSON parameters would encode the string again.
     const [row] = await this.query<Omit<Session, "turns">>(`
       INSERT INTO fala.sessions(id,request_id,request,kind,topic,opening,demo,user_id)
-      VALUES($1::uuid,$2,$3::jsonb,$4,$5,$6::jsonb,$7,$8::uuid) RETURNING *`,
+      VALUES($1::uuid,$2,$3::text::jsonb,$4,$5,$6::text::jsonb,$7,$8::uuid) RETURNING *`,
       [id, input.request_id, JSON.stringify(input), input.kind, opening.topic || input.topic, JSON.stringify(opening), demo, this.userId]);
     return { ...row, started_at: new Date(row.started_at).toISOString(), turns: [] };
   }
 
   async append(id: string, input: TurnInput, reply: Reply) {
     await this.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply)
-      SELECT $1::uuid,$2,$3::jsonb,$4,$5,$6,$7,$8::jsonb FROM fala.sessions WHERE id=$1::uuid AND user_id=$9::uuid`,
+      SELECT $1::uuid,$2,$3::text::jsonb,$4,$5,$6,$7,$8::text::jsonb FROM fala.sessions WHERE id=$1::uuid AND user_id=$9::uuid`,
       [id, input.request_id, JSON.stringify(input), input.text, input.help, input.language, input.speech_ms, JSON.stringify(reply), this.userId]);
   }
 
   async finish(id: string, feedback: Feedback, demo: boolean) {
     // Both statements run in the surrounding mutation transaction, so failure cannot save half a report.
-    await this.query("UPDATE fala.sessions SET ended_at=now(),feedback=$2::jsonb WHERE id=$1::uuid AND user_id=$3::uuid", [id, JSON.stringify(feedback), this.userId]);
+    await this.query("UPDATE fala.sessions SET ended_at=now(),feedback=$2::text::jsonb WHERE id=$1::uuid AND user_id=$3::uuid", [id, JSON.stringify(feedback), this.userId]);
     if (!demo && feedback.corrections.length) {
       await this.query(`INSERT INTO fala.evidence(session_id,key,correction)
-        SELECT $1::uuid, item->>'key',item FROM jsonb_array_elements($2::jsonb) AS item WHERE EXISTS(SELECT 1 FROM fala.sessions WHERE id=$1::uuid AND user_id=$3::uuid)`, [id, JSON.stringify(feedback.corrections), this.userId]);
+        SELECT $1::uuid, item->>'key',item FROM jsonb_array_elements($2::text::jsonb) AS item WHERE EXISTS(SELECT 1 FROM fala.sessions WHERE id=$1::uuid AND user_id=$3::uuid)`, [id, JSON.stringify(feedback.corrections), this.userId]);
     }
   }
 

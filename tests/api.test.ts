@@ -4,16 +4,26 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from "vitest";
 import { createHandler } from "../src/api.js";
 import { settingsFromEnv } from "../src/config.js";
-import type { Database, Executor, Parameter } from "../src/database.js";
+import { connectDatabase, type Database, type Executor, type Parameter } from "../src/database.js";
 import { AppError, feedbackSchema, replySchema, type Feedback } from "../src/models.js";
 import { CompatibleProvider, type AIProvider } from "../src/provider.js";
 import { Timing } from "../src/timing.js";
 
-const settings = settingsFromEnv({ FALA_TOKEN: "private-test-token-32-characters-long", DATABASE_URL: "postgres://local:pass@localhost/fala", OPENAI_API_KEY: "test-key" });
+const nativeDatabaseUrl = process.env.FALA_TEST_DATABASE_URL;
+if (nativeDatabaseUrl) {
+  const url = new URL(nativeDatabaseUrl);
+  // This suite truncates its fixtures. Never allow it to target a real deployment.
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) || url.pathname !== "/fala_test") {
+    throw new Error("FALA_TEST_DATABASE_URL must target the disposable local fala_test database.");
+  }
+}
+const settings = settingsFromEnv({ FALA_TOKEN: "private-test-token-32-characters-long",
+  DATABASE_URL: nativeDatabaseUrl || "postgres://local:pass@localhost/fala", FALA_LOCAL_DATABASE: "true", OPENAI_API_KEY: "test-key" });
 const firstMigration = await readFile(new URL("../supabase/migrations/202609180001_fala.sql", import.meta.url), "utf8");
 const secondMigration = await readFile(new URL("../supabase/migrations/202609180002_google_sign_in.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration;
-let pg: PGlite;
+const repairMigration = await readFile(new URL("../supabase/migrations/202609190001_repair_serialized_json.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration;
+let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;
 let handler: ReturnType<typeof createHandler>;
@@ -42,11 +52,17 @@ const turn = (id: string, extra = {}) => call(`/sessions/${id}/turns`, "POST", {
 const finish = (id: string, confidence?: string) => call(`/sessions/${id}/finish`, "POST", confidence ? { confidence } : {});
 
 beforeAll(async () => {
-  pg = new PGlite();
+  if (nativeDatabaseUrl) {
+    db = connectDatabase(settings);
+    pg = { exec: sql => db.query(sql), query: async <T>(sql: string, values?: Parameter[]) => ({ rows: await db.query<T>(sql, values) }) };
+  } else {
+    const embedded = new PGlite();
+    pg = embedded;
+    const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
+    db = { ...wrap(embedded), transaction: fn => embedded.transaction(tx => fn(wrap(tx))), close: () => embedded.close() };
+  }
   await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
   await pg.exec(migration);
-  const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
-  db = { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))), close: () => pg.close() };
 }, 30000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
@@ -79,6 +95,8 @@ describe("Netlify API against PostgreSQL", () => {
   it("preserves start and turn retry IDs across independent function handlers", async () => {
     const input = { request_id: randomUUID() };
     const first = await call("/sessions", "POST", input);
+    expect(first.status).toBe(200);
+    expect(first.data.opening).toMatchObject({ text: "Que legal! E depois?" });
     const retry = await call("/sessions", "POST", input, instance());
     expect(retry.data.id).toBe(first.data.id);
     expect(coach.calls.length).toBe(1);
@@ -90,7 +108,28 @@ describe("Netlify API against PostgreSQL", () => {
     expect((await call(`/sessions/${first.data.id}/turns`, "POST", { ...body, text: "Outra coisa" })).status).toBe(409);
     const saved = (await call(`/sessions/${first.data.id}`)).data;
     expect(saved.turns).toHaveLength(1); expect(saved.turns[0].help).toBe(0);
+    expect(saved.opening).toEqual(first.data.opening);
+    expect(saved.turns[0].reply).toEqual(a.data);
     expect(saved.request).toBeUndefined(); expect(saved.turns[0].request).toBeUndefined();
+  });
+  it("repairs double-encoded conversation JSON without losing retry IDs, feedback, or memory", async () => {
+    const input = { request_id: randomUUID() };
+    const original = (await call("/sessions", "POST", input)).data;
+    const turnInput = { request_id: randomUUID(), text: correction.said };
+    const reply = (await call(`/sessions/${original.id}/turns`, "POST", turnInput)).data;
+    const report = (await finish(original.id)).data;
+    const before = (await call(`/sessions/${original.id}`)).data;
+    await pg.exec(`UPDATE fala.sessions SET request=to_jsonb(request::text),opening=to_jsonb(opening::text),feedback=to_jsonb(feedback::text);
+      UPDATE fala.turns SET request=to_jsonb(request::text),reply=to_jsonb(reply::text);
+      UPDATE fala.evidence SET correction=to_jsonb(correction::text);`);
+    for (let run = 0; run < 2; run++) {
+      await pg.exec(repairMigration);
+      expect((await call(`/sessions/${original.id}`)).data).toEqual(before);
+      expect((await call("/sessions", "POST", input)).data.id).toBe(original.id);
+      expect((await call(`/sessions/${original.id}/turns`, "POST", turnInput)).data).toEqual(reply);
+      expect((await finish(original.id)).data).toEqual(report);
+      expect((await call("/progress")).data.memory[0]).toMatchObject(correction);
+    }
   });
   it("rolls back provider failures and permits a safe retry", async () => {
     const session = (await start()).data;

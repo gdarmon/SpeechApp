@@ -23,7 +23,7 @@ Open **Cloud compute → Functions → Region**. Current documentation says new 
 1. Choose **New project**, name it `fala`, set a strong database password, and save it privately.
 2. Select a **specific region** matching Netlify: normally **East US (Ohio), `us-east-2`** for a new Personal site. Avoid the broad automatic Americas choice if you want a precise match.
 3. Wait for the project to be ready. Supabase Free is sufficient to begin initial testing.
-4. Open **SQL Editor**, run both migration files in `supabase/migrations/` in filename order as the database owner. They create the private schema, Google accounts, device sessions, and per-user ownership. Old single-learner records remain isolated in a legacy operator account.
+4. Open **SQL Editor**, run all migration files in `supabase/migrations/` in filename order as the database owner. They create the private schema, Google accounts, device sessions, and per-user ownership, and repair JSON saved by older versions. Old single-learner records remain isolated in a legacy operator account.
 5. Open **Connect**, select **Transaction pooler**, port **6543**, and copy its connection string. Replace the password placeholder with your database password, URL-encoding reserved characters if necessary. This is not the project HTTPS URL or an API key.
 
 Illustrative shape only:

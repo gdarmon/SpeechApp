@@ -34,6 +34,7 @@ Use the same PostgreSQL database that serves the current app. Apply these files 
 
 1. `supabase/migrations/202609180001_fala.sql`
 2. `supabase/migrations/202609180002_google_sign_in.sql`
+3. `supabase/migrations/202609190001_repair_serialized_json.sql`
 
 The second migration preserves old single-learner records in a separate legacy operator account. It never gives historical data to the first Google user. New conversations require a user ID; retry IDs are unique within each account. Back up existing data before applying production schema changes.
 
