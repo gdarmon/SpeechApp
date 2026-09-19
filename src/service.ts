@@ -7,8 +7,9 @@ import type { Store } from "./store.js";
 const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}_]+/gu)?.join(" ") || "";
 // Prior translations and feedback are already stored for display. The partner needs
 // the dialogue and offered phrases, not repeated instructions or old feedback to copy.
-const partnerContext = (reply: Reply) => ({ text: reply.text, practice_phrase: reply.practice_phrase,
-  suggested_replies: (reply.suggested_replies ?? []).map(idea => idea.text) });
+const partnerContext = (reply: Reply, latest = false) => ({ text: reply.text,
+  ...(reply.practice_phrase ? { practice_phrase: reply.practice_phrase } : {}),
+  ...(latest ? { suggested_replies: (reply.suggested_replies ?? []).map(idea => idea.text) } : {}) });
 
 function context(kind: string, topic: string, learner: LearnerContext, session?: Session) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
@@ -17,8 +18,8 @@ function context(kind: string, topic: string, learner: LearnerContext, session?:
     weaknesses: [...learner.memory, ...learner.help_patterns].filter(m => new Date(m.due_at).getTime() <= Date.now())
       .sort((a,b) => b.occurrences-a.occurrences || a.due_at.localeCompare(b.due_at)).slice(0,3),
     known_pattern_keys: learner.memory.map(m => m.key).filter(Boolean).slice(0,30),
-    opening: session ? partnerContext(session.opening) : undefined, turn_count: session?.turns.length || 0,
-    turns: (session?.turns || []).slice(-12).map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply) })),
+    opening: session ? partnerContext(session.opening, session.turns.length === 0) : undefined, turn_count: session?.turns.length || 0,
+    turns: (session?.turns || []).slice(-12).map((t, index, turns) => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply, index === turns.length - 1) })),
   };
 }
 

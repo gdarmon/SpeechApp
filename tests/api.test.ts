@@ -84,7 +84,7 @@ describe("Netlify API against PostgreSQL", () => {
     await db.query("UPDATE fala.sessions SET opening=opening-'suggested_replies'-'translation'-'turn_feedback' WHERE id=$1::uuid", [session.id]);
     await db.query("UPDATE fala.turns SET reply=reply-'suggested_replies'-'translation'-'turn_feedback' WHERE session_id=$1::uuid", [session.id]);
     expect((await turn(session.id)).status).toBe(200);
-    expect(coach.calls.at(-1)?.opening).toMatchObject({ suggested_replies: [] });
+    expect(coach.calls.at(-1)?.turns).toEqual(expect.arrayContaining([expect.objectContaining({ reply: expect.objectContaining({ suggested_replies: [] }) })]));
     expect((await finish(session.id)).status).toBe(200);
   });
   it("saves immediate feedback, counts ten answers without help turns, and keeps a grounded vocabulary summary", async () => {
@@ -324,6 +324,26 @@ describe("Netlify API against PostgreSQL", () => {
 });
 
 describe("provider contract and configuration", () => {
+  it("retries a brief provider throttle once without changing the prompt or retrying long quota limits", async () => {
+    const reply = replySchema.parse({ text: "Oi! Tudo bem?", translation: "Hi! How are you?", pace: "slow",
+      suggested_replies: [{ text: "Tudo bem.", translation: "I'm well." }, { text: "Mais ou menos.", translation: "So-so." }] });
+    for (const retryAfter of ["0", "120", null]) {
+      const bodies: string[] = [];
+      const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
+        bodies.push(init!.body as string);
+        if (bodies.length === 1) return new Response("", { status: 429, headers: retryAfter === null ? {} : { "Retry-After": retryAfter } });
+        return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
+      });
+      if (retryAfter === "0") {
+        expect(await ai.reply({ action: "start" })).toEqual(reply);
+        expect(bodies).toHaveLength(2);
+        expect(bodies[0]).toBe(bodies[1]);
+      } else {
+        await expect(ai.reply({ action: "start" })).rejects.toMatchObject({ status: 503 });
+        expect(bodies).toHaveLength(1);
+      }
+    }
+  });
   it("requires a feedback object for Groq answers while leaving other providers compatible", async () => {
     const reply = replySchema.parse({ text: "Com leite?", translation: "With milk?", pace: "slow", turn_feedback: { kind: "ok", message: "That answer works." },
       suggested_replies: [{ text: "Sim.", translation: "Yes." }, { text: "Não.", translation: "No." }] });

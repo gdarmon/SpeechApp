@@ -53,7 +53,7 @@ export class CompatibleProvider implements AIProvider {
         try {
           const remaining = Math.floor(deadline - performance.now());
           if (remaining < 1) throw new Error("AI deadline reached");
-          if (attempt === 1) body.messages = [
+          if (attempt === 1 && repairHint) body.messages = [
             { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese. " + repairHint },
             { role: "user", content: JSON.stringify(context) },
           ];
@@ -63,19 +63,32 @@ export class CompatibleProvider implements AIProvider {
           });
           if (!response.ok) {
             await response.body?.cancel();
+            const retryAfter = response.headers.get("Retry-After");
+            const delay = retryAfter === null ? NaN : Number(retryAfter) * 1000;
+            // A brief provider throttle can clear within this request. Never loop on
+            // quota exhaustion or wait beyond the original function/AI deadline.
+            if (response.status === 429 && attempt === 0 && Number.isFinite(delay) && delay >= 0 && delay <= 5000
+              && deadline - performance.now() > delay + 1000) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
             throw new AppError(503, response.status === 429 ? "The AI service is busy or its quota is exhausted. Retry shortly."
-              : "The AI service rejected the request. Check the server's provider configuration.");
+              : response.status >= 500 ? "The AI service is temporarily unavailable. Please retry shortly."
+                : "The AI service rejected the request. Check the server's provider configuration.");
           }
           const result = await response.json();
           const choice = result?.choices?.[0];
-          if (choice?.finish_reason === "length" && attempt === 0 && deadline - performance.now() > 1000) continue;
+          if (choice?.finish_reason === "length" && attempt === 0 && deadline - performance.now() > 1000) {
+            repairHint = "The previous response was too long. Keep the response concise.";
+            continue;
+          }
           if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.");
           return schema.parse(JSON.parse(choice.message.content));
         } catch (error) {
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
             repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
-            // Retry malformed model output once, within the original time budget. Never retry quota/transport failures here.
+            // Retry malformed model output once, within the original time budget.
             if (attempt === 0 && deadline - performance.now() > 1000) continue;
             throw new AppError(503, "The AI returned an invalid response. Please retry.");
           }
