@@ -4,8 +4,9 @@ import { AppError, feedbackSchema, replySchema, type Feedback, type Reply } from
 import { PARTNER, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
 
-const coachingReplySchema = replySchema.refine(reply => reply.translation.length > 0 && reply.suggested_replies.length === 2,
-  "A coaching reply needs a translation and two reply ideas.");
+const coachingReplySchema = replySchema.refine(reply => reply.translation.length > 0 && reply.suggested_replies.length === 2
+  && [reply.text, reply.practice_phrase, ...reply.suggested_replies.map(idea => idea.text)].every(value => !/\p{Script=Hebrew}/u.test(value)),
+  "A coaching reply needs a translation and two reply ideas, with Portuguese kept separate from Hebrew.");
 
 export interface AIProvider {
   demo: boolean;
@@ -28,27 +29,40 @@ export class CompatibleProvider implements AIProvider {
     if (host === "api.openai.com") body.store = false;
     if (host === "api.groq.com" && this.settings.model.startsWith("openai/gpt-oss-")) body.reasoning_effort = "low";
     return this.timing.measure("ai", async () => {
-      try {
-        const response = await this.request(this.settings.baseUrl.replace(/\/$/, "") + "/chat/completions", {
-          method: "POST", headers: { Authorization: `Bearer ${this.settings.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body), signal: AbortSignal.timeout(this.settings.aiTimeoutMs), redirect: "error",
-        });
-        if (!response.ok) {
-          await response.body?.cancel();
-          throw new AppError(503, response.status === 429 ? "The AI service is busy or its quota is exhausted. Retry shortly."
-            : "The AI service rejected the request. Check the server's provider configuration.");
+      const deadline = performance.now() + this.settings.aiTimeoutMs;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const remaining = Math.floor(deadline - performance.now());
+          if (remaining < 1) throw new Error("AI deadline reached");
+          if (attempt === 1) body.messages = [
+            { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese." },
+            { role: "user", content: JSON.stringify(context) },
+          ];
+          const response = await this.request(this.settings.baseUrl.replace(/\/$/, "") + "/chat/completions", {
+            method: "POST", headers: { Authorization: `Bearer ${this.settings.apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(body), signal: AbortSignal.timeout(remaining), redirect: "error",
+          });
+          if (!response.ok) {
+            await response.body?.cancel();
+            throw new AppError(503, response.status === 429 ? "The AI service is busy or its quota is exhausted. Retry shortly."
+              : "The AI service rejected the request. Check the server's provider configuration.");
+          }
+          const result = await response.json();
+          const choice = result?.choices?.[0];
+          if (choice?.finish_reason === "length" && attempt === 0 && deadline - performance.now() > 1000) continue;
+          if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.");
+          return schema.parse(JSON.parse(choice.message.content));
+        } catch (error) {
+          if (error instanceof AppError) throw error;
+          if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
+            // Retry malformed model output once, within the original time budget. Never retry quota/transport failures here.
+            if (attempt === 0 && deadline - performance.now() > 1000) continue;
+            throw new AppError(503, "The AI returned an invalid response. Please retry.");
+          }
+          throw new AppError(503, "The AI connection timed out or was interrupted. Your saved conversation is safe; retry.");
         }
-        const result = await response.json();
-        const choice = result?.choices?.[0];
-        if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.");
-        return schema.parse(JSON.parse(choice.message.content));
-      } catch (error) {
-        if (error instanceof AppError) throw error;
-        if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
-          throw new AppError(503, "The AI returned an invalid response. Please retry.");
-        }
-        throw new AppError(503, "The AI connection timed out or was interrupted. Your saved conversation is safe; retry.");
       }
+      throw new AppError(503, "The AI returned an invalid response. Please retry.");
     });
   }
   reply(context: Record<string, unknown>) { return this.complete(PARTNER, context, coachingReplySchema); }

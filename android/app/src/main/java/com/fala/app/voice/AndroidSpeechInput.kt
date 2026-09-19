@@ -48,8 +48,8 @@ class AndroidSpeechInput(private val context: Context) : SpeechInput {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No words were recognized. Hold to speak again, or type your reply below."
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone access is needed. Enable it in Android app settings."
                     SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "That speech language isn't available. Install its language pack or enable network recognition in Settings."
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Speech recognition lost its connection. Tap to retry."
-                    else -> "Speech recognition paused. Tap the microphone to retry."
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Speech recognition lost its connection. Hold to try again, or type your reply."
+                    else -> "Speech recognition paused. Hold to speak again, or type your reply."
                 })
                 override fun onResults(results: Bundle?) {
                     if (id != generation || completed) return

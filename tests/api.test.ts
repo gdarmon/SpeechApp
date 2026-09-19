@@ -293,10 +293,26 @@ describe("provider contract and configuration", () => {
     });
     expect(await ai.reply({})).toEqual(reply);
     for (const [reason, content] of [["length", JSON.stringify(reply)], ["stop", "{bad"], ["stop", '{"text":""}'],
-      ["stop", JSON.stringify({ ...reply, translation: "" })], ["stop", JSON.stringify({ ...reply, suggested_replies: [] })]]) {
+      ["stop", JSON.stringify({ ...reply, translation: "" })], ["stop", JSON.stringify({ ...reply, suggested_replies: [] })],
+      ["stop", JSON.stringify({ ...reply, suggested_replies: [{ text: "Um café aconגן.", translation: "A cozy cafe." }, reply.suggested_replies[1]] })]]) {
       const broken = new CompatibleProvider(settings, new Timing(), async () => Response.json({ choices: [{ finish_reason: reason, message: { content } }] }));
       await expect(broken.reply({})).rejects.toMatchObject({ status: 503 });
     }
+  });
+  it("regenerates a malformed translated reply once within the original timeout", async () => {
+    const valid = replySchema.parse({ text: "Oi!", translation: "היי!", suggested_replies: [
+      { text: "Quero um café.", translation: "אני רוצה קפה." }, { text: "Prefiro chá.", translation: "אני מעדיף תה." },
+    ] });
+    let calls = 0;
+    const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
+      calls++;
+      expect(init?.signal).toBeDefined();
+      if (calls === 2) expect(JSON.parse(init!.body as string).messages[0].content).toContain("previous generation");
+      const reply = calls === 1 ? { ...valid, text: "Oi, שלום!" } : valid;
+      return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
+    });
+    expect(await ai.reply({ support_language: "he-IL" })).toEqual(valid);
+    expect(calls).toBe(2);
   });
   it("does not leak provider failures or keys", async () => {
     const broken = new CompatibleProvider(settings, new Timing(), async () => { throw new Error("secret connection string"); });
