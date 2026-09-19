@@ -39,7 +39,9 @@ class Coach implements AIProvider {
     const hebrew = context.support_language === "he-IL";
     return replySchema.parse({ text: "Que legal! E depois?", topic: "Daily life", practice_phrase: context.action === "help" ? "Quero uma mesa para dois." : "",
       translation: hebrew ? "איזה יופי! ומה קרה אחר כך?" : "How nice! What happened next?",
-      turn_feedback: context.action === "continue" ? { kind: "ok", message: hebrew ? "התשובה הזאת מתאימה." : "That answer works." } : null,
+      turn_feedback: context.action === "continue" ? ((context.input as { text: string }).text.includes(correction.said)
+        ? { kind: "correction", message: correction.explanation, said: correction.said, natural: correction.natural }
+        : { kind: "ok", message: hebrew ? "התשובה הזאת מתאימה." : "That answer works." }) : null,
       suggested_replies: [{ text: "Fui tomar um café.", translation: hebrew ? "הלכתי לשתות קפה." : "I went for a coffee." }] });
   }
   async feedback(context: Record<string, unknown>) {
@@ -100,7 +102,7 @@ describe("Netlify API against PostgreSQL", () => {
       expect(coach.calls.at(-1)?.last_turn).toBe(i === 10);
     }
     const report = (await finish(session.id)).data;
-    expect(report.pointers).toEqual(coach.report.pointers);
+    expect(report.pointers).toContain("Next time, try one short answer without reading the suggestion.");
     expect(report.vocabulary.find((word: { word: string }) => word.word === "abacaxi")).toMatchObject({ occurrences: 10, seen_before: false, translation: "Meaning of abacaxi" });
     expect(report.vocabulary.some((word: { word: string }) => word.word === "pineapple")).toBe(false);
     expect((await finish(session.id)).data).toEqual(report);
@@ -209,7 +211,7 @@ describe("Netlify API against PostgreSQL", () => {
       expect((await call("/sessions", "POST", input)).data.id).toBe(original.id);
       expect((await call(`/sessions/${original.id}/turns`, "POST", turnInput)).data).toEqual(reply);
       expect((await finish(original.id)).data).toEqual(report);
-      expect((await call("/progress")).data.memory[0]).toMatchObject(correction);
+      expect((await call("/progress")).data.memory[0]).toMatchObject(report.corrections[0]);
     }
   });
   it("rolls back provider failures and permits a safe retry", async () => {
@@ -344,13 +346,15 @@ describe("provider contract and configuration", () => {
       }
     }
   });
-  it("requires a feedback object for Groq answers while leaving other providers compatible", async () => {
+  it("uses strict coaching output for Groq and OpenAI while leaving other providers compatible", async () => {
     const reply = replySchema.parse({ text: "Com leite?", translation: "With milk?", pace: "slow", turn_feedback: { kind: "ok", message: "That answer works." },
       suggested_replies: [{ text: "Sim.", translation: "Yes." }, { text: "Não.", translation: "No." }] });
-    for (const baseUrl of [settings.baseUrl, "https://compatible.example/v1"]) {
-      const ai = new CompatibleProvider({ ...settings, baseUrl }, new Timing(), async (_url, init) => {
+    for (const baseUrl of [settings.baseUrl, "https://api.openai.com/v1", "https://compatible.example/v1"]) {
+      const openai = baseUrl === "https://api.openai.com/v1";
+      const ai = new CompatibleProvider({ ...settings, baseUrl, model: openai ? "gpt-5.6-terra" : settings.model }, new Timing(), async (_url, init) => {
         const body = JSON.parse(init!.body as string);
-        if (baseUrl === settings.baseUrl) {
+        if (openai) { expect(body.store).toBe(false); expect(body.reasoning_effort).toBe("low"); }
+        if (baseUrl === settings.baseUrl || openai) {
           expect(body.response_format.type).toBe("json_schema");
           const schema = body.response_format.json_schema;
           expect(schema.strict).toBe(true);
@@ -366,6 +370,16 @@ describe("provider contract and configuration", () => {
       });
       expect(await ai.reply({ action: "continue", support_language: "en-US", input: { text: "Um café." } })).toEqual(reply);
     }
+  });
+  it("allows factual app summaries while still requiring all vocabulary meanings", async () => {
+    const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
+      const body = JSON.parse(init!.body as string);
+      expect(body.messages[0].content).toContain("Select corrections ONLY from coached_corrections");
+      return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify({
+        summary: "Practice complete.", pointers: [], vocabulary: [{ word: "café", translation: "קפה" }],
+      }) } }] });
+    });
+    expect((await ai.feedback({ coached_corrections: [], support_language: "he-IL", vocabulary_words: ["café"] })).pointers).toEqual([]);
   });
   it("requires pointers and a translation for every actual session word", async () => {
     let calls = 0;
@@ -424,5 +438,15 @@ describe("provider contract and configuration", () => {
       expect(() => settingsFromEnv({ ...env, ...extra })).toThrow(AppError);
     }
     expect(settingsFromEnv(env).demo).toBe(false);
+  });
+  it("switches paid OpenAI credentials, model and destination together without reusing Groq settings", () => {
+    const env = { FALA_TOKEN: settings.token, DATABASE_URL: settings.databaseUrl,
+      OPENAI_API_KEY: "groq-fixture", OPENAI_BASE_URL: settings.baseUrl, OPENAI_MODEL: "openai/gpt-oss-120b" };
+    expect(settingsFromEnv(env)).toMatchObject({ apiKey: "groq-fixture", baseUrl: settings.baseUrl, model: "openai/gpt-oss-120b" });
+    expect(settingsFromEnv({ ...env, FALA_OPENAI_API_KEY: " openai-fixture " })).toMatchObject({
+      apiKey: "openai-fixture", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-terra",
+    });
+    expect(settingsFromEnv({ ...env, FALA_OPENAI_API_KEY: "openai-fixture", FALA_OPENAI_MODEL: "gpt-5.6-sol" }).model).toBe("gpt-5.6-sol");
+    expect(settingsFromEnv({ ...env, OPENAI_BASE_URL: "https://api.openai.com/v1", OPENAI_MODEL: "" }).model).toBe("gpt-5.6-terra");
   });
 });

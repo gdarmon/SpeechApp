@@ -10,6 +10,10 @@ const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{
 const partnerContext = (reply: Reply, latest = false) => ({ text: reply.text,
   ...(reply.practice_phrase ? { practice_phrase: reply.practice_phrase } : {}),
   ...(latest ? { suggested_replies: (reply.suggested_replies ?? []).map(idea => idea.text) } : {}) });
+const coachedCorrections = (session: Session) => session.turns.flatMap(turn => {
+  const point = turn.reply.turn_feedback;
+  return !turn.help && point?.kind === "correction" && turn.text.includes(point.said) ? [point] : [];
+});
 
 function context(kind: string, topic: string, learner: LearnerContext, session?: Session) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
@@ -72,7 +76,8 @@ export class Sessions {
       const seenBefore = await tx.previouslySeenWords(id, words);
       const feedback = await this.ai.feedback({ ...context(session.kind, session.topic, learner, session),
         turns: session.turns.map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply) })),
-        action: "feedback", self_report: input.confidence, vocabulary_words: words });
+        action: "feedback", self_report: input.confidence, vocabulary_words: words,
+        ...(session.turns.some(t => t.reply.turn_feedback) ? { coached_corrections: coachedCorrections(session) } : {}) });
       const result = sanitizeFeedback(feedback, session, input);
       const translations = new Map(feedback.vocabulary.map(item => [item.word.normalize("NFC").toLowerCase(), item.translation]));
       result.vocabulary = words.map(word => ({ word, translation: translations.get(word) ?? "",
@@ -94,10 +99,18 @@ export function sanitizeFeedback(feedback: Feedback, session: Session, input: Fi
       && !suggestions.some(text => normalized(text) === normalized(turn.text));
   }).map(t => t.text);
   const seen = new Set<string>();
+  const coached = session.turns.some(t => t.reply.turn_feedback);
+  const observed = coachedCorrections(session);
   result.corrections = result.corrections.filter(c => {
     c.key = c.key.toLowerCase().replace(/[^a-z0-9_]+/g,"_").replace(/^_+|_+$/g,"");
     if (!c.key || seen.has(c.key) || !spoken.some(t => t.includes(c.said)) || normalized(c.said) === normalized(c.natural)
       || /^eu tenho \d+ anos$/.test(normalized(c.said))) return false;
+    if (coached) {
+      const point = observed.find(point => normalized(point.said) === normalized(c.said) && normalized(point.natural) === normalized(c.natural));
+      if (!point) return false;
+      c.explanation = point.message;
+      c.example = point.natural;
+    }
     seen.add(c.key); return true;
   });
   if (session.kind !== "assessment" || spontaneous.length < 5 || session.demo) result.assessment = null;
@@ -114,7 +127,23 @@ export function sanitizeFeedback(feedback: Feedback, session: Session, input: Fi
     assessment.confidence = { observation: input.confidence ? `Self-reported: ${input.confidence}` : "Not assessed: no self-report.", evidence: "" };
     if (dimensions.slice(0,4).filter(k => assessment[k].evidence).length < 2) assessment.cefr = null;
   }
-  result.review_phrases = [...new Set([...result.corrections.map(c => c.natural),
+  result.review_phrases = [...new Set([...observed.map(point => point.natural), ...result.corrections.map(c => c.natural),
     ...session.turns.filter(t => t.help).map(t => t.reply.practice_phrase).filter(Boolean)])].slice(0,5);
+  if (coached) {
+    // Summarize recorded practice, not a second set of model-invented diagnoses.
+    // The model still supplies vocabulary meanings and labels for observed corrections.
+    const hebrew = session.request.support_language === "he-IL";
+    const guided = spoken.length - spontaneous.length;
+    result.summary = hebrew
+      ? `סיימת שיחה קצרה בפורטוגזית. תשובות שתרגלת: ${spoken.length}. תשובות בדיבור ללא עזרה: ${spontaneous.length}.` + (guided ? " תשובות שנעזרות בדוגמה או בהקלדה הן תרגול מודרך, ואפשר בהמשך לנסות לומר אותן לבד." : " עכשיו אפשר לחזור על הביטויים מהשיחה ולהשתמש בהם שוב.")
+      : `You practiced ${spoken.length} Portuguese answer${spoken.length === 1 ? "" : "s"}, including ${spontaneous.length} spoken without help.` + (guided ? " Suggested or typed answers count as guided practice. Try saying one on your own next time." : " Revisit the phrases from this conversation and use them again.");
+    const phrases = result.review_phrases.filter(phrase => phrase.length <= 100).slice(0,2);
+    if (!phrases.length) {
+      const last = session.turns.filter(t => !t.help && t.reply.turn_feedback?.kind === "ok" && t.text.length <= 100).at(-1);
+      if (last) phrases.push(last.text);
+    }
+    result.pointers = phrases.map(phrase => hebrew ? `כדאי לומר שוב בקול: ״${phrase}״` : `Practice saying: “${phrase}”`);
+    result.pointers.push(hebrew ? "בפעם הבאה, כדאי לנסות תשובה קצרה אחת בלי לקרוא את הדוגמה." : "Next time, try one short answer without reading the suggestion.");
+  }
   return result;
 }

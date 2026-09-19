@@ -18,7 +18,7 @@ The current service URL is `https://legendary-florentine-6b3c1f.netlify.app`, co
 
 **Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Netlify. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
 
-Live conversation needs an AI provider key. The default is Groq's compatible API with `openai/gpt-oss-120b`, matching the adjacent chatbot's model conventions. Android handles recognition and Brazilian voice playback, so a speech model is not required for this version. AI usage is billed separately from hosting.
+Live conversation needs an AI provider key. Set `FALA_OPENAI_API_KEY` to use paid OpenAI with `gpt-5.6-terra` (override with `FALA_OPENAI_MODEL`). This option selects the OpenAI endpoint and model together and ignores the older compatible-provider settings, so an existing Groq setup cannot accidentally receive the OpenAI key. Without it, the existing `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` configuration continues to work, defaulting to Groq GPT-OSS. Android handles recognition and Brazilian voice playback. AI usage is billed separately from hosting; daily request allowances are not dollar spending caps. See [deployment](docs/deployment.md) for setup and pricing references.
 
 ## Android
 

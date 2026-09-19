@@ -41,8 +41,10 @@ export class CompatibleProvider implements AIProvider {
     };
     const host = new URL(this.settings.baseUrl).hostname;
     if (host === "api.openai.com") body.store = false;
-    if (host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(this.settings.model)) {
-      body.reasoning_effort = "medium";
+    const groqStructured = host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(this.settings.model);
+    const openaiStructured = host === "api.openai.com" && ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"].includes(this.settings.model);
+    if (groqStructured || openaiStructured) {
+      body.reasoning_effort = openaiStructured ? "low" : "medium";
       body.response_format = { type: "json_schema", json_schema: { name: feedback ? "practice_summary" : "practice_reply",
         strict: true, schema: generationSchema(context, feedback) } };
     }
@@ -109,14 +111,16 @@ export class CompatibleProvider implements AIProvider {
   }
   feedback(context: Record<string, unknown>) {
     const words = Array.isArray(context.vocabulary_words) ? context.vocabulary_words as string[] : null;
+    const coached = Array.isArray(context.coached_corrections);
     const schema = feedbackSchema.refine(report => {
-      if (!report.pointers.length) return false;
+      if (!coached && !report.pointers.length) return false;
       if (!words) return true;
       const translated = new Set(report.vocabulary.filter(item => item.translation).map(item => item.word.normalize("NFC").toLowerCase()));
       return translated.size === words.length && report.vocabulary.length === words.length && words.every(word => translated.has(word));
     }, "Include practical pointers and translate each supplied vocabulary word exactly once, without adding words.");
     const language = context.support_language === "he-IL" ? "HEBREW" : "ENGLISH";
-    return this.complete(FEEDBACK + `\nFor this report, write all explanations, summary, pointers and word meanings in ${language}. Translate all ${words?.length ?? 0} supplied vocabulary words.`, context, schema, true);
+    const grounded = coached ? "\nThis session already has immediate coaching. Select corrections ONLY from coached_corrections, copying said and natural exactly. Do not introduce new corrections, diagnoses or grammar rules. If the list is empty, corrections must be empty. The app builds the factual summary and practice pointers: set summary to 'Practice complete.' and pointers to an empty array." : "";
+    return this.complete(FEEDBACK + `\nFor this report, write all explanations, summary, pointers and word meanings in ${language}. Translate all ${words?.length ?? 0} supplied vocabulary words.` + grounded, context, schema, true);
   }
 }
 

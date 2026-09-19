@@ -47,10 +47,17 @@ In **Project configuration → Environment variables**, add the following. Use *
 | `FALA_TOKEN` | Optional random 32+ character **operator** token; never shared with users |
 | `FALA_DAILY_USER_LIMIT` | Optional daily AI request limit per user; default 200 |
 | `FALA_DAILY_APP_LIMIT` | Optional daily AI request limit for the whole service; default 2000 |
-| `OPENAI_API_KEY` | Your **Groq** key for the default provider |
-| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
-| `OPENAI_MODEL` | `openai/gpt-oss-120b` |
+| `FALA_OPENAI_API_KEY` | OpenAI API key for paid coaching; server only |
+| `FALA_OPENAI_MODEL` | Optional; defaults to `gpt-5.6-terra` |
 | `FALA_DEMO` | `false` |
+
+The paid option always uses `https://api.openai.com/v1`, with low reasoning effort and strict structured replies for the supported GPT-5.6 Terra/Sol/Luna models. Requests set `store: false`; provider abuse-monitoring retention is separate. [OpenAI model details](https://developers.openai.com/api/docs/models/gpt-5.6-terra), [data controls](https://developers.openai.com/api/docs/guides/your-data).
+
+For an existing Groq deployment, leave its variables in place and add the dedicated OpenAI key. On the next deploy, Fala switches the endpoint, credential and model together. Remove the dedicated key and redeploy to return to the existing provider. It never sends a failed OpenAI request to another provider automatically. Model access and coaching quality must be tested with the configured account before rollout.
+
+Alternatively, leave `FALA_OPENAI_API_KEY` empty and set `OPENAI_API_KEY` to a Groq key, `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, and `OPENAI_MODEL=openai/gpt-oss-120b`. Those three compatible-provider variables are ignored when the dedicated OpenAI key is set.
+
+As of 19 September 2026, Terra lists $2 per million input tokens and $12 per million output tokens for standard short-context requests. Actual cost depends on conversation history, output/reasoning tokens and retries. The daily user/app allowances cap requests, not dollars; review actual API usage before opening access broadly. [Current model pricing](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
 
 Google sign-in is enabled through the Web and Android OAuth clients in [Google setup](google-sign-in.md). No Google client secret or email allowlist is required. Only set `FALA_TOKEN` if you want operator diagnostics or access to legacy records; generate a random value of at least 32 characters. App users never receive it.
 
@@ -72,7 +79,7 @@ Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connec
 
 **If you later obtain region selection, benchmark Frankfurt functions + Frankfurt Supabase.** This is a reasonable candidate for lower latency from Israel, not a measured guarantee. Netlify uses `fra`; Supabase uses `eu-central-1`. Move both together. A Supabase region change requires a new project and data migration, so plan that before moving an existing database. [Supabase regions](https://supabase.com/docs/guides/platform/regions).
 
-The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, short replies, and low reasoning effort for Groq GPT-OSS. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
+The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, and short replies. Reasoning effort is low for the supported OpenAI models and medium for Groq GPT-OSS. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
 
 To measure your Haifa connection, use Node 22 on a computer on the same network. In a local ignored `.env`, set `FALA_URL=https://YOUR-SITE.netlify.app` and `FALA_TOKEN`, then run:
 
@@ -84,7 +91,7 @@ Eight authenticated read-only checks report the region, database-region hint, ro
 
 Install a local pt-BR voice when available. Avoid artificial keep-alive requests: they consume usage and cannot guarantee latency. Supabase Free projects may pause after a week of inactivity; restore the project if needed. Pro avoids inactivity pausing, but upgrade only if you need it. [Supabase production guidance](https://supabase.com/docs/guides/deployment/going-into-prod).
 
-Netlify Personal covers hosting allowances, not AI inference. Check actual usage after real sessions before changing plans. No paid upgrades are configured.
+Netlify Personal covers hosting allowances, not AI inference. Check actual usage after real sessions before changing plans. Enabling an OpenAI key starts metered API usage; it does not change the hosting or database plans.
 
 ## Troubleshooting
 

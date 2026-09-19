@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { coachingReplySchema } from "../src/coaching.js";
-import { replySchema, type Session } from "../src/models.js";
+import { feedbackSchema, replySchema, type Session } from "../src/models.js";
 import { sessionVocabulary } from "../src/vocabulary.js";
+import { sanitizeFeedback } from "../src/service.js";
 
 const opening = replySchema.parse({ text: "Oi! Tudo bem?", translation: "היי! מה שלומך?", pace: "slow",
   suggested_replies: [{ text: "Estou bem.", translation: "שלומי טוב." }, { text: "Mais ou menos.", translation: "ככה ככה." }] });
@@ -71,4 +72,28 @@ it("includes spoken corrections without counting an echoed correction twice", ()
     { text: "Eu querer café", help: false, reply: replySchema.parse(fixed) },
   ] } as Session;
   expect(sessionVocabulary(session).get("quero")).toBe(2);
+});
+
+it("grounds the final review in recorded coaching instead of inventing a new grammar diagnosis", () => {
+  const report = feedbackSchema.parse({ summary: "You made several basic mistakes.", pointers: ["Always add an article before café."], corrections: [
+    { key: "quero", category: "grammar", said: correction.said, natural: correction.natural, explanation: "Use quero.", example: "Eu quero chá." },
+    { key: "article", category: "grammar", said: "Eu quero café", natural: "Eu quero o café", explanation: "Always add an article.", example: "O café." },
+  ] });
+  for (const language of ["en-US", "he-IL"] as const) {
+    const session = { request: { support_language: language }, opening, kind: "conversation", demo: false, turns: [
+      { text: correction.said, help: false, source: "speech", reply: replySchema.parse(fixed) },
+      { text: "Eu quero café", help: false, source: "typed", assisted: true, reply: replySchema.parse({ ...opening, turn_feedback: { kind: "ok", message: "That works." } }) },
+    ] } as Session;
+    const result = sanitizeFeedback(report, session, { confidence: null });
+    expect(result.corrections.map(point => point.key)).toEqual(["quero"]);
+    expect(result.corrections[0].explanation).toBe(correction.message);
+    expect(result.corrections[0].example).toBe(correction.natural);
+    expect(result.review_phrases).toEqual([correction.natural]);
+    expect(result.summary).not.toContain("mistakes");
+    expect(result.pointers.join(" ")).not.toContain("article");
+    expect(result.pointers[0]).toContain(correction.natural);
+    expect(result.summary).toContain(language === "he-IL" ? "תשובות שתרגלת: 2. תשובות בדיבור ללא עזרה: 1." : "2 Portuguese answers, including 1 spoken without help.");
+    // A repeated finish should not mutate the provider's original response object.
+    expect(report.corrections).toHaveLength(2);
+  }
 });
