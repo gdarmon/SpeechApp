@@ -86,8 +86,13 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(scroll).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Image(painterResource(R.drawable.fala_logo), contentDescription = "Fala",
-                    modifier = Modifier.size(if (c.screen == "talk") 40.dp else 64.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Image(painterResource(R.drawable.fala_logo), contentDescription = "Fala",
+                        modifier = Modifier.size(if (c.screen == "talk") 40.dp else 64.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)))
+                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.semantics { contentDescription = "App version ${BuildConfig.VERSION_NAME}" })
+                }
                 Text("PORTUGUÊS BRASILEIRO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             if (c.screen !in listOf("home", "welcome", "language") && c.settings.signedIn) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
