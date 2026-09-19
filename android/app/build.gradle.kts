@@ -12,12 +12,12 @@ android {
         minSdk = 26
         targetSdk = 36
         val releaseCode = providers.environmentVariable("FALA_VERSION_CODE").orNull
-        versionCode = if (releaseCode == null) 3 else {
+        versionCode = if (releaseCode == null) 4 else {
             requireNotNull(releaseCode.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
                 "FALA_VERSION_CODE must be an integer between 1 and 2100000000"
             }
         }
-        versionName = "0.3.0"
+        versionName = "0.4.0"
         buildConfigField("String", "API_BASE_URL", "\"https://legendary-florentine-6b3c1f.netlify.app\"")
     }
     signingConfigs {
@@ -47,6 +47,7 @@ android {
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")

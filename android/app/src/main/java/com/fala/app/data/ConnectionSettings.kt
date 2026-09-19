@@ -42,6 +42,12 @@ class ConnectionSettings(context: Context) {
     var consent: Boolean
         get() = prefs.getBoolean("consent", false)
         set(value) { prefs.edit().putBoolean("consent", value).apply() }
+    var supportLanguage: String
+        get() = prefs.getString("supportLanguage", "").orEmpty().takeIf { it in listOf("en-US", "he-IL") }.orEmpty()
+        set(value) {
+            require(value in listOf("en-US", "he-IL"))
+            prefs.edit().putString("supportLanguage", value).apply()
+        }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }

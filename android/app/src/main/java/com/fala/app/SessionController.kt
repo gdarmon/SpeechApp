@@ -14,6 +14,7 @@ import com.fala.app.voice.AndroidSpeechInput
 import com.fala.app.voice.AndroidSpeechOutput
 import com.fala.app.voice.SpeechInput
 import com.fala.app.voice.SpeechOutput
+import com.fala.app.voice.ReplyDraft
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,7 +28,9 @@ class SessionController(application: Application) : AndroidViewModel(application
     private val api = SessionApi(settings)
     private val input: SpeechInput = AndroidSpeechInput(application)
     private val output: SpeechOutput = AndroidSpeechOutput(application)
-    var screen by mutableStateOf(if (settings.consent && settings.signedIn) "home" else "welcome")
+    var screen by mutableStateOf(if (settings.consent && settings.signedIn) {
+        if (settings.supportLanguage.isBlank()) "language" else "home"
+    } else "welcome")
         private set
     var busy by mutableStateOf(false)
         private set
@@ -49,9 +52,24 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var demo by mutableStateOf(false)
         private set
-    var helpLanguage by mutableStateOf("en-US")
+    var supportLanguage by mutableStateOf(settings.supportLanguage)
+        private set
+    val conversationLanguage: String get() = session.optString("support_language", supportLanguage.ifBlank { "en-US" })
+    var draft by mutableStateOf(ReplyDraft())
+        private set
+    var partialWords by mutableStateOf("")
+        private set
+    var voiceNotice by mutableStateOf("")
+        private set
+    var voiceLevel by mutableStateOf(0f)
+        private set
+    var holding by mutableStateOf(false)
+        private set
+    var helpMode by mutableStateOf(false)
+        private set
+    val recording: Boolean get() = holding || phase == "Recognizing"
+    private var segmentJob: Job? = null
     var slow by mutableStateOf(false)
-    var transcriptVisible by mutableStateOf(false)
     var retryAvailable by mutableStateOf(false)
         private set
     private var foreground = false
@@ -59,7 +77,6 @@ class SessionController(application: Application) : AndroidViewModel(application
     private var voiceGeneration = 0
     private var timeout: Job? = null
     private var retryAction: (suspend () -> Unit)? = null
-    private var helpNext = false
     private var job: Job? = null
 
     init { if (screen == "home") refresh() }
@@ -73,7 +90,8 @@ class SessionController(application: Application) : AndroidViewModel(application
             catch (_: SignInCancelled) { retryAction = null }
             catch (failure: Exception) {
                 if (failure is ServerFailure && failure.status == 401) clearAccount()
-                error = failure.message?.take(350) ?: "Something interrupted the conversation. Please retry."
+                error = if (failure is org.json.JSONException) "Fala could not read this reply. Please retry."
+                    else failure.message?.take(350) ?: "Something interrupted the conversation. Please retry."
                 phase = "Paused"; retryAvailable = retryable && screen != "welcome"
             } finally { busy = false }
         }
@@ -82,7 +100,18 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun retry() { retryAction?.let { execute(action = it) } }
     fun report(message: String) { error = message }
 
+    fun chooseSupportLanguage(language: String) {
+        if (busy) return
+        settings.supportLanguage = language; supportLanguage = language
+    }
+
+    fun finishLanguageSetup() {
+        if (supportLanguage.isBlank() || busy) return
+        screen = "home"; refresh()
+    }
+
     fun signIn(network: Boolean, credential: suspend (String, String) -> String) {
+        if (supportLanguage.isBlank()) return
         execute(retryable = false) {
             val challenge = api.post("/auth/google/challenge")
             val idToken = credential(challenge.getString("google_client_id"), challenge.getString("nonce"))
@@ -97,7 +126,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     private fun clearAccount() {
         pause(); settings.clearSession()
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
-        feedback = JSONObject(); heard = ""; demo = false; transcriptVisible = false
+        feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
     }
 
@@ -134,16 +163,18 @@ class SessionController(application: Application) : AndroidViewModel(application
         audioEnabled = true
         val request = JSONObject().put("request_id", UUID.randomUUID().toString())
             .put("kind", if (assessment) "assessment" else "conversation").put("topic", topic)
+            .put("support_language", supportLanguage.ifBlank { "en-US" })
         execute {
             val result = api.post("/sessions", request)
             session = result; settings.activeSession = result.getString("id")
             reply = result.getJSONObject("opening"); heard = ""; feedback = JSONObject()
-            screen = "talk"; helpNext = false
+            screen = "talk"; helpMode = false; draft = ReplyDraft(); voiceNotice = ""
             playReply()
         }
     }
 
     fun resume(id: String = settings.activeSession) = execute {
+        pause()
         session = api.get("/sessions/$id")
         if (!session.isNull("feedback")) {
             feedback = session.getJSONObject("feedback"); screen = "feedback"
@@ -151,94 +182,148 @@ class SessionController(application: Application) : AndroidViewModel(application
             settings.activeSession = id
             val turns = session.getJSONArray("turns")
             reply = if (turns.length() > 0) turns.getJSONObject(turns.length() - 1).getJSONObject("reply") else session.getJSONObject("opening")
-            screen = "talk"; phase = "Paused"; heard = ""; helpNext = false
+            screen = "talk"; phase = "Your turn"; heard = ""; helpMode = false; draft = ReplyDraft(); voiceNotice = ""
         }
     }
 
     private fun stopVoice() {
         voiceGeneration++
+        holding = false; voiceLevel = 0f
         timeout?.cancel(); timeout = null
+        segmentJob?.cancel(); segmentJob = null
         input.cancel(); output.stop()
+        partialWords = ""
     }
 
-    fun pause() { audioEnabled = false; stopVoice(); phase = "Paused" }
+    fun pause() { audioEnabled = false; stopVoice(); phase = "Your turn" }
     fun setForeground(value: Boolean) { foreground = value; if (!value) pause() }
 
     fun play() {
         if (busy || retryAvailable) return
-        audioEnabled = true
+        audioEnabled = true; voiceNotice = ""
         playReply()
     }
 
     private fun playReply() {
         stopVoice()
-        if (!audioEnabled || !foreground || screen != "talk") { phase = "Paused"; return }
+        if (!audioEnabled || !foreground || screen != "talk") { phase = "Your turn"; return }
         val text = reply.optString("text")
-        if (text.isBlank()) return
+        if (text.isBlank()) { phase = "Your turn"; return }
         phase = "Speaking"
         val generation = voiceGeneration
         output.speak(text, slow || reply.optString("pace") == "slow", done = {
-            if (audioEnabled && generation == voiceGeneration && foreground && screen == "talk") {
-                helpNext = false
-                listen()
-            }
+            if (generation == voiceGeneration) phase = "Your turn"
         }, error = { message ->
-            if (generation == voiceGeneration) { phase = "Paused"; error = message }
+            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message }
         })
     }
 
-    fun mic() {
-        if (busy || retryAvailable) return
-        audioEnabled = true
-        if (phase == "Listening") {
-            phase = "Recognizing"; input.finish()
-        } else { helpNext = false; listen() }
+    fun editDraft(text: String) {
+        if (busy || recording) return
+        draft = draft.edited(text)
     }
 
-    fun help(language: String) {
+    fun chooseSuggestion(text: String) {
         if (busy || retryAvailable) return
-        audioEnabled = true
-        helpLanguage = language; helpNext = true; listen()
+        pause(); helpMode = false
+        draft = ReplyDraft(text = text, assisted = true)
+        voiceNotice = "Try this aloud, or edit it before sending."
     }
 
-    private fun listen() {
-        stopVoice()
-        if (!audioEnabled || !foreground || screen != "talk") { phase = "Paused"; return }
-        phase = "Listening"; error = ""; heard = ""
+    fun toggleHelp() {
+        if (busy || retryAvailable) return
+        pause(); helpMode = !helpMode; draft = ReplyDraft(); voiceNotice = ""
+    }
+
+    fun beginHolding() {
+        if (busy || retryAvailable || recording || !foreground || screen != "talk") return
+        stopVoice(); audioEnabled = true; holding = true; voiceNotice = ""
+        draft = ReplyDraft(assisted = draft.assisted)
         val generation = voiceGeneration
-        val help = helpNext
-        val language = if (help) helpLanguage else "pt-BR"
         timeout = viewModelScope.launch {
             delay(45000)
-            if (generation == voiceGeneration) { pause(); error = "Listening paused. Tap the microphone when you're ready." }
+            if (generation == voiceGeneration) finishHolding()
         }
+        listenSegment(generation)
+    }
+
+    fun finishHolding() {
+        if (!holding) return
+        holding = false; voiceLevel = 0f; timeout?.cancel()
+        if (phase == "Listening") {
+            phase = "Recognizing"
+            val generation = voiceGeneration
+            timeout = viewModelScope.launch {
+                delay(8000)
+                if (generation == voiceGeneration) {
+                    val partial = partialWords
+                    stopVoice()
+                    if (partial.isNotBlank()) draft = draft.edited(listOf(draft.text, partial).filter { it.isNotBlank() }.joinToString(" "))
+                    phase = "Your turn"; voiceNotice = "Check the words below, or hold to try again."
+                }
+            }
+            input.finish()
+        } else {
+            val wasStarting = phase == "Starting microphone"
+            stopVoice(); phase = "Your turn"
+            if (wasStarting && draft.text.isBlank()) voiceNotice = "Hold until you see Listening, then speak."
+        }
+    }
+
+    fun cancelHolding() {
+        if (!recording) return
+        stopVoice(); draft = ReplyDraft(); phase = "Your turn"; voiceNotice = "Recording cancelled."
+    }
+
+    private fun listenSegment(generation: Int) {
+        if (!holding || generation != voiceGeneration || !foreground) return
+        phase = "Starting microphone"
+        val language = if (helpMode) conversationLanguage else "pt-BR"
         input.listen(language, settings.networkRecognition,
-            partial = { if (generation == voiceGeneration) heard = it },
+            ready = { if (generation == voiceGeneration && holding) phase = "Listening" },
+            level = { if (generation == voiceGeneration && holding) voiceLevel = it },
+            partial = { if (generation == voiceGeneration) partialWords = it },
             result = { result ->
                 if (generation == voiceGeneration) {
-                    timeout?.cancel(); heard = result.text; phase = "Thinking"
-                    val body = JSONObject().put("request_id", UUID.randomUUID().toString())
-                        .put("text", result.text).put("help", help).put("language", language).put("speech_ms", result.speechMs)
-                    val id = session.getString("id")
-                    execute {
-                        val resultReply = api.post("/sessions/$id/turns", body)
-                        // The saved reply acknowledges this turn; avoid another network trip before speaking.
-                        val updated = JSONObject(session.toString())
-                        val turns = updated.getJSONArray("turns")
-                        if ((0 until turns.length()).none {
-                            turns.getJSONObject(it).optString("request_id") == body.getString("request_id")
-                        }) {
-                            turns.put(JSONObject(body.toString()).put("session_id", id)
-                                .put("help", if (help) 1 else 0).put("reply", resultReply))
-                        }
-                        session = updated
-                        reply = resultReply; helpNext = false
-                        playReply()
-                    }
+                    draft = draft.segment(result.text, result.speechMs); partialWords = ""; voiceLevel = 0f
+                    if (holding) {
+                        // Some engines end at a pause even while the finger is held down.
+                        phase = "Between phrases"
+                        segmentJob = viewModelScope.launch { delay(200); listenSegment(generation) }
+                    } else { timeout?.cancel(); phase = "Your turn" }
                 }
             }, error = { message ->
-                if (generation == voiceGeneration) { timeout?.cancel(); phase = "Paused"; error = message }
+                if (generation == voiceGeneration) {
+                    val partial = partialWords
+                    stopVoice()
+                    if (partial.isNotBlank()) draft = draft.edited(listOf(draft.text, partial).filter { it.isNotBlank() }.joinToString(" "))
+                    phase = "Your turn"; voiceNotice = message
+                }
             })
+    }
+
+    fun sendDraft() {
+        if (busy || recording || retryAvailable || draft.text.isBlank()) return
+        val answer = draft
+        val help = helpMode
+        stopVoice(); audioEnabled = true; phase = "Thinking"; voiceNotice = ""
+        val body = JSONObject().put("request_id", UUID.randomUUID().toString())
+            .put("text", answer.text.trim()).put("help", help)
+            .put("language", if (help) conversationLanguage else "pt-BR")
+            .put("speech_ms", answer.speechMs).put("source", answer.source).put("assisted", answer.assisted)
+        val id = session.getString("id")
+        execute {
+            val resultReply = api.post("/sessions/$id/turns", body)
+            val updated = JSONObject(session.toString())
+            val turns = updated.getJSONArray("turns")
+            if ((0 until turns.length()).none { turns.getJSONObject(it).optString("request_id") == body.getString("request_id") }) {
+                turns.put(JSONObject(body.toString()).put("session_id", id)
+                    .put("help", if (help) 1 else 0).put("reply", resultReply))
+            }
+            session = updated; heard = answer.text; draft = ReplyDraft()
+            reply = resultReply; helpMode = false
+            playReply()
+        }
     }
 
     fun finish(confidence: String?) {
@@ -269,5 +354,5 @@ class SessionController(application: Application) : AndroidViewModel(application
         feedback = JSONObject(); heard = ""; screen = "home"; loadProgress()
     }
 
-    override fun onCleared() { timeout?.cancel(); input.close(); output.close() }
+    override fun onCleared() { timeout?.cancel(); segmentJob?.cancel(); input.close(); output.close() }
 }

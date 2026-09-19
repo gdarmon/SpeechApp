@@ -1,4 +1,15 @@
-# Validation — 18 September 2026
+# Validation
+
+## 0.4.0 — 19 September 2026
+
+- 35 backend tests passed, covering saved support language, translated reply ideas, resumable sessions, typed/guided answer provenance, assessment exclusions, and existing authentication/privacy/retry checks. Provider responses missing a translation or either reply idea are rejected.
+- Three Android JVM tests passed for multi-segment drafts, editing recognized words, and retaining assistance markers. Debug APK, signed version-4 release AAB, and debug/release lint passed.
+- The new local API handler was tested against the actual configured AI and Supabase: English and Hebrew starts/turns, two translated suggestions per reply, exact start/turn retries, saved language and answer metadata on resume, typed/spoken progress separation, and account deletion all succeeded. Temporary verification accounts and their learner data were removed afterward.
+- No database migration is required for this change. The new session/turn metadata uses existing JSON columns, and old clients can omit it.
+- Physical hold/release timing, device recognition, audio playback, Hebrew layout, permission dialogs, and accessibility still need verification on a phone using the new build. Passing the build does not establish those behaviors.
+- Play publishing credentials are still a separate setup step. Building a signed bundle does not upload it or update an installed app.
+
+## Historical results — 18 September 2026
 
 Completed locally for 0.3.0:
 

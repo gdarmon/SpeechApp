@@ -34,6 +34,11 @@ type SnapshotRow = {
   recent_topics: string[];
 };
 
+const savedTurn = (turn: Turn): Turn => ({ ...turn,
+  source: turn.request?.source ?? turn.source ?? "speech",
+  assisted: turn.request?.assisted ?? turn.assisted ?? false,
+});
+
 export class Store {
   constructor(private db: Database, private timing: Timing, private userId: string,
     private dailyUserLimit = 200, private dailyAppLimit = 2000, private executor: Executor = db) {}
@@ -87,7 +92,7 @@ export class Store {
     const memory: Memory[] = row.memory.map(m => ({ ...m.correction, occurrences: m.occurrences,
       last_seen: m.observed_at, due_at: due(m.observed_at) }));
     const help_patterns: Memory[] = row.help_patterns.map(h => ({ ...h, category: "retrieval", due_at: due(h.last_seen) }));
-    return { session: row.session ? { ...row.session, turns: row.turns } : null,
+    return { session: row.session ? { ...row.session, turns: row.turns.map(savedTurn) } : null,
       learner: { assessment: row.assessment, memory, help_patterns, recent_topics: row.recent_topics } };
   }
 
@@ -97,7 +102,7 @@ export class Store {
         COALESCE((SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM fala.turns t WHERE session_id=s.id),'[]'::jsonb) AS turns
       FROM fala.sessions s WHERE id=$1::uuid`, [id]);
     if (!row) throw new AppError(404, "Conversation not found.");
-    return { ...row.session, turns: row.turns };
+    return { ...row.session, turns: row.turns.map(savedTurn) };
   }
 
   async started(requestId: string) {
@@ -142,7 +147,10 @@ export class Store {
       (SELECT count(*)::int FROM fala.sessions s WHERE NOT demo AND ended_at IS NOT NULL
         AND EXISTS(SELECT 1 FROM fala.turns t WHERE t.session_id=s.id AND NOT t.help)) AS conversations,
       (SELECT COALESCE(sum(t.speech_ms),0)::float8 FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND NOT t.help) AS speech_ms,
-      (SELECT count(*)::int FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo) AS learner_turns,
+      (SELECT count(*)::int FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND NOT t.help
+        AND COALESCE(t.request->>'source','speech')='speech') AS learner_turns,
+      (SELECT count(*)::int FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND NOT t.help
+        AND t.request->>'source'='typed') AS typed_turns,
       (SELECT count(*)::int FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND t.help) AS help_requests,
       COALESCE((SELECT jsonb_agg(DISTINCT topic) FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL),'[]'::jsonb) AS topics`);
     return { ...stats, assessment: learner.assessment, memory: learner.memory, help_patterns: learner.help_patterns };
@@ -165,7 +173,7 @@ export class Store {
 
 export function publicSession(session: Session) {
   const { request: _request, user_id: _user, ...rest } = session as Session & { user_id?: string };
-  return { ...rest, demo: Number(session.demo), turns: session.turns.map(t => {
+  return { ...rest, support_language: session.request.support_language ?? "en-US", demo: Number(session.demo), turns: session.turns.map(t => {
     const { request: _request, ...turn } = t as Turn & { request?: TurnInput };
     return { ...turn, help: Number(t.help) };
   }) };

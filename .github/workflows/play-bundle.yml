@@ -87,7 +87,7 @@ jobs:
           trap 'rm -f "$FALA_UPLOAD_KEYSTORE"' EXIT
           umask 077
           printf '%s' "$FALA_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$FALA_UPLOAD_KEYSTORE"
-          ./gradlew --no-daemon :app:bundleRelease :app:lintRelease
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:bundleRelease :app:lintRelease
           jarsigner -verify app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:

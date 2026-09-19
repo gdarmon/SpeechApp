@@ -36,7 +36,10 @@ class Coach implements AIProvider {
   async reply(context: Record<string, unknown>) {
     this.calls.push(context);
     if (this.fail) throw new AppError(503, "Try again.");
-    return replySchema.parse({ text: "Que legal! E depois?", topic: "Daily life", practice_phrase: context.action === "help" ? "Quero uma mesa para dois." : "" });
+    const hebrew = context.support_language === "he-IL";
+    return replySchema.parse({ text: "Que legal! E depois?", topic: "Daily life", practice_phrase: context.action === "help" ? "Quero uma mesa para dois." : "",
+      translation: hebrew ? "איזה יופי! ומה קרה אחר כך?" : "How nice! What happened next?",
+      suggested_replies: [{ text: "Fui tomar um café.", translation: hebrew ? "הלכתי לשתות קפה." : "I went for a coffee." }] });
   }
   async feedback() { if (this.fail) throw new AppError(503, "Try again."); return structuredClone(this.report); }
 }
@@ -71,6 +74,42 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("remembers the support language and returns translations and reply ideas on start, turns, and resume", async () => {
+    for (const language of ["en-US", "he-IL"]) {
+      const response = await start({ support_language: language });
+      expect(response.status).toBe(200);
+      expect(response.data.support_language).toBe(language);
+      expect(coach.calls.at(-1)?.support_language).toBe(language);
+      expect(response.data.opening.translation).toBe(language === "he-IL" ? "איזה יופי! ומה קרה אחר כך?" : "How nice! What happened next?");
+      expect(response.data.opening.suggested_replies[0].text).toBe("Fui tomar um café.");
+      await turn(response.data.id);
+      const resumed = (await call(`/sessions/${response.data.id}`)).data;
+      expect(resumed.support_language).toBe(language);
+      expect(resumed.turns[0].reply.translation).toBe(response.data.opening.translation);
+    }
+    expect((await start({ support_language: "fr-FR" })).status).toBe(422);
+  });
+  it("keeps typed and guided answers out of spontaneous speaking assessment", async () => {
+    const dimension = { observation: "Good", evidence: "Fui tomar um café." };
+    coach.report.assessment = { cefr: "B1", comprehension: dimension, vocabulary: dimension, grammar: dimension,
+      sentence_construction: dimension, fluency: dimension, pronunciation: dimension, confidence: dimension };
+    for (const source of ["typed", "suggested", "copied"]) {
+      const session = (await start({ kind: "assessment" })).data;
+      for (let i = 0; i < 5; i++) await turn(session.id, { text: "Fui tomar um café.",
+        source: source === "typed" ? "typed" : "speech", speech_ms: source === "typed" ? 0 : 1000,
+        assisted: source === "suggested" });
+      const saved = (await call(`/sessions/${session.id}`)).data;
+      expect(saved.turns[0].source).toBe(source === "typed" ? "typed" : "speech");
+      expect(saved.turns[0].assisted).toBe(source === "suggested");
+      expect((await finish(session.id)).data.assessment).toBeNull();
+    }
+    const progress = (await call("/progress")).data;
+    expect(progress.typed_turns).toBe(5);
+    expect(progress.learner_turns).toBe(10);
+    expect(progress.speech_ms).toBe(10000);
+    const session = (await start()).data;
+    expect((await turn(session.id, { source: "typed", speech_ms: 1000 })).status).toBe(422);
+  });
   it("keeps health public and all learner data authenticated", async () => {
     expect((await call("/health", "GET", undefined, handler, "wrong")).status).toBe(200);
     for (const route of ["/sessions", "/dashboard", "/diagnostics", "/progress"]) expect((await call(route, "GET", undefined, handler, "wrong")).status).toBe(401);
@@ -244,14 +283,17 @@ describe("Netlify API against PostgreSQL", () => {
 
 describe("provider contract and configuration", () => {
   it("validates output, requests fast reasoning and rejects truncated JSON", async () => {
-    const reply = replySchema.parse({ text: "Oi!" });
+    const reply = replySchema.parse({ text: "Oi!", translation: "Hi!", suggested_replies: [
+      { text: "Tudo bem?", translation: "How are you?" }, { text: "Oi, como vai?", translation: "Hi, how's it going?" },
+    ] });
     const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
       const sent = JSON.parse(init!.body as string);
       expect(sent.reasoning_effort).toBe("low"); expect(init!.redirect).toBe("error");
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
     });
     expect(await ai.reply({})).toEqual(reply);
-    for (const [reason, content] of [["length", JSON.stringify(reply)], ["stop", "{bad"], ["stop", '{"text":""}']]) {
+    for (const [reason, content] of [["length", JSON.stringify(reply)], ["stop", "{bad"], ["stop", '{"text":""}'],
+      ["stop", JSON.stringify({ ...reply, translation: "" })], ["stop", JSON.stringify({ ...reply, suggested_replies: [] })]]) {
       const broken = new CompatibleProvider(settings, new Timing(), async () => Response.json({ choices: [{ finish_reason: reason, message: { content } }] }));
       await expect(broken.reply({})).rejects.toMatchObject({ status: 503 });
     }

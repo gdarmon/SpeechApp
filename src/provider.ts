@@ -4,6 +4,9 @@ import { AppError, feedbackSchema, replySchema, type Feedback, type Reply } from
 import { PARTNER, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
 
+const coachingReplySchema = replySchema.refine(reply => reply.translation.length > 0 && reply.suggested_replies.length === 2,
+  "A coaching reply needs a translation and two reply ideas.");
+
 export interface AIProvider {
   demo: boolean;
   reply(context: Record<string, unknown>): Promise<Reply>;
@@ -48,7 +51,7 @@ export class CompatibleProvider implements AIProvider {
       }
     });
   }
-  reply(context: Record<string, unknown>) { return this.complete(PARTNER, context, replySchema); }
+  reply(context: Record<string, unknown>) { return this.complete(PARTNER, context, coachingReplySchema); }
   feedback(context: Record<string, unknown>) { return this.complete(FEEDBACK, context, feedbackSchema, true); }
 }
 

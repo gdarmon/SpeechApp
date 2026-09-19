@@ -5,13 +5,17 @@ export const startSchema = z.strictObject({
   request_id: text(80, 8),
   kind: z.enum(["conversation", "assessment"]).default("conversation"),
   topic: text(120, 1).default("choose for me"),
+  support_language: z.enum(["en-US", "he-IL"]).optional(),
 });
 export const turnSchema = z.strictObject({
   request_id: text(80, 8), text: text(2500, 1),
   help: z.boolean().default(false),
   language: z.enum(["pt-BR", "en-US", "he-IL"]).default("pt-BR"),
   speech_ms: z.number().int().min(0).max(180000).default(0),
-}).refine((v) => v.help || v.language === "pt-BR", "Use pt-BR for conversation turns.");
+  source: z.enum(["speech", "typed"]).optional(),
+  assisted: z.boolean().optional(),
+}).refine((v) => v.help || v.language === "pt-BR", "Use pt-BR for conversation turns.")
+  .refine((v) => v.source !== "typed" || v.speech_ms === 0, "Typed replies cannot count as speaking time.");
 export const finishSchema = z.strictObject({
   confidence: z.enum(["hard", "okay", "comfortable"]).nullable().default(null),
 });
@@ -19,6 +23,8 @@ export const replySchema = z.strictObject({
   text: text(1600, 1), explanation: text(400).default(""),
   practice_phrase: text(500).default(""), pace: z.enum(["slow", "normal"]).default("normal"),
   topic: text(120).default(""),
+  translation: text(2400).default(""),
+  suggested_replies: z.array(z.strictObject({ text: text(350, 1), translation: text(500, 1) })).max(2).default([]),
 });
 export const correctionSchema = z.strictObject({
   key: text(120, 1), category: z.enum(["grammar", "retrieval", "naturalness", "literal_translation"]),
@@ -41,7 +47,7 @@ export type Reply = z.infer<typeof replySchema>;
 export type Feedback = z.infer<typeof feedbackSchema> & { review_phrases?: string[] };
 export type Correction = z.infer<typeof correctionSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
-export type Turn = TurnInput & { id?: number; session_id: string; reply: Reply };
+export type Turn = TurnInput & { id?: number; session_id: string; reply: Reply; request?: TurnInput };
 export type Session = {
   id: string; request_id: string; request: Start; kind: Start["kind"]; topic: string;
   started_at: string; ended_at: string | null; opening: Reply; feedback: Feedback | null;

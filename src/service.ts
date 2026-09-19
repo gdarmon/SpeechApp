@@ -7,11 +7,12 @@ const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{
 
 function context(kind: string, topic: string, learner: LearnerContext, session?: Session) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
+    support_language: session?.request.support_language ?? "en-US",
     weaknesses: [...learner.memory, ...learner.help_patterns].filter(m => new Date(m.due_at).getTime() <= Date.now())
       .sort((a,b) => b.occurrences-a.occurrences || a.due_at.localeCompare(b.due_at)).slice(0,3),
     known_pattern_keys: learner.memory.map(m => m.key).filter(Boolean).slice(0,30),
     opening: session?.opening, turn_count: session?.turns.length || 0,
-    turns: (session?.turns || []).slice(-12).map(t => ({ text: t.text, help: t.help, reply: t.reply })),
+    turns: (session?.turns || []).slice(-12).map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: t.reply })),
   };
 }
 
@@ -26,7 +27,7 @@ export class Sessions {
         return previous;
       }
       const { learner } = await tx.snapshot();
-      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), action: "start" });
+      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), support_language: input.support_language ?? "en-US", action: "start" });
       return tx.create(input, reply, this.ai.demo);
     });
   }
@@ -58,7 +59,7 @@ export class Sessions {
       if (session.feedback) return session.feedback;
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
       const feedback = await this.ai.feedback({ ...context(session.kind, session.topic, learner, session),
-        turns: session.turns.map(t => ({ text: t.text, help: t.help, reply: t.reply })),
+        turns: session.turns.map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: t.reply })),
         action: "feedback", self_report: input.confidence });
       const result = sanitizeFeedback(feedback, session, input);
       await tx.finish(id, result, session.demo);
@@ -70,6 +71,12 @@ export class Sessions {
 export function sanitizeFeedback(feedback: Feedback, session: Session, input: Finish): Feedback {
   const result = structuredClone(feedback);
   const spoken = session.turns.filter(t => !t.help).map(t => t.text);
+  const spontaneous = session.turns.filter((turn, index) => {
+    const previous = index === 0 ? session.opening : session.turns[index - 1].reply;
+    const suggestions = [...(previous.suggested_replies || []).map(s => s.text), previous.practice_phrase].filter(Boolean);
+    return !turn.help && turn.source !== "typed" && !turn.assisted
+      && !suggestions.some(text => normalized(text) === normalized(turn.text));
+  }).map(t => t.text);
   const seen = new Set<string>();
   result.corrections = result.corrections.filter(c => {
     c.key = c.key.toLowerCase().replace(/[^a-z0-9_]+/g,"_").replace(/^_+|_+$/g,"");
@@ -77,13 +84,13 @@ export function sanitizeFeedback(feedback: Feedback, session: Session, input: Fi
       || /^eu tenho \d+ anos$/.test(normalized(c.said))) return false;
     seen.add(c.key); return true;
   });
-  if (session.kind !== "assessment" || spoken.length < 5 || session.demo) result.assessment = null;
+  if (session.kind !== "assessment" || spontaneous.length < 5 || session.demo) result.assessment = null;
   if (result.assessment) {
     const assessment = result.assessment;
     const dimensions = ["comprehension", "vocabulary", "grammar", "sentence_construction", "fluency"] as const;
     for (const key of dimensions) {
       const dimension = assessment[key];
-      if (!dimension.evidence || !spoken.some(t => t.includes(dimension.evidence))) {
+      if (!dimension.evidence || !spontaneous.some(t => t.includes(dimension.evidence))) {
         assessment[key] = { observation: "Not enough reliable evidence.", evidence: "" };
       }
     }

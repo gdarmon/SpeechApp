@@ -3,7 +3,8 @@ package com.fala.app.voice
 data class Heard(val text: String, val speechMs: Long)
 
 interface SpeechInput {
-    fun listen(language: String, allowNetwork: Boolean, partial: (String) -> Unit, result: (Heard) -> Unit, error: (String) -> Unit)
+    fun listen(language: String, allowNetwork: Boolean, ready: () -> Unit, level: (Float) -> Unit,
+        partial: (String) -> Unit, result: (Heard) -> Unit, error: (String) -> Unit)
     fun finish()
     fun cancel()
     fun close()
