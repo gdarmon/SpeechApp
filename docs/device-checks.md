@@ -27,3 +27,12 @@ Release readiness also requires deployment/authentication hardening, retention/b
 - Simulate no network during sign-in, conversation, sign-out, and deletion. Failed deletion must not report success. Local sign-out must clear the account.
 - Test the web account-deletion page in a real browser with Google sign-in and its production Content Security Policy.
 - Repeat from a Google Play **internal testing** installation using the Play app signing certificate, not just the local debug APK.
+
+## Guided ten-answer practice (0.5.0)
+
+- Start in Hebrew and English. Hear one easy opening, then confirm short translations and answer suggestions. Use Hear this answer; it must play Portuguese without sending an answer.
+- Cold-start with the voice engine still loading: the opening should play once ready. Stop/background while it loads: no delayed playback. Hardware volume buttons should change media volume. A missing pt-BR voice must show an actionable notice.
+- Send an understandable mistake such as “Eu querer café.” Verify one small current-answer correction, its Hebrew/English explanation, and a spoken natural phrase. A valid fragment or age statement must not receive an invented correction.
+- Complete ten Portuguese answers, with a support-language help request in between. The help request must not advance the counter. After answer ten, hear the closing reply and automatically receive the summary, pointers and vocabulary. No eleventh-answer prompt.
+- Interrupt playback, background, rotate, or lose network during the tenth answer/summary. Resume/retry: no duplicated turn or summary, no microphone restart, and the finished summary remains accessible in History.
+- Check vocabulary translations and Listen buttons, repeated-word counts, new-to-retained-history labels, and Hebrew layout. Reuse a word in a later session; it should be marked seen elsewhere. Deleting its only other source should remove that prior exposure from future summaries.

@@ -1,5 +1,15 @@
 # Validation
 
+## 0.5.0 — 19 September 2026
+
+- 47 backend tests passed, including short opening/follow-up constraints, selected-language checks, required current-answer feedback, grounded corrections, closing after ten answers, help-turn counting, summary persistence/retries, vocabulary exposure counts, cross-account word-history isolation, and compatibility with older saved replies. Netlify API packaging and TypeScript/site builds passed.
+- Six Android JVM tests passed for drafts and correction playback. Debug APK, signed version-6 release AAB (0.5.0), and debug/release lint passed with zero errors. The release signature matches the existing Play upload certificate; checksums accompany the versioned artifacts.
+- Groq GPT-OSS uses strict JSON output shapes. Semantic constraints still use validation plus at most one regeneration within the original timeout. Other compatible providers retain JSON object mode. Live attempts exposed missing feedback, incorrect language, copied feedback, and mixed conversation roles; the output shape, shorter AI context, and teaching instructions were adjusted. Rapid test traffic also encountered provider rate limits and an upstream rejection; the app retains retryable requests rather than claiming those requests succeeded.
+- A complete local API run against the configured Groq service and actual Supabase completed ten Hebrew-supported answers with a help request, closing reply, summary, 57 translated words, idempotent retries and saved resume. An English follow-up confirmed prior-word exposure. All temporary accounts and their practice data were deleted. This checks real text service integration, not physical speech recognition/playback.
+- New feedback, summary pointers and vocabulary are stored in existing JSON columns. No database migration is required.
+- Physical speaker/headset output, delayed voice-engine startup, hold/release interaction, the final voice-to-summary transition, and Hebrew layout still require the new build on a phone. Build/unit success does not establish those device behaviors.
+- The signed bundle is ready for Google Play internal testing. Automatic Play upload remains disabled pending publishing credentials; no Play upload is claimed.
+
 ## 0.4.0 — 19 September 2026
 
 - 36 backend tests passed, covering saved support language, translated reply ideas, resumable sessions, typed/guided answer provenance, assessment exclusions, and existing authentication/privacy/retry checks. Provider responses missing a translation or either reply idea, or mixing Hebrew letters into Portuguese, are regenerated once within the original timeout and rejected if still invalid.

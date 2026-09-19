@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
+export const PRACTICE_TURNS = 10;
 export const startSchema = z.strictObject({
   request_id: text(80, 8),
   kind: z.enum(["conversation", "assessment"]).default("conversation"),
@@ -19,12 +20,19 @@ export const turnSchema = z.strictObject({
 export const finishSchema = z.strictObject({
   confidence: z.enum(["hard", "okay", "comfortable"]).nullable().default(null),
 });
+export const turnFeedbackSchema = z.strictObject({
+  kind: z.enum(["ok", "correction", "clarify", "guided"]),
+  message: text(160, 1),
+  said: text(250).default(""),
+  natural: text(90).default(""),
+});
 export const replySchema = z.strictObject({
   text: text(1600, 1), explanation: text(400).default(""),
   practice_phrase: text(500).default(""), pace: z.enum(["slow", "normal"]).default("normal"),
   topic: text(120).default(""),
   translation: text(2400).default(""),
   suggested_replies: z.array(z.strictObject({ text: text(350, 1), translation: text(500, 1) })).max(2).default([]),
+  turn_feedback: turnFeedbackSchema.nullable().default(null),
 });
 export const correctionSchema = z.strictObject({
   key: text(120, 1), category: z.enum(["grammar", "retrieval", "naturalness", "literal_translation"]),
@@ -39,12 +47,17 @@ export const assessmentSchema = z.strictObject({
 export const feedbackSchema = z.strictObject({
   summary: text(700, 1), corrections: z.array(correctionSchema).max(3).default([]),
   assessment: assessmentSchema.nullable().default(null),
+  pointers: z.array(text(220, 1)).max(3).default([]),
+  vocabulary: z.array(z.strictObject({ word: text(80, 1), translation: text(100) })).max(180).default([]),
 });
 export type Start = z.infer<typeof startSchema>;
 export type TurnInput = z.infer<typeof turnSchema>;
 export type Finish = z.infer<typeof finishSchema>;
 export type Reply = z.infer<typeof replySchema>;
-export type Feedback = z.infer<typeof feedbackSchema> & { review_phrases?: string[] };
+export type Feedback = z.infer<typeof feedbackSchema> & {
+  review_phrases?: string[]; vocabulary_total?: number;
+  vocabulary: { word: string; translation: string; occurrences?: number; seen_before?: boolean }[];
+};
 export type Correction = z.infer<typeof correctionSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type Turn = TurnInput & { id?: number; session_id: string; reply: Reply; request?: TurnInput };

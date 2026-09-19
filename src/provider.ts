@@ -1,17 +1,30 @@
 import { z } from "zod";
 import type { Settings } from "./config.js";
-import { AppError, feedbackSchema, replySchema, type Feedback, type Reply } from "./models.js";
+import { AppError, feedbackSchema, replySchema, turnFeedbackSchema, type Feedback, type Reply } from "./models.js";
 import { PARTNER, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
-
-const coachingReplySchema = replySchema.refine(reply => reply.translation.length > 0 && reply.suggested_replies.length === 2
-  && [reply.text, reply.practice_phrase, ...reply.suggested_replies.map(idea => idea.text)].every(value => !/\p{Script=Hebrew}/u.test(value)),
-  "A coaching reply needs a translation and two reply ideas, with Portuguese kept separate from Hebrew.");
+import { coachingReplySchema } from "./coaching.js";
 
 export interface AIProvider {
   demo: boolean;
   reply(context: Record<string, unknown>): Promise<Reply>;
   feedback(context: Record<string, unknown>): Promise<Feedback>;
+}
+
+// Generate the wire shape from the same contracts we validate. Defaults are for older
+// saved replies, not optional fields in a newly generated response.
+function generationSchema(context: Record<string, unknown>, feedback: boolean) {
+  const answerFeedback = z.union([
+    turnFeedbackSchema.extend({ kind: z.literal("correction") }),
+    turnFeedbackSchema.extend({ kind: z.enum(["ok", "clarify", "guided"]), said: z.literal(""), natural: z.literal("") }),
+  ]);
+  const schema = feedback ? feedbackSchema : replySchema.extend({
+    turn_feedback: context.action === "continue" ? answerFeedback : z.null(),
+    suggested_replies: replySchema.shape.suggested_replies.unwrap().length(context.last_turn === true ? 0 : 2),
+    text: z.string().min(1).max(context.action === "start" ? 70 : 110),
+  });
+  return JSON.parse(JSON.stringify(z.toJSONSchema(schema), (key, value) =>
+    key === "default" || key === "$schema" ? undefined : value));
 }
 
 export class CompatibleProvider implements AIProvider {
@@ -23,19 +36,25 @@ export class CompatibleProvider implements AIProvider {
     const body: Record<string, unknown> = {
       model: this.settings.model,
       messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify(context) }],
-      response_format: { type: "json_object" }, max_completion_tokens: feedback ? 4096 : 2048,
+      response_format: { type: "json_object" }, max_completion_tokens: feedback
+        ? (Array.isArray(context.vocabulary_words) && context.vocabulary_words.length > 80 ? 8192 : 4096) : 2048,
     };
     const host = new URL(this.settings.baseUrl).hostname;
     if (host === "api.openai.com") body.store = false;
-    if (host === "api.groq.com" && this.settings.model.startsWith("openai/gpt-oss-")) body.reasoning_effort = "low";
+    if (host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(this.settings.model)) {
+      body.reasoning_effort = "medium";
+      body.response_format = { type: "json_schema", json_schema: { name: feedback ? "practice_summary" : "practice_reply",
+        strict: true, schema: generationSchema(context, feedback) } };
+    }
     return this.timing.measure("ai", async () => {
       const deadline = performance.now() + this.settings.aiTimeoutMs;
+      let repairHint = "";
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const remaining = Math.floor(deadline - performance.now());
           if (remaining < 1) throw new Error("AI deadline reached");
           if (attempt === 1) body.messages = [
-            { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese." },
+            { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese. " + repairHint },
             { role: "user", content: JSON.stringify(context) },
           ];
           const response = await this.request(this.settings.baseUrl.replace(/\/$/, "") + "/chat/completions", {
@@ -55,6 +74,7 @@ export class CompatibleProvider implements AIProvider {
         } catch (error) {
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
+            repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
             // Retry malformed model output once, within the original time budget. Never retry quota/transport failures here.
             if (attempt === 0 && deadline - performance.now() > 1000) continue;
             throw new AppError(503, "The AI returned an invalid response. Please retry.");
@@ -65,8 +85,26 @@ export class CompatibleProvider implements AIProvider {
       throw new AppError(503, "The AI returned an invalid response. Please retry.");
     });
   }
-  reply(context: Record<string, unknown>) { return this.complete(PARTNER, context, coachingReplySchema); }
-  feedback(context: Record<string, unknown>) { return this.complete(FEEDBACK, context, feedbackSchema, true); }
+  reply(context: Record<string, unknown>) {
+    const language = context.support_language === "he-IL" ? "HEBREW" : "ENGLISH";
+    const action = ["start", "help", "continue"].includes(String(context.action)) ? String(context.action).toUpperCase() : "START";
+    const instruction = `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
+      + (action === "CONTINUE" ? "turn_feedback MUST be an object with kind, message, said and natural; NEVER null. " : "turn_feedback MUST be null. ")
+      + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
+        : `Give two short translated answer ideas. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Keep the conversation going with one real, simple question; it is not time for a farewell.`);
+    return this.complete(PARTNER + instruction, context, coachingReplySchema(context));
+  }
+  feedback(context: Record<string, unknown>) {
+    const words = Array.isArray(context.vocabulary_words) ? context.vocabulary_words as string[] : null;
+    const schema = feedbackSchema.refine(report => {
+      if (!report.pointers.length) return false;
+      if (!words) return true;
+      const translated = new Set(report.vocabulary.filter(item => item.translation).map(item => item.word.normalize("NFC").toLowerCase()));
+      return translated.size === words.length && report.vocabulary.length === words.length && words.every(word => translated.has(word));
+    }, "Include practical pointers and translate each supplied vocabulary word exactly once, without adding words.");
+    const language = context.support_language === "he-IL" ? "HEBREW" : "ENGLISH";
+    return this.complete(FEEDBACK + `\nFor this report, write all explanations, summary, pointers and word meanings in ${language}. Translate all ${words?.length ?? 0} supplied vocabulary words.`, context, schema, true);
+  }
 }
 
 export class DemoProvider implements AIProvider {

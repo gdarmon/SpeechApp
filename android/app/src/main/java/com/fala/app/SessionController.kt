@@ -68,6 +68,11 @@ class SessionController(application: Application) : AndroidViewModel(application
     var helpMode by mutableStateOf(false)
         private set
     val recording: Boolean get() = holding || phase == "Recognizing"
+    val targetTurns: Int get() = session.optInt("target_turns", 10).coerceIn(1, 80)
+    val completedTurns: Int get() = session.optJSONArray("turns")?.let { turns ->
+        (0 until turns.length()).count { turns.getJSONObject(it).optInt("help") != 1 }
+    } ?: 0
+    val practiceComplete: Boolean get() = completedTurns >= targetTurns
     private var segmentJob: Job? = null
     var slow by mutableStateOf(false)
     var retryAvailable by mutableStateOf(false)
@@ -182,7 +187,8 @@ class SessionController(application: Application) : AndroidViewModel(application
             settings.activeSession = id
             val turns = session.getJSONArray("turns")
             reply = if (turns.length() > 0) turns.getJSONObject(turns.length() - 1).getJSONObject("reply") else session.getJSONObject("opening")
-            screen = "talk"; phase = "Your turn"; heard = ""; helpMode = false; draft = ReplyDraft(); voiceNotice = ""
+            screen = "talk"; phase = "Your turn"; heard = ""; helpMode = false; draft = ReplyDraft(); voiceNotice = ""; feedback = JSONObject()
+            if (practiceComplete) completePractice(id)
         }
     }
 
@@ -195,7 +201,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         partialWords = ""
     }
 
-    fun pause() { audioEnabled = false; stopVoice(); phase = "Your turn" }
+    fun pause() { audioEnabled = false; stopVoice(); phase = "Your turn"; showSummaryWhenReady() }
     fun setForeground(value: Boolean) { foreground = value; if (!value) pause() }
 
     fun play() {
@@ -205,16 +211,38 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     private fun playReply() {
+        if (screen != "talk") return
+        val feedback = reply.optJSONObject("turn_feedback")
+        speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()))
+    }
+
+    fun listenTo(text: String) {
+        if (busy || recording || retryAvailable) return
+        audioEnabled = true; voiceNotice = ""
+        speakPortuguese(text)
+    }
+
+    private fun showSummaryWhenReady() {
+        if (screen == "talk" && practiceComplete && feedback.has("summary") && phase != "Speaking") screen = "feedback"
+    }
+
+    private suspend fun completePractice(id: String) {
+        feedback = api.post("/sessions/$id/finish")
+        settings.activeSession = ""
+        showSummaryWhenReady()
+        loadProgress()
+    }
+
+    private fun speakPortuguese(text: String) {
         stopVoice()
-        if (!audioEnabled || !foreground || screen != "talk") { phase = "Your turn"; return }
-        val text = reply.optString("text")
+        if (!audioEnabled || !foreground) { phase = "Your turn"; return }
         if (text.isBlank()) { phase = "Your turn"; return }
         phase = "Speaking"
         val generation = voiceGeneration
         output.speak(text, slow || reply.optString("pace") == "slow", done = {
-            if (generation == voiceGeneration) phase = "Your turn"
+            if (generation == voiceGeneration) { phase = "Your turn"; showSummaryWhenReady() }
         }, error = { message ->
-            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message }
+            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message; showSummaryWhenReady() }
         })
     }
 
@@ -224,19 +252,19 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun chooseSuggestion(text: String) {
-        if (busy || retryAvailable) return
+        if (busy || retryAvailable || practiceComplete) return
         pause(); helpMode = false
         draft = ReplyDraft(text = text, assisted = true)
         voiceNotice = "Try this aloud, or edit it before sending."
     }
 
     fun toggleHelp() {
-        if (busy || retryAvailable) return
+        if (busy || retryAvailable || practiceComplete) return
         pause(); helpMode = !helpMode; draft = ReplyDraft(); voiceNotice = ""
     }
 
     fun beginHolding() {
-        if (busy || retryAvailable || recording || !foreground || screen != "talk") return
+        if (busy || retryAvailable || recording || practiceComplete || !foreground || screen != "talk") return
         stopVoice(); audioEnabled = true; holding = true; voiceNotice = ""
         draft = ReplyDraft(assisted = draft.assisted)
         val generation = voiceGeneration
@@ -303,7 +331,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun sendDraft() {
-        if (busy || recording || retryAvailable || draft.text.isBlank()) return
+        if (busy || recording || retryAvailable || practiceComplete || draft.text.isBlank()) return
         val answer = draft
         val help = helpMode
         stopVoice(); audioEnabled = true; phase = "Thinking"; voiceNotice = ""
@@ -323,6 +351,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             session = updated; heard = answer.text; draft = ReplyDraft()
             reply = resultReply; helpMode = false
             playReply()
+            if (practiceComplete) completePractice(id)
         }
     }
 

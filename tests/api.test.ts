@@ -39,9 +39,13 @@ class Coach implements AIProvider {
     const hebrew = context.support_language === "he-IL";
     return replySchema.parse({ text: "Que legal! E depois?", topic: "Daily life", practice_phrase: context.action === "help" ? "Quero uma mesa para dois." : "",
       translation: hebrew ? "איזה יופי! ומה קרה אחר כך?" : "How nice! What happened next?",
+      turn_feedback: context.action === "continue" ? { kind: "ok", message: hebrew ? "התשובה הזאת מתאימה." : "That answer works." } : null,
       suggested_replies: [{ text: "Fui tomar um café.", translation: hebrew ? "הלכתי לשתות קפה." : "I went for a coffee." }] });
   }
-  async feedback() { if (this.fail) throw new AppError(503, "Try again."); return structuredClone(this.report); }
+  async feedback(context: Record<string, unknown>) {
+    if (this.fail) throw new AppError(503, "Try again.");
+    return { ...structuredClone(this.report), vocabulary: (context.vocabulary_words as string[]).map(word => ({ word, translation: `Meaning of ${word}` })) };
+  }
 }
 function instance() { return createHandler({ settings: () => settings, database: () => db, provider: () => coach, region: () => "us-east-2" }); }
 async function call(path: string, method = "GET", body?: unknown, target = handler, token = settings.token) {
@@ -74,6 +78,44 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("can continue and summarize replies saved before translations and feedback existed", async () => {
+    const session = (await start()).data;
+    await turn(session.id);
+    await db.query("UPDATE fala.sessions SET opening=opening-'suggested_replies'-'translation'-'turn_feedback' WHERE id=$1::uuid", [session.id]);
+    await db.query("UPDATE fala.turns SET reply=reply-'suggested_replies'-'translation'-'turn_feedback' WHERE session_id=$1::uuid", [session.id]);
+    expect((await turn(session.id)).status).toBe(200);
+    expect(coach.calls.at(-1)?.opening).toMatchObject({ suggested_replies: [] });
+    expect((await finish(session.id)).status).toBe(200);
+  });
+  it("saves immediate feedback, counts ten answers without help turns, and keeps a grounded vocabulary summary", async () => {
+    coach.report.pointers = ["Practice a short reply without reading the suggestion."];
+    const session = (await start()).data;
+    expect(session.target_turns).toBe(10);
+    await turn(session.id, { text: "Please translate pineapple", help: true, language: "en-US" });
+    expect(coach.calls.at(-1)?.practice_round).toBe(0);
+    for (let i = 1; i <= 10; i++) {
+      const result = await turn(session.id, { text: "Quero abacaxi." });
+      expect(result.data.turn_feedback).toMatchObject({ kind: "ok" });
+      expect(coach.calls.at(-1)?.practice_round).toBe(i);
+      expect(coach.calls.at(-1)?.last_turn).toBe(i === 10);
+    }
+    const report = (await finish(session.id)).data;
+    expect(report.pointers).toEqual(coach.report.pointers);
+    expect(report.vocabulary.find((word: { word: string }) => word.word === "abacaxi")).toMatchObject({ occurrences: 10, seen_before: false, translation: "Meaning of abacaxi" });
+    expect(report.vocabulary.some((word: { word: string }) => word.word === "pineapple")).toBe(false);
+    expect((await finish(session.id)).data).toEqual(report);
+    const resumed = (await call(`/sessions/${session.id}`)).data;
+    expect(resumed.turns[1].reply.turn_feedback).toMatchObject({ kind: "ok" });
+    expect(resumed.feedback.vocabulary).toEqual(report.vocabulary);
+    const later = (await start()).data;
+    await turn(later.id, { text: "Abacaxi." });
+    expect((await finish(later.id)).data.vocabulary.find((word: { word: string }) => word.word === "abacaxi").seen_before).toBe(true);
+    await call(`/sessions/${session.id}`, "DELETE");
+    await call(`/sessions/${later.id}`, "DELETE");
+    const afterDeletion = (await start()).data;
+    await turn(afterDeletion.id, { text: "Abacaxi." });
+    expect((await finish(afterDeletion.id)).data.vocabulary.find((word: { word: string }) => word.word === "abacaxi").seen_before).toBe(false);
+  });
   it("remembers the support language and returns translations and reply ideas on start, turns, and resume", async () => {
     for (const language of ["en-US", "he-IL"]) {
       const response = await start({ support_language: language });
@@ -282,13 +324,48 @@ describe("Netlify API against PostgreSQL", () => {
 });
 
 describe("provider contract and configuration", () => {
-  it("validates output, requests fast reasoning and rejects truncated JSON", async () => {
-    const reply = replySchema.parse({ text: "Oi!", translation: "Hi!", suggested_replies: [
+  it("requires a feedback object for Groq answers while leaving other providers compatible", async () => {
+    const reply = replySchema.parse({ text: "Com leite?", translation: "With milk?", pace: "slow", turn_feedback: { kind: "ok", message: "That answer works." },
+      suggested_replies: [{ text: "Sim.", translation: "Yes." }, { text: "Não.", translation: "No." }] });
+    for (const baseUrl of [settings.baseUrl, "https://compatible.example/v1"]) {
+      const ai = new CompatibleProvider({ ...settings, baseUrl }, new Timing(), async (_url, init) => {
+        const body = JSON.parse(init!.body as string);
+        if (baseUrl === settings.baseUrl) {
+          expect(body.response_format.type).toBe("json_schema");
+          const schema = body.response_format.json_schema;
+          expect(schema.strict).toBe(true);
+          const variants = schema.schema.properties.turn_feedback.anyOf;
+          expect(variants.every((variant: { type: string }) => variant.type === "object")).toBe(true);
+          expect(schema.schema.required).toContain("turn_feedback");
+          expect(variants[0].required).toEqual(expect.arrayContaining(["kind", "message", "said", "natural"]));
+          expect(variants[1].properties.natural.const).toBe("");
+          expect(schema.schema.properties.suggested_replies.minItems).toBe(2);
+          expect(schema.schema.additionalProperties).toBe(false);
+        } else expect(body.response_format).toEqual({ type: "json_object" });
+        return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
+      });
+      expect(await ai.reply({ action: "continue", support_language: "en-US", input: { text: "Um café." } })).toEqual(reply);
+    }
+  });
+  it("requires pointers and a translation for every actual session word", async () => {
+    let calls = 0;
+    const report = { summary: "A short practice.", pointers: ["Try ordering a coffee."], vocabulary: [
+      { word: "café", translation: "coffee" }, { word: "leite", translation: "milk" },
+    ] };
+    const ai = new CompatibleProvider(settings, new Timing(), async () => {
+      calls++;
+      return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(calls === 1 ? { ...report, vocabulary: report.vocabulary.slice(0,1) } : report) } }] });
+    });
+    expect((await ai.feedback({ vocabulary_words: ["café", "leite"] })).vocabulary).toEqual(report.vocabulary);
+    expect(calls).toBe(2);
+  });
+  it("validates output, requests coaching reasoning and rejects truncated JSON", async () => {
+    const reply = replySchema.parse({ text: "Oi! Tudo bem?", translation: "Hi! How are you?", suggested_replies: [
       { text: "Tudo bem?", translation: "How are you?" }, { text: "Oi, como vai?", translation: "Hi, how's it going?" },
     ] });
     const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
       const sent = JSON.parse(init!.body as string);
-      expect(sent.reasoning_effort).toBe("low"); expect(init!.redirect).toBe("error");
+      expect(sent.reasoning_effort).toBe("medium"); expect(init!.redirect).toBe("error");
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
     });
     expect(await ai.reply({})).toEqual(reply);
@@ -300,7 +377,7 @@ describe("provider contract and configuration", () => {
     }
   });
   it("regenerates a malformed translated reply once within the original timeout", async () => {
-    const valid = replySchema.parse({ text: "Oi!", translation: "היי!", suggested_replies: [
+    const valid = replySchema.parse({ text: "Oi! Tudo bem?", translation: "היי! מה שלומך?", suggested_replies: [
       { text: "Quero um café.", translation: "אני רוצה קפה." }, { text: "Prefiro chá.", translation: "אני מעדיף תה." },
     ] });
     let calls = 0;

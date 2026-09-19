@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database, Executor, Parameter } from "./database.js";
-import { AppError, type Session, type Start, type TurnInput, type Reply, type Feedback, type Correction,
+import { AppError, PRACTICE_TURNS, type Session, type Start, type TurnInput, type Reply, type Feedback, type Correction,
   type Assessment, type LearnerContext, type Memory, type Turn } from "./models.js";
 import type { Timing } from "./timing.js";
 
@@ -156,6 +156,28 @@ export class Store {
     return { ...stats, assessment: learner.assessment, memory: learner.memory, help_patterns: learner.help_patterns };
   }
 
+  async previouslySeenWords(sessionId: string, words: string[]): Promise<Set<string>> {
+    if (!words.length) return new Set();
+    const rows = await this.read<{ word: string }>(`
+      SELECT DISTINCT word FROM (
+        SELECT opening->>'text' AS text FROM fala.sessions WHERE NOT demo AND id<>$1::uuid
+        UNION ALL SELECT idea->>'text' FROM fala.sessions s,
+          LATERAL jsonb_array_elements(COALESCE(s.opening->'suggested_replies','[]'::jsonb)) idea
+          WHERE NOT s.demo AND s.id<>$1::uuid
+        UNION ALL SELECT t.text FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
+          WHERE NOT s.demo AND NOT t.help AND s.id<>$1::uuid
+        UNION ALL SELECT t.reply->>'text' FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
+          WHERE NOT s.demo AND s.id<>$1::uuid
+        UNION ALL SELECT t.reply->'turn_feedback'->>'natural' FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
+          WHERE NOT s.demo AND s.id<>$1::uuid AND t.reply->'turn_feedback'->>'kind'='correction'
+        UNION ALL SELECT idea->>'text' FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id,
+          LATERAL jsonb_array_elements(COALESCE(t.reply->'suggested_replies','[]'::jsonb)) idea
+          WHERE NOT s.demo AND s.id<>$1::uuid
+      ) exposure, LATERAL regexp_split_to_table(lower(exposure.text), '[^a-zà-öø-ÿ]+') word
+      WHERE word IN (SELECT jsonb_array_elements_text($2::text::jsonb))`, [sessionId, JSON.stringify(words)]);
+    return new Set(rows.map(row => row.word));
+  }
+
   async delete(id?: string) {
     if (id) {
       const rows = await this.query("DELETE FROM fala.sessions WHERE id=$1::uuid AND user_id=$2::uuid RETURNING id", [id, this.userId]);
@@ -173,7 +195,7 @@ export class Store {
 
 export function publicSession(session: Session) {
   const { request: _request, user_id: _user, ...rest } = session as Session & { user_id?: string };
-  return { ...rest, support_language: session.request.support_language ?? "en-US", demo: Number(session.demo), turns: session.turns.map(t => {
+  return { ...rest, support_language: session.request.support_language ?? "en-US", target_turns: PRACTICE_TURNS, demo: Number(session.demo), turns: session.turns.map(t => {
     const { request: _request, ...turn } = t as Turn & { request?: TurnInput };
     return { ...turn, help: Number(t.help) };
   }) };

@@ -70,6 +70,21 @@ it("signs in arbitrary verified Google accounts, hashes device secrets, and pers
   expect((await db.query("SELECT id FROM fala.users WHERE email='new-address@gmail.com'")).length).toBe(2);
 });
 
+it("keeps prior vocabulary exposure private to each learner", async () => {
+  const alice = await login("alice"), bob = await login("bob");
+  const answer = { request_id: randomUUID(), text: "Abacaxi." };
+  const a = (await start(alice)).data;
+  await call(`/sessions/${a.id}/turns`, "POST", alice, answer);
+  const b = (await start(bob)).data;
+  await call(`/sessions/${b.id}/turns`, "POST", bob, answer);
+  const first = (await call(`/sessions/${b.id}/finish`, "POST", bob, {})).data;
+  expect(first.vocabulary.find((v: { word: string }) => v.word === "abacaxi").seen_before).toBe(false);
+  const later = (await start(bob)).data;
+  await call(`/sessions/${later.id}/turns`, "POST", bob, answer);
+  const repeated = (await call(`/sessions/${later.id}/finish`, "POST", bob, {})).data;
+  expect(repeated.vocabulary.find((v: { word: string }) => v.word === "abacaxi").seen_before).toBe(true);
+});
+
 it("rejects mismatched, expired, and replayed challenges, including concurrent exchanges", async () => {
   const c = await challenge();
   const saved = (await db.query<{ nonce_hash: string }>("SELECT nonce_hash FROM fala.login_challenges WHERE id=$1", [c.challenge_id]))[0];

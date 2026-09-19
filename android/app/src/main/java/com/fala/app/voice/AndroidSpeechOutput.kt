@@ -14,12 +14,20 @@ import java.util.UUID
 class AndroidSpeechOutput(context: Context) : SpeechOutput {
     private val handler = Handler(Looper.getMainLooper())
     private val audio = context.getSystemService(AudioManager::class.java)
-    private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
+    private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
     private var focus: AudioFocusRequest? = null
     private var engine: TextToSpeech? = null
     private var ready = false
-    private var problem = "Brazilian voice is still loading. Tap Replay in a moment."
+    private var initializing = true
+    private var pending: (() -> Unit)? = null
+    private var pendingError: ((String) -> Unit)? = null
+    private val startupTimeout = Runnable {
+        val fail = pendingError
+        pending = null; pendingError = null
+        fail?.invoke("The Brazilian voice is taking longer to load. Tap Listen to try again.")
+    }
+    private var problem = "Brazilian voice is still loading. Tap Listen in a moment."
     private var active: String? = null
     private var onDone: (() -> Unit)? = null
     private var onError: ((String) -> Unit)? = null
@@ -44,9 +52,13 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
                         override fun onStart(utteranceId: String?) {}
                         override fun onDone(utteranceId: String?) { handler.post { complete(utteranceId, null) } }
                         @Deprecated("Required by Android")
-                        override fun onError(utteranceId: String?) { handler.post { complete(utteranceId, "Speech playback stopped. Tap Replay to try again.") } }
+                        override fun onError(utteranceId: String?) { handler.post { complete(utteranceId, "Speech playback stopped. Tap Listen to try again.") } }
                     })
                 }
+                initializing = false
+                val waiting = pending
+                pending = null; pendingError = null; handler.removeCallbacks(startupTimeout)
+                waiting?.invoke()
             }
         }
     }
@@ -62,7 +74,13 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
 
     override fun speak(text: String, slow: Boolean, done: () -> Unit, error: (String) -> Unit) {
         stop()
-        if (!ready) { error(problem); return }
+        if (!ready) {
+            if (initializing) {
+                pending = { speak(text, slow, done, error) }; pendingError = error
+                handler.postDelayed(startupTimeout, 8000)
+            } else error(problem)
+            return
+        }
         val id = UUID.randomUUID().toString()
         active = id; onDone = done; onError = error
         val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
@@ -70,12 +88,12 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
                 if (change < 0) {
                     val failed = onError
                     stop()
-                    failed?.invoke("Playback paused by another app. Tap Replay when you're ready.")
+                    failed?.invoke("Playback paused by another app. Tap Listen when you're ready.")
                 }
             }.build()
         focus = request
         if (audio.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            complete(id, "Audio is busy. Tap Replay when you're ready."); return
+            complete(id, "Audio is busy. Tap Listen when you're ready."); return
         }
         engine?.setSpeechRate(if (slow) 0.78f else 0.93f)
         if (engine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id) != TextToSpeech.SUCCESS) {
@@ -84,6 +102,7 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
     }
 
     override fun stop() {
+        pending = null; pendingError = null; handler.removeCallbacks(startupTimeout)
         active = null; onDone = null; onError = null
         engine?.stop()
         focus?.let { audio.abandonAudioFocusRequest(it) }; focus = null
