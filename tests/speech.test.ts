@@ -38,9 +38,30 @@ it('does not send incompatible credentials to OpenAI or expose raw voice provide
   let calls = 0;
   const fetcher = async () => { calls++; throw new Error('secret-provider-value'); };
   const recording = await readRecording(request('audio/webm', 300));
-  await expect(new Speech({ ...settings, baseUrl: 'https://api.groq.com/openai/v1' }, fetcher).transcribe(recording, 'pt')).rejects.toMatchObject({ status: 503 });
+  await expect(new Speech(settingsFromEnv({ DATABASE_URL:'postgres://local/fala', GOOGLE_WEB_CLIENT_ID:'fala-test.apps.googleusercontent.com', OPENAI_API_KEY:'groq-fixture', OPENAI_BASE_URL:'https://api.groq.com/openai/v1', FALA_TRANSCRIPTION_PROVIDER:'openai' }), fetcher).transcribe(recording, 'pt')).rejects.toMatchObject({ status: 503 });
   expect(calls).toBe(0);
   await expect(new Speech(settings, fetcher).transcribe(recording, 'pt')).rejects.not.toThrow('secret-provider-value');
   const blank = new Speech(settings, async () => Response.json({ text: '' }));
   await expect(blank.transcribe(recording, 'pt')).rejects.toMatchObject({ status: 422 });
+});
+
+it('routes hybrid chat and transcription to Groq while keeping the OpenAI voice credential separate', async () => {
+  const hybrid=settingsFromEnv({DATABASE_URL:'postgres://local/fala',GOOGLE_WEB_CLIENT_ID:'fala-test.apps.googleusercontent.com',FALA_AI_PROVIDER:'groq',FALA_TRANSCRIPTION_PROVIDER:'groq',OPENAI_API_KEY:'groq-only',OPENAI_BASE_URL:'https://api.groq.com/openai/v1',FALA_OPENAI_API_KEY:'openai-voice-only'});
+  expect(hybrid).toMatchObject({apiKey:'groq-only',baseUrl:'https://api.groq.com/openai/v1',model:'openai/gpt-oss-120b',voiceApiKey:'openai-voice-only'});
+  const paths:string[]=[];
+  const speech=new Speech(hybrid,async(url,init)=>{
+    const transcribing=String(url).endsWith('/transcriptions');paths.push(String(url));
+    expect((init?.headers as Record<string,string>).Authorization).toBe(`Bearer ${transcribing?'groq-only':'openai-voice-only'}`);
+    if(transcribing){const form=init?.body as FormData;expect(form.get('model')).toBe('whisper-large-v3-turbo');expect(form.get('language')).toBe('he');return Response.json({text:'שלום'});}
+    return new Response(new Uint8Array([1,2,3]));
+  });
+  expect(await speech.transcribe(await readRecording(request('audio/mp4',300)),'he')).toEqual({text:'שלום'});
+  await speech.speak(replySchema.parse({text:'Oi!'}));
+  expect(paths).toEqual(['https://api.groq.com/openai/v1/audio/transcriptions','https://api.openai.com/v1/audio/speech']);
+});
+it('does not silently fall back to paid OpenAI when Groq is selected but unavailable', async()=>{
+  const missing=settingsFromEnv({DATABASE_URL:'postgres://local/fala',GOOGLE_WEB_CLIENT_ID:'fala-test.apps.googleusercontent.com',FALA_AI_PROVIDER:'groq',FALA_TRANSCRIPTION_PROVIDER:'groq',FALA_OPENAI_API_KEY:'openai-voice-only',OPENAI_BASE_URL:'https://api.openai.com/v1',OPENAI_API_KEY:'another-openai-key'});
+  expect(missing.apiKey).toBe('');expect(missing.transcription.apiKey).toBe('');
+  let calls=0;await expect(new Speech(missing,async()=>{calls++;throw Error('must not call');}).transcribe(await readRecording(request('audio/webm',300)),'pt')).rejects.toMatchObject({status:503});expect(calls).toBe(0);
+  expect(()=>settingsFromEnv({DATABASE_URL:'postgres://local/fala',GOOGLE_WEB_CLIENT_ID:'fala-test.apps.googleusercontent.com',FALA_AI_PROVIDER:'gork'})).toThrow();
 });

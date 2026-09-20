@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web and Android 0.10.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Web and Android 0.11.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
@@ -17,11 +17,11 @@ A native Android app for learning to **speak Brazilian Portuguese** through natu
 4. Deploy once the database and Google settings are ready, install the APK, and test with two Google accounts before inviting users.
 5. Follow [Google Play setup](docs/google-play.md) for the first app-bundle upload and one-time publishing credentials. Thereafter, successful `main` checks trigger a newly versioned, signed internal-testing upload when enabled.
 
-The current service URL is `https://legendary-florentine-6b3c1f.netlify.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
+The current service URL is `https://falachatapp.netlify.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
 
 **Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Netlify. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
 
-Live conversation needs an AI provider key. Set `FALA_OPENAI_API_KEY` to use paid OpenAI with `gpt-5.6-terra` (override with `FALA_OPENAI_MODEL`). This option selects the OpenAI endpoint and model together and ignores the older compatible-provider settings, so an existing Groq setup cannot accidentally receive the OpenAI key. Without it, the existing `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` configuration continues to work, defaulting to Groq GPT-OSS. Android handles recognition and Brazilian voice playback. AI usage is billed separately from hosting; daily request allowances are not dollar spending caps. See [deployment](docs/deployment.md) for setup and pricing references.
+The current economical setup uses **Groq for conversations and transcription**, keeping **OpenAI only for the natural Portuguese voice**. Set `FALA_AI_PROVIDER=groq`, `FALA_TRANSCRIPTION_PROVIDER=groq`, a `GROQ_API_KEY` (or the existing Groq compatible settings), and retain `FALA_OPENAI_API_KEY` for voice. The model defaults to `openai/gpt-oss-120b` on Groq. Free-tier account quotas apply; Fala does not silently switch conversations to paid OpenAI when Groq is unavailable. Native Android continues to use device speech services. [Deployment and provider configuration](docs/deployment.md).
 
 ## Android
 

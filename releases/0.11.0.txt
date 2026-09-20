@@ -1,0 +1,1 @@
+Fala now connects to falachatapp.netlify.app. Existing Android sign-ins move with the same service. Conversations and web speech transcription use Groq while keeping the natural OpenAI Portuguese voice. Updated recording notices explain the selected provider. No automatic fallback to paid OpenAI conversations.

@@ -110,7 +110,7 @@ export function createHandler(dependencies: Dependencies) {
         await store.budget();
         return respond(await speech.transcribe(recording, language));
       }
-      const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey) || ai.demo };
+      const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey) || ai.demo, speech: { transcription: settings.transcription.provider, voice: settings.voiceApiKey ? "openai" : "none" } };
       if (request.method === "GET") {
         if (path === "/status") { await store.ping(); return respond(status); }
         if (path === "/diagnostics") {

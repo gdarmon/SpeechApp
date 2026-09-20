@@ -1,6 +1,6 @@
 # Google sign-in setup for Fala
 
-Users install Fala, sign in with Google, and tap Talk. The app already knows `https://legendary-florentine-6b3c1f.netlify.app`. Users never enter a server address, API key, or shared token. All verified Google accounts are accepted; each account has separate conversations and progress. Google Workspace administrators can still restrict third-party apps.
+Users install Fala, sign in with Google, and tap Talk. The app already knows `https://falachatapp.netlify.app`. Users never enter a server address, API key, or shared token. All verified Google accounts are accepted; each account has separate conversations and progress. Google Workspace administrators can still restrict third-party apps.
 
 These are one-time **publisher** steps. Play Console and Google Cloud setup require access to the developer's Google account; a Play Console URL alone does not grant that access.
 
@@ -11,12 +11,12 @@ Open [Google Auth Platform](https://console.cloud.google.com/auth/overview), sel
 - App name: **Fala**.
 - Audience: **External**. During initial testing, add tester emails; before broad distribution, switch to production and complete any verification Google requests.
 - Support/developer email: **gdarmon@gmail.com**.
-- Homepage: `https://legendary-florentine-6b3c1f.netlify.app/`.
-- Privacy page: `https://legendary-florentine-6b3c1f.netlify.app/privacy.html` (deploy the page before submitting).
+- Homepage: `https://falachatapp.netlify.app/`.
+- Privacy page: `https://falachatapp.netlify.app/privacy.html` (deploy the page before submitting).
 - Authentication only: `openid`, `email`, `profile`; no Gmail, contacts, or Drive access.
 - Register/verify the domain required by Google's branding flow. If the hosted Netlify subdomain cannot satisfy ownership verification, attach a domain you own before production verification and update the Android URL and OAuth origin together.
 
-Create an OAuth client of type **Web application** in this project. Add the authorized JavaScript origin `https://legendary-florentine-6b3c1f.netlify.app` for the web account-deletion page. This app uses a JavaScript callback, so there is no redirect URL to register. Copy the public ID ending in `.apps.googleusercontent.com` into Netlify's `GOOGLE_WEB_CLIENT_ID` environment variable. **No Google client secret is used or needed.**
+Create an OAuth client of type **Web application** in this project. Add the authorized JavaScript origin `https://falachatapp.netlify.app` for the web account-deletion page. This app uses a JavaScript callback, so there is no redirect URL to register. Copy the public ID ending in `.apps.googleusercontent.com` into Netlify's `GOOGLE_WEB_CLIENT_ID` environment variable. **No Google client secret is used or needed.**
 
 Create an OAuth client of type **Android**, in the same Cloud project:
 
@@ -57,4 +57,4 @@ Device sessions expire after 90 days. Android encrypts the bearer credential wit
 
 ### Website on iPhone and Android
 
-The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://legendary-florentine-6b3c1f.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice and installation.
+The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://falachatapp.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice and installation.

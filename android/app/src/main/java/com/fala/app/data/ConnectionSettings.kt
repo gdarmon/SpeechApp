@@ -16,6 +16,12 @@ import javax.crypto.spec.GCMParameterSpec
 class ConnectionSettings(context: Context) {
     private val prefs = context.getSharedPreferences("connection", Context.MODE_PRIVATE)
     val url = BuildConfig.API_BASE_URL
+    init {
+        // The developer renamed the same Netlify site. Keep existing device sessions on this one approved move.
+        if (url == "https://falachatapp.netlify.app" && prefs.getString("origin", "") == "https://legendary-florentine-6b3c1f.netlify.app") {
+            prefs.edit().putString("origin", url).apply()
+        }
+    }
     val email: String get() = prefs.getString("email", "").orEmpty()
     val signedIn: Boolean get() = token.startsWith("fala_") && prefs.getLong("expires", 0) > System.currentTimeMillis()
 

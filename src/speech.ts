@@ -8,7 +8,7 @@ export const speechSchema = z.strictObject({
   suggestion_index: z.number().int().min(0).max(1).nullable().default(null),
 });
 const formats: Record<string, string> = { "audio/mp4": "mp4", "video/mp4": "mp4", "audio/webm": "webm", "video/webm": "webm", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mpeg": "mp3" };
-export const speechAvailable = (settings: Settings) => !settings.demo && !!settings.apiKey && new URL(settings.baseUrl).hostname === "api.openai.com";
+export const speechAvailable = (settings: Settings) => !settings.demo && !!settings.transcription.apiKey && !!settings.voiceApiKey;
 
 export async function readRecording(request: Request) {
   const mime = (request.headers.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
@@ -36,10 +36,13 @@ export function spokenReply(reply: Reply) {
 export class Speech {
   constructor(private settings: Settings, private request = fetch) {}
   private async send(path: string, body: BodyInit, headers: Record<string, string> = {}) {
-    if (!speechAvailable(this.settings)) throw new AppError(503, "Online voice is not available. You can type your answer instead.");
+    const transcribing = path === "transcriptions";
+    const key = transcribing ? this.settings.transcription.apiKey : this.settings.voiceApiKey;
+    const host = transcribing && this.settings.transcription.provider === "groq" ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1";
+    if (this.settings.demo || !key) throw new AppError(503, "Online voice is not available. You can type your answer instead.");
     try {
-      const response = await this.request(`https://api.openai.com/v1/audio/${path}`, { method: "POST", redirect: "error",
-        headers: { Authorization: `Bearer ${this.settings.apiKey}`, ...headers }, body, signal: AbortSignal.timeout(25000) });
+      const response = await this.request(`${host}/audio/${path}`, { method: "POST", redirect: "error",
+        headers: { Authorization: `Bearer ${key}`, ...headers }, body, signal: AbortSignal.timeout(25000) });
       if (!response.ok) { await response.body?.cancel(); throw new AppError(503, "The voice service is busy. Please try again shortly."); }
       return response;
     } catch (error) {
@@ -50,7 +53,7 @@ export class Speech {
   async transcribe(recording: Awaited<ReturnType<typeof readRecording>>, language: string) {
     const form = new FormData();
     form.set("file", new Blob([new Uint8Array(recording.bytes)], { type: recording.mime }), `answer.${recording.extension}`);
-    form.set("model", "gpt-4o-mini-transcribe"); form.set("language", language); form.set("response_format", "json");
+    form.set("model", this.settings.transcription.provider === "groq" ? "whisper-large-v3-turbo" : "gpt-4o-mini-transcribe"); form.set("language", language); form.set("response_format", "json");
     const response = await this.send("transcriptions", form);
     const data = await response.json().catch(() => ({}));
     if (typeof data.text !== "string" || !data.text.trim()) throw new AppError(422, "I couldn't hear an answer. Please record it again, or type it.");

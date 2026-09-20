@@ -85,3 +85,12 @@ The locally built APK is `artifacts/fala-debug.apk` with a sibling SHA-256 file.
 - The six additive production rewards tables have row security enabled. Real-device push permissions, background delivery and Android appearance need device testing; automated checks do not establish exact-time notification delivery.
 
 The initial GitHub install found optional Netlify peer dependencies pruned by local npm 12. The lockfile was regenerated with npm 10 and checked using CI's npm 10.9.7. This build-only correction keeps app version 0.10.0.
+
+## 0.11.0 — new address and split AI providers
+
+- Clean npm 10.9.7 installation, 91 backend tests, version/release-note validation, and Netlify function packaging pass. Tests verify separate Groq/OpenAI credentials and fixed audio hosts, Hebrew transcription configuration, and no automatic paid fallback when Groq is selected without its key.
+- Browser conversation and rewards suites pass, including provider disclosure, reply controls at phone/desktop/keyboard sizes, recording, suggestions, retries and offline public assets. The resize assertion now waits for the browser's viewport event instead of reading a stale height immediately after resizing.
+- Android 0.11.0 debug build, JVM tests and lint pass. Its built-in address is falachatapp.netlify.app; the explicit migration retains encrypted sessions only from this same site's former address. Physical installation/session migration still needs a phone check.
+- Live synthetic Groq GPT-OSS 120B opening and continuation checks passed with Hebrew translations and answer ideas. Provider processing was roughly 2 seconds in that small sample. Rapid generation/repair also hit the account's 8,000-token-per-minute limit; quotas remain a real constraint, with retryable errors rather than paid OpenAI fallback. This is not a comprehensive language-quality or load test.
+- One synthetic Portuguese clip was generated with the existing OpenAI voice and correctly transcribed by Groq Whisper large v3 turbo in about 3.1 seconds combined. No learner recording was used. Native Android continues to use its existing device speech services.
+- No database migration is needed. The provider selectors were saved in Netlify; the new deployment activates them. Browser sign-in and notification permissions must be established on the new origin. Google console changes were reported complete by the owner; actual Google sign-in and physical phone behavior are not established by these tests.

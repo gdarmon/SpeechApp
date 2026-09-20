@@ -48,7 +48,7 @@ try {
     const request = route.request(), path = new URL(request.url()).pathname;
     const send = data => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     if (path === '/auth/me') return send({ email: 'browser-fixture@fala.invalid' });
-    if (path === '/dashboard') return send({ progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [] });
+    if (path === '/dashboard') return send({ status: { speech: { transcription: 'groq', voice: 'openai' } }, progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [] });
     if (path === '/sessions') { saved = { id: 'session-fixture', topic: 'Capoeira', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
     if (path.endsWith('/speech')) { speechRequests.push(request.postDataJSON()); return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }); }
     if (path === '/speech/transcribe') { assert.ok(request.postDataBuffer().length > 128); return send({ text: 'Sim, conheço.' }); }
@@ -69,6 +69,8 @@ try {
   await page.waitForFunction(() => !document.getElementById('microphone').disabled);
   // Reply controls must remain visible and clickable at small sizes, including keyboard-sized viewports.
   async function assertComposerVisible() {
+    // Viewport resize events run on the next browser frame, after setViewportSize resolves.
+    await page.waitForFunction(() => Number.parseFloat(document.documentElement.style.getPropertyValue('--app-height')) === (visualViewport?.height || innerHeight));
     const metrics = await page.evaluate(() => {
       const height = visualViewport?.height || innerHeight;
       return ['microphone', 'draft', 'send'].map(id => {
@@ -106,6 +108,7 @@ try {
   await page.locator('#draft').fill('');
   await page.locator('#options').click();
   await page.locator('#conversation-options').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#voice-disclosure').textContent(), /sent to Groq for transcription/);
   await page.locator('#help').check(); await page.locator('#close-options').click();
   assert.match(await page.locator('#draft').getAttribute('placeholder'), /Hebrew/);
   await page.locator('#options').click(); await page.locator('#help').uncheck(); await page.keyboard.press('Escape');

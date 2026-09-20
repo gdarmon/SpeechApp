@@ -7,6 +7,7 @@ const text = (id, value) => { $(id).textContent = value ?? ''; };
 const preferences = { get: key => { try { return localStorage.getItem(`fala.${key}`); } catch { return null; } }, set: (key, value) => { try { localStorage.setItem(`fala.${key}`, value); } catch { /* Private browsing may disallow storage. */ } } };
 let language = preferences.get('language') === 'en-US' ? 'en-US' : 'he-IL';
 let user = null, session = null, reply = null;
+let transcriptionService = "the configured speech service";
 let busy = false, epoch = 0, retryAction = null, recordingUrl = null, recorded = null, speechMs = 0;
 let ideasHidden = preferences.get('hideIdeas') === 'true', assisted = !ideasHidden, pendingTurn = null, pendingStart = null;
 const audioCache = new Map();
@@ -100,6 +101,7 @@ async function home() {
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
     await rewards.initialize(dashboard.rewards); if(current!==epoch)return;
+    transcriptionService = dashboard.status?.speech?.transcription === 'groq' ? 'Groq' : dashboard.status?.speech?.transcription === 'openai' ? 'OpenAI' : 'the configured speech service';
     const progress = dashboard.progress.practice;
     text('progress', progress ? `Level ${progress.level} · ${progress.title}. ${progress.goal}` : 'Start with short, simple replies.');
     $('history').replaceChildren();
@@ -196,7 +198,7 @@ function renderReply(round, topic, complete = false) {
   show('online-draft', !complete); show('microphone', !complete); show('mic-hint', !complete);
   show('complete', complete);
   text('finish', complete ? 'See my summary' : 'Finish and review');
-  text('voice-disclosure', 'AI-generated voice. Recording is sent to OpenAI for transcription when you release. Check the words before sending your answer.');
+  text('voice-disclosure', `AI-generated voice. Recording is sent to ${transcriptionService} for transcription when you release. Check the words before sending your answer.`);
   text('mic-hint', 'Hold, speak, release. Check your words, then send.');
   if (complete) text('voice-state', 'Conversation complete. Listen, then open your summary.');
 }

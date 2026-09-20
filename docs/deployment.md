@@ -47,15 +47,17 @@ In **Project configuration → Environment variables**, add the following. Use *
 | `FALA_TOKEN` | Optional random 32+ character **operator** token; never shared with users |
 | `FALA_DAILY_USER_LIMIT` | Optional daily AI request limit per user; default 200 |
 | `FALA_DAILY_APP_LIMIT` | Optional daily AI request limit for the whole service; default 2000 |
-| `FALA_OPENAI_API_KEY` | OpenAI API key for paid coaching; server only |
+| `FALA_OPENAI_API_KEY` | OpenAI key for voice; also coaching only when selected |
 | `FALA_OPENAI_MODEL` | Optional; defaults to `gpt-5.6-terra` |
 | `FALA_DEMO` | `false` |
 
 The paid option always uses `https://api.openai.com/v1`, with low reasoning effort and strict structured replies for the supported GPT-5.6 Terra/Sol/Luna models. Requests set `store: false`; provider abuse-monitoring retention is separate. [OpenAI model details](https://developers.openai.com/api/docs/models/gpt-5.6-terra), [data controls](https://developers.openai.com/api/docs/guides/your-data).
 
-For an existing Groq deployment, leave its variables in place and add the dedicated OpenAI key. On the next deploy, Fala switches the endpoint, credential and model together. Remove the dedicated key and redeploy to return to the existing provider. It never sends a failed OpenAI request to another provider automatically. Model access and coaching quality must be tested with the configured account before rollout.
+To select paid OpenAI coaching, set `FALA_AI_PROVIDER=openai` with the dedicated OpenAI key. Set `FALA_TRANSCRIPTION_PROVIDER=openai` as well if you want OpenAI transcription. Without explicit provider selectors, adding the dedicated OpenAI key retains the previous behavior of selecting OpenAI. Fala never sends a failed conversation request to another provider automatically.
 
-Alternatively, leave `FALA_OPENAI_API_KEY` empty and set `OPENAI_API_KEY` to a Groq key, `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, and `OPENAI_MODEL=openai/gpt-oss-120b`. Those three compatible-provider variables are ignored when the dedicated OpenAI key is set.
+For lower-cost coaching with the same natural voice, set `FALA_AI_PROVIDER=groq`, `FALA_TRANSCRIPTION_PROVIDER=groq`, and `GROQ_API_KEY`. Retain `FALA_OPENAI_API_KEY` for speech generation only. `FALA_GROQ_MODEL` defaults to `openai/gpt-oss-120b`; transcription uses `whisper-large-v3-turbo`. An existing `OPENAI_API_KEY` with `OPENAI_BASE_URL=https://api.groq.com/openai/v1` supplies the Groq credential when the dedicated one is absent. Select `FALA_AI_PROVIDER=openai` explicitly to return coaching to OpenAI, or `compatible` to use the three generic settings. When the selector is absent, the old OpenAI-key precedence remains compatible.
+
+Groq provides a [free tier with limits](https://console.groq.com/docs/rate-limits). Check the Groq account's plan and limits; Fala cannot guarantee unlimited or zero-cost use for a paid Groq account. No quota error silently triggers paid OpenAI coaching. [Groq transcription](https://console.groq.com/docs/speech-to-text) supports Portuguese and Hebrew. OpenAI voice generation remains billable. Voice and conversation requests have separate credentials and fixed provider hosts, and audio replays use the existing per-turn browser cache.
 
 As of 19 September 2026, Terra lists $2 per million input tokens and $12 per million output tokens for standard short-context requests. Actual cost depends on conversation history, output/reasoning tokens and retries. The daily user/app allowances cap requests, not dollars; review actual API usage before opening access broadly. [Current model pricing](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
 
@@ -69,7 +71,7 @@ Use a key for the configured provider. You can copy the adjacent chatbot's AI se
 
 ## 4. Connect Android
 
-Install the APK from GitHub Actions or a local build. Fala already knows `https://legendary-florentine-6b3c1f.netlify.app`. Read the processing notice, choose the recognition preference, **sign in with Google**, and tap **Talk**. A publisher changing the deployment URL must rebuild Android with the new `API_BASE_URL` and update the Google web origin; users do not configure it.
+Install the APK from GitHub Actions or a local build. Fala already knows `https://falachatapp.netlify.app`. Read the processing notice, choose the recognition preference, **sign in with Google**, and tap **Talk**. A publisher changing the deployment URL must rebuild Android with the new `API_BASE_URL` and update the Google web origin; users do not configure it.
 
 Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connectivity and phone audio. The app labels scripted mode and excludes it from progress. Set false again and start a new conversation for real practice.
 
