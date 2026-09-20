@@ -5,6 +5,15 @@ import { coachingReplySchema } from "../src/coaching.js";
 import { replySchema, type Session } from "../src/models.js";
 
 describe("varied ABADÁ conversations", () => {
+  it("accepts a natural first-person reply using song vocabulary without requiring title recitation", () => {
+    const reply = replySchema.parse({ text: "Na aula, como você entra na roda?", translation: "בשיעור, איך אתה נכנס למעגל?", pace: "slow",
+      suggested_replies: [{ text: "Entro sem medo.", translation: "אני נכנס בלי פחד." }, { text: "Entro devagar.", translation: "אני נכנס לאט." }] });
+    const context = { action: "start", support_language: "he-IL", practice: { level: 1 },
+      lesson: lessonContext({ id: "song-phrases-v1", visit: 1 }, 0, "he-IL") };
+    expect(coachingReplySchema(context).safeParse(reply).success).toBe(true);
+    expect(vocabularyUnits("Entro sem medo.", true)).toEqual(["entro", "sem medo"]);
+    expect(vocabularyUnits("Entra na roda sem medo.", true)).toEqual(["entra na roda sem medo"]);
+  });
   it("recognizes the complete aerial cartwheel name and supplies context outside the planned lesson", () => {
     for (const spelling of ["aú sem mão", "au sem mao", "aú sem mãos", "au sem maos", "au sem mau"]) {
       expect(capoeiraTerm(spelling)?.word).toBe("aú sem mão");

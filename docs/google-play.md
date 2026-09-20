@@ -1,8 +1,8 @@
 # Fala — Google Play release preparation
 
-Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The user created this app in the Console; the shared screenshot showed an empty internal-testing track.
+Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 
-Prepared application: **Fala**, package **com.fala.app**, version **0.9.0** (local version code 9; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
+Prepared application: **Fala**, package **com.fala.app**, version **0.9.1** (local version code 10; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
 ## Files
 
@@ -42,7 +42,7 @@ Set `FALA_PLAY_UPLOAD_ENABLED=false` to stop subsequent publishing runs. App use
 
 ### Current connection status
 
-On 20 September 2026, the owner enabled the Play Developer API, granted `fala-github-publisher@fala-509021.iam.gserviceaccount.com` access to Fala and stored its JSON key as a repository secret. The four existing upload-signing secrets were installed after verifying the certificate against the original Play upload key. Automatic internal-testing releases are enabled with status `completed`. The first manual Play release already exists. Check the **Publish Play internal testing** Actions run for the actual result of each upload; configuration alone does not confirm publication.
+On 20 September 2026, the owner enabled the Play Developer API, granted `fala-github-publisher@fala-509021.iam.gserviceaccount.com` access to Fala and stored its JSON key as a repository secret. The four existing upload-signing secrets were installed after verifying the certificate against the original Play upload key. Automatic internal-testing releases are enabled with status `completed`. The [first verified automated upload](https://github.com/gdarmon/SpeechApp/actions/runs/35518221629) published Fala 0.9.0, build 101801, with its release notes. Check the **Publish Play internal testing** Actions run for the actual result of each subsequent upload; configuration alone does not confirm publication.
 
 ## First release: internal testing
 
