@@ -54,3 +54,7 @@ Default budgets: 30 AI requests per minute per account, 200 per rolling day per 
 - Complete the [phone checklist](device-checks.md), including actual Google sign-in, microphone, pt-BR voice, and network failure behavior.
 
 Device sessions expire after 90 days. Android encrypts the bearer credential with Keystore and binds it to the built-in server origin. The server stores only its hash. Sign-out revokes that device when online and always removes local access; if offline, the server credential remains valid until expiry or account deletion. Account deletion revokes all devices and removes the active account and learning data; backups/provider logs follow their own retention settings.
+
+### Website on iPhone and Android
+
+The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://legendary-florentine-6b3c1f.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice, family practice and installation.

@@ -3,13 +3,16 @@
   "version": "0.3.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.22.0 <23" },
+  "engines": {
+    "node": ">=22.22.0 <23"
+  },
   "scripts": {
     "build": "npm run typecheck && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "netlify dev",
-    "benchmark": "node --env-file-if-exists=.env scripts/benchmark.mjs"
+    "benchmark": "node --env-file-if-exists=.env scripts/benchmark.mjs",
+    "test:web": "node tests/web-browser.mjs"
   },
   "dependencies": {
     "@netlify/functions": "6.0.0",
@@ -17,11 +20,14 @@
     "postgres": "3.4.9",
     "zod": "4.6.5"
   },
-  "overrides": { "sharp": "0.35.4" },
+  "overrides": {
+    "sharp": "0.35.4"
+  },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@types/node": "22.19.15",
     "netlify-cli": "27.8.0",
+    "playwright-core": "1.63.0",
     "typescript": "5.9.3",
     "vitest": "5.0.1"
   }

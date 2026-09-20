@@ -1,5 +1,8 @@
 # Fala
 
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web 0.7.0 includes hold-to-speak, AI voice, shared learner progress, and prepared Family practice without account or recording uploads. [Setup and browser details](docs/web-app.md).
+
+
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
 
 A native Android app for learning to **speak Brazilian Portuguese** through natural conversations. Choose English or Hebrew once, tap **Talk**, and listen to Fala’s first question. Hold to speak, release, review your words, and send. English/Hebrew help gets you unstuck; selective feedback and personal memory guide later conversations. No XP, streaks, or random flashcards.

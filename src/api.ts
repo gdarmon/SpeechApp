@@ -1,4 +1,4 @@
-import { Auth, googleLoginSchema, type VerifyGoogle } from "./auth.js";
+import { Auth, googleLoginSchema, sameOrigin, webCookie, type VerifyGoogle } from "./auth.js";
 import { z } from "zod";
 import type { Settings } from "./config.js";
 import type { Database } from "./database.js";
@@ -7,6 +7,7 @@ import { CompatibleProvider, DemoProvider, type AIProvider } from "./provider.js
 import { Sessions } from "./service.js";
 import { Store, publicSession } from "./store.js";
 import { Timing } from "./timing.js";
+import { Speech, readRecording, speechAvailable, speechSchema } from "./speech.js";
 
 type Dependencies = {
   settings: () => Settings;
@@ -14,6 +15,7 @@ type Dependencies = {
   provider?: (settings: Settings, timing: Timing) => AIProvider;
   region?: () => string;
   verifyGoogle?: VerifyGoogle;
+  speech?: (settings: Settings) => Pick<Speech, "transcribe" | "speak">;
 };
 
 async function body(request: Request): Promise<unknown> {
@@ -52,8 +54,16 @@ export function createHandler(dependencies: Dependencies) {
         return respond(await auth.challenge(clientAddress));
       }
       if (path === "/auth/google" && request.method === "POST") return respond(await auth.signIn(googleLoginSchema.parse(await body(request)), clientAddress));
+      if (path === "/auth/web/google" && request.method === "POST") {
+        sameOrigin(request);
+        const { age_eligible: _eligible, ...input } = googleLoginSchema.extend({ age_eligible: z.literal(true) }).parse(await body(request));
+        const login = await auth.signIn(input, clientAddress);
+        const response = respond({ email: login.email, expires_at: login.expires_at });
+        response.headers.set("Set-Cookie", webCookie(login.token)); return response;
+      }
       const user = await auth.authorize(request);
-      if (path === "/auth/logout" && request.method === "POST") { await auth.signOut(request); return respond({ signed_out: true }); }
+      if (path === "/auth/me" && request.method === "GET") return respond(await auth.account(user.id));
+      if (path === "/auth/logout" && request.method === "POST") { await auth.signOut(request); const response = respond({ signed_out: true }); response.headers.set("Set-Cookie", webCookie()); return response; }
       const store = new Store(database, timing, user.id, settings.dailyUserLimit, settings.dailyAppLimit);
       if (path === "/account" && request.method === "DELETE") {
         if (user.operator) throw new AppError(403, "Sign in with Google to delete your account.");
@@ -61,6 +71,14 @@ export function createHandler(dependencies: Dependencies) {
       }
       const ai = dependencies.provider?.(settings, timing) || (settings.demo ? new DemoProvider() : new CompatibleProvider(settings, timing));
       const sessions = new Sessions(store, ai);
+      const speech = dependencies.speech?.(settings) ?? new Speech(settings);
+      if (path === "/speech/status" && request.method === "GET") return respond({ available: speechAvailable(settings) });
+      if (path === "/speech/transcribe" && request.method === "POST") {
+        const language = z.enum(["pt", "he", "en"]).parse(new URL(request.url).searchParams.get("language") ?? "pt");
+        const recording = await readRecording(request);
+        await store.budget();
+        return respond(await speech.transcribe(recording, language));
+      }
       const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey) || ai.demo };
       if (request.method === "GET") {
         if (path === "/status") { await store.ping(); return respond(status); }
@@ -81,9 +99,17 @@ export function createHandler(dependencies: Dependencies) {
         await store.budget();
         return respond(publicSession(await sessions.start(input)));
       }
-      const match = path.match(/^\/sessions\/([^/]+)(?:\/(turns|finish))?$/);
+      const match = path.match(/^\/sessions\/([^/]+)(?:\/(turns|finish|speech))?$/);
       if (match) {
         const id = z.uuid().parse(match[1]);
+        if (match[2] === "speech" && request.method === "POST") {
+          const input = speechSchema.parse(await body(request));
+          const session = await store.session(id);
+          const reply = input.turn_id === null ? session.opening : session.turns.find(turn => turn.id === input.turn_id)?.reply;
+          if (!reply) throw new AppError(404, "Conversation reply not found.");
+          await store.budget();
+          return new Response(await speech.speak(reply), { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Server-Timing": timing.header() } });
+        }
         if (!match[2] && request.method === "GET") return respond(publicSession(await store.session(id)));
         if (!match[2] && request.method === "DELETE") { await store.mutate(tx => tx.delete(id)); return respond({ deleted: true }); }
         if (match[2] === "turns" && request.method === "POST") {

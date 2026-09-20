@@ -8,6 +8,16 @@ import type { Timing } from "./timing.js";
 
 export const LEGACY_USER_ID = "00000000-0000-4000-8000-000000000001";
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+export const WEB_COOKIE = "__Host-fala";
+export const webCookie = (token = "") => `${WEB_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${token ? 90 * 86400 : 0}`;
+export const requestToken = (request: Request) => {
+  const header = request.headers.get("Authorization");
+  if (header) return header.startsWith("Bearer ") ? header.slice(7) : "";
+  return request.headers.get("Cookie")?.split(";").map(item => item.trim()).find(item => item.startsWith(`${WEB_COOKIE}=`))?.slice(WEB_COOKIE.length + 1) ?? "";
+};
+export function sameOrigin(request: Request) {
+  if (request.headers.get("Origin") !== new URL(request.url).origin) throw new AppError(403, "Open Fala on its own website and try again.");
+}
 const googleKeys = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"), { timeoutDuration: 5000 });
 export type GoogleIdentity = { subject: string; email: string; nonce: string };
 export type VerifyGoogle = (token: string, clientId: string) => Promise<GoogleIdentity>;
@@ -83,7 +93,9 @@ export class Auth {
   }
 
   async authorize(request: Request) {
-    const header = request.headers.get("Authorization") || "";
+    const credential = requestToken(request);
+    const header = `Bearer ${credential}`;
+    if (credential && !request.headers.has("Authorization") && !["GET", "HEAD"].includes(request.method)) sameOrigin(request);
     // Optional operator access for diagnostics and older development clients; never embedded in Android.
     if (this.settings.token && timingSafeEqual(Buffer.from(hash(header)), Buffer.from(hash(`Bearer ${this.settings.token}`)))) return { id: LEGACY_USER_ID, operator: true };
     if (!/^Bearer fala_[A-Za-z0-9_-]{43}$/.test(header)) throw new AppError(401, "Please sign in to Fala again.");
@@ -94,7 +106,13 @@ export class Auth {
   }
 
   async signOut(request: Request) {
-    const token = (request.headers.get("Authorization") || "").slice(7);
+    const token = requestToken(request);
     await this.query(this.db, "DELETE FROM fala.device_sessions WHERE token_hash=$1", [hash(token)]);
+  }
+
+  async account(id: string) {
+    const [user] = await this.query<{ email: string }>(this.db, "SELECT email FROM fala.users WHERE id=$1::uuid", [id]);
+    if (!user) throw new AppError(401, "Please sign in to Fala again.");
+    return { email: user.email };
   }
 }

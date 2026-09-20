@@ -233,3 +233,50 @@ it("cryptographically verifies Google's signature, issuer, audience, age, nonce,
   const other = await generateKeyPair("RS256");
   await expect(verify(await sign({}, other.privateKey), settings.googleClientId)).rejects.toMatchObject({ status: 401 });
 });
+
+it('uses an HttpOnly browser session, requires eligibility and same-origin mutations, and revokes logout', async () => {
+  const c = await challenge();
+  const input = { challenge_id: c.challenge_id, id_token: googleToken('web-alice', c.nonce), age_eligible: true };
+  const browser = (path: string, method = 'GET', cookie = '', body?: unknown, origin = 'https://fala.test') => instance()(new Request(`https://fala.test${path}`, {
+    method, headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}),
+  }), randomUUID());
+  expect((await browser('/auth/web/google', 'POST', '', { ...input, age_eligible: false })).status).toBe(422);
+  expect((await browser('/auth/web/google', 'POST', '', input, 'https://other.test')).status).toBe(403);
+  const signedIn = await browser('/auth/web/google', 'POST', '', input);
+  expect(signedIn.status).toBe(200); expect(await signedIn.json()).not.toHaveProperty('token');
+  const setCookie = signedIn.headers.get('set-cookie')!;
+  expect(setCookie).toContain('__Host-fala='); expect(setCookie).toContain('HttpOnly'); expect(setCookie).toContain('Secure'); expect(setCookie).toContain('SameSite=Lax');
+  const cookie = setCookie.split(';')[0];
+  expect(await (await browser('/auth/me', 'GET', cookie)).json()).toMatchObject({ email: 'web-alice@gmail.com' });
+  expect((await browser('/sessions', 'POST', cookie, { request_id: randomUUID() }, 'https://other.test')).status).toBe(403);
+  expect((await browser('/sessions', 'POST', cookie, { request_id: randomUUID() })).status).toBe(200);
+  const logout = await browser('/auth/logout', 'POST', cookie, {});
+  expect(logout.status).toBe(200); expect(logout.headers.get('set-cookie')).toContain('Max-Age=0');
+  expect((await browser('/auth/me', 'GET', cookie)).status).toBe(401);
+});
+
+it('authorizes voice, scopes synthesized replies to their learner, and rejects arbitrary speech input', async () => {
+  const alice = await login('alice'), bob = await login('bob');
+  const saved = (await start(alice)).data;
+  const spoken: string[] = [], transcribed: number[] = [];
+  const target = createHandler({ settings: () => settings, database: () => db, provider: () => provider, speech: () => ({
+    speak: async reply => { spoken.push(reply.text); return new Uint8Array([1, 2, 3]).buffer; },
+    transcribe: async recording => { transcribed.push(recording.bytes.length); return { text: 'Gosto da ginga.' }; },
+  }) });
+  const say = (token: string, body: unknown = {}) => target(new Request(`https://fala.test/sessions/${saved.id}/speech`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }));
+  expect((await say('')).status).toBe(401);
+  expect((await say(bob)).status).toBe(404);
+  expect((await say(alice, { text: 'Arbitrary text' })).status).toBe(422);
+  expect((await say(alice, { turn_id: 9999 })).status).toBe(404);
+  const response = await say(alice);
+  expect(response.status).toBe(200); expect(response.headers.get('Content-Type')).toBe('audio/mpeg');
+  expect(response.headers.get('Cache-Control')).toBe('no-store'); expect(spoken).toEqual([saved.opening.text]);
+  const record = (token: string) => target(new Request('https://fala.test/speech/transcribe', { method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'audio/mp4' }, body: new Uint8Array(300),
+  }));
+  expect((await record('')).status).toBe(401); expect(transcribed).toEqual([]);
+  expect(await (await record(alice)).json()).toEqual({ text: 'Gosto da ginga.' }); expect(transcribed).toEqual([300]);
+  expect((await db.query('SELECT * FROM fala.turns')).length).toBe(0);
+});
