@@ -7,7 +7,7 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("queixada", "outward crescent kick", "בעיטה מעגלית מבפנים החוצה"),
   term("armada", "spinning kick", "בעיטת סיבוב"),
   term("meia-lua de frente", "front crescent kick", "בעיטת חצי־ירח קדמית"),
-  term("berimbau", "capoeira musical bow", "בירימבאו — כלי נגינה דמוי קשת"),
+  term("berimbau", "musical bow that leads the roda's rhythm and game", "בירימבאו — כלי קשת מוזיקלי שמוביל את המקצב והמשחק ברודה"),
   term("pandeiro", "Brazilian frame drum with jingles", "פנדיירו — תוף מסגרת עם מצילות"),
   term("atabaque", "tall hand drum", "אטבאקי — תוף ידיים גבוה"),
   term("agogô", "paired percussion bells", "אגוגו — כלי הקשה בעל זוג פעמונים"),
@@ -70,7 +70,7 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("voo do morcego", "flying double-foot kick (literally: flight of the bat)", "בעיטה מעופפת בשתי רגליים (מילולית: מעוף העטלף)", "vôo do morcego"),
   term("palmas", "rhythmic clapping", "מחיאות כפיים בקצב"),
   term("coro", "group sung response", "מענה בשירה של הקבוצה"),
-  term("toque", "instrument rhythm or rhythmic pattern", "מקצב נגינה"),
+  term("toque", "berimbau rhythm or rhythmic pattern in the roda", "טוקי — המקצב שמנגן הבירימבאו ברודה"),
   term("ritmo", "rhythm", "קצב"),
   term("corda marrom", "brown cord; ABADÁ professor group", "חבל חום — קבוצת המורים באבאדה"),
   term("corda marrom e vermelha", "brown-and-red cord", "חבל חום ואדום", "corda marrom-vermelha", "corda marrom/vermelha"),
@@ -83,7 +83,7 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("gunga", "low-register berimbau", "בירימבאו בעל צליל נמוך"),
   term("médio", "middle-register berimbau", "בירימבאו בעל צליל בינוני"),
   term("viola", "high-register berimbau in this context", "בירימבאו בעל צליל גבוה בהקשר הזה"),
-  term("bateria", "capoeira instrument ensemble", "הרכב כלי הנגינה בקפואירה"),
+  term("bateria", "full ensemble of instruments accompanying the roda", "בטריה — כלל הרכב כלי הנגינה המלווה את הרודה"),
   term("são bento grande da regional", "Regional berimbau rhythm associated with fast, energetic play", "מקצב של קפואירה רגיונל המזוהה עם משחק מהיר ואנרגטי", "são bento grande de regional", "são bento grande regional", "são bento grande de bimba"),
   term("benguela", "measured capoeira rhythm and game with controlled, flowing movement", "בנגלה — מקצב ומשחק מדוד עם תנועה מבוקרת וזורמת"),
   term("iúna", "rhythm traditionally for experienced players, usually without singing; clapping customs vary", "יוּנָה — מקצב למשחק של מתקדמים, לרוב בלי שירה; מחיאות הכפיים תלויות במסורת"),
@@ -95,6 +95,18 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("angola", "Angola rhythm, often slow and associated with low, strategic play; also a capoeira style", "אנגולה — מקצב שלרוב מלווה משחק איטי, נמוך וערמומי; גם שם של סגנון קפואירה"),
   term("samba de roda", "circle samba dance and its music, distinct from a capoeira game", "סמבה דה רודה — ריקוד סמבה במעגל והמוזיקה שלו, ולא משחק קפואירה"),
   term("maculelê", "Afro-Brazilian stick dance and its accompanying rhythms, often presented at capoeira events", "מקוללה — ריקוד מקלות אפרו־ברזילאי והמקצבים המלווים אותו, המוצג גם באירועי קפואירה"),
+  term("ladainha", "solo opening song, especially in Capoeira Angola", "לדאיניה — שיר פתיחה בסולו, במיוחד בקפואירה אנגולה"),
+  term("louvação", "sung praise with group responses, often following the opening song", "לובסאו — קטע שבח ומענה של המעגל, לרוב אחרי שיר הפתיחה"),
+  term("chula", "song form; in some schools the praise-and-response section after the opening song", "שולה — סוג של שיר; בחלק מהקבוצות קטע השבח והמענה אחרי הפתיחה"),
+  term("quadra", "short song stanza traditionally based on four lines", "קוואדרה — בית שירי קצר המבוסס בדרך כלל על ארבע שורות"),
+  term("corrido", "call-and-response song in which the solo singer sings and the circle answers", "קורידו — שיר קריאה ומענה: הסולן שר והמעגל עונה"),
+  term("entra na roda sem medo", "enter the roda without fear", "היכנס למעגל בלי פחד"),
+  term("deixa o berimbau falar", "let the berimbau speak", "תן לבירימבאו לדבר"),
+  term("cantar junto", "sing together or join in the singing", "לשיר יחד או להצטרף לשירה"),
+  term("roda de aniversário", "birthday celebration roda; customs vary by group", "רודה לכבוד יום הולדת; המנהגים משתנים בין קבוצות"),
+  term("aniversariante", "person whose birthday is being celebrated", "מי שחוגג יום הולדת"),
+  term("parabéns pra você", "happy birthday to you; also the familiar Brazilian birthday-song title", "יום הולדת שמח לך — גם שם שיר יום ההולדת המוכר בברזיל", "parabéns para você", "parabéns a você"),
+  term("festa", "party or celebration", "מסיבה או חגיגה"),
 ];
 
 export const termKey = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().match(/[a-z]+/g)?.join(" ") ?? "";
@@ -130,6 +142,10 @@ export const CAPOEIRA_LESSONS = [
   lesson("roda-rhythms-v1", "Talking about the rhythm of the game", "Chat with a classmate about named rhythms and the pace of the roda. Ask which name they want repeated or explained. Angola also appears in ABADÁ; do not assume every roda uses every rhythm or quiz recognition of audio that was not played.", "são bento grande da regional|benguela|são bento pequeno|angola"),
   lesson("traditional-toques-v1", "Asking about traditional toques", "Ask a classmate about rhythm names on an event's program. Explain one name at a time in simple Portuguese. Customs, clapping, eligible players and uses vary by school; ask about the learner's own teacher's practice instead of prescribing universal rules.", "iúna|amazonas|santa maria|idalina"),
   lesson("event-music-v1", "Music and dance at a capoeira event", "Talk with a classmate about an event's music and dance demonstrations. Cavalaria is a warning rhythm; samba de roda and maculelê are distinct dance traditions with their own music. Discuss what the learner wants explained or repeated, without claiming a real emergency or asking them to identify unheard music.", "cavalaria|samba de roda|maculelê"),
+  lesson("opening-songs-v1", "Talking about the opening song", "Ask a classmate about the names of the opening song and the praise-and-response section. Explain one name at a time and offer simple requests for clarification. Louvação and chula overlap in some traditions but are not universal synonyms; do not impose one song order on every ABADÁ roda. Discuss the singing without quoting song lyrics or pretending to play music.", "ladainha|louvação|chula"),
+  lesson("song-responses-v1", "Joining the singing in the roda", "Chat with a classmate about a short verse, the singer's call and the circle's response. Practice asking when to join in or requesting an explanation. Explain quadra as traditionally four lines and corrido as call-and-response; keep this a simple language conversation, not a definition quiz or a task requiring unheard music or song lyrics.", "quadra|corrido|coro"),
+  lesson("song-phrases-v1", "Useful phrases from capoeira song titles", "Practice the two supplied short song-title phrases listed by ABADÁ Berlin: use one as spoken Portuguese, explain it briefly, then help the learner respond or use its words in an original class conversation. Cantar junto is an original practice expression, not a quoted lyric. Do not continue lyrics, claim ABADÁ authorship or ask the learner to sing. Ask one simple question at a time.", "entra na roda sem medo|deixa o berimbau falar|cantar junto"),
+  lesson("birthday-roda-v1", "Celebrating a birthday in the roda", "Role-play a birthday roda with a classmate. Begin by congratulating a fictional birthday celebrant and asking who is celebrating. Use the short birthday-song excerpt 'Parabéns pra você, nesta data querida.' once during the conversation, translating it naturally, then practise an original spoken reply. This is pronunciation playback, not singing or a recording. Do not supply the remaining lyrics. Discuss joining the celebration, thanking classmates and wishing someone a happy birthday. Group customs vary: do not prescribe rough play, compulsory participation or a universal birthday ritual. Keep names fictional; no date of birth is needed.", "roda de aniversário|aniversariante|parabéns pra você|festa"),
 ];
 
 export type LessonChoice = { id: string; visit: number };

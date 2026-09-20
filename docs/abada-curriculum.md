@@ -4,7 +4,7 @@ The existing **Capoeira class** choice uses an ABADÁ-focused curriculum on the 
 
 ## Coverage and sources
 
-There are 24 lesson themes: kicks, instruments, first cord colors, evasions, class exercises, sweeps, berimbau parts, direct kicks, orange/blue cords, floor movements, game instructions, spinning movements, green/purple cords, demonstrations, roda language, clapping/singing, teacher cords, ceremonies, the berimbau ensemble, cartwheel names, cartwheel variations, game rhythms, traditional toques, and event music and dance. Each lesson supplies only three or four focus terms, with original English and Hebrew meaning notes. The learner's supplied movement lists are included, except **Meia-lua solta**, which they explicitly removed. The cartwheel and rhythm lessons have new IDs appended to the catalog, preserving existing lessons and their revisit order.
+There are 28 lesson themes: kicks, instruments, first cord colors, evasions, class exercises, sweeps, berimbau parts, direct kicks, orange/blue cords, floor movements, game instructions, spinning movements, green/purple cords, demonstrations, roda language, clapping/singing, teacher cords, ceremonies, the berimbau ensemble, cartwheel names, cartwheel variations, game rhythms, traditional toques, event music and dance, opening songs, song responses, song-title phrases and a birthday roda. Each lesson supplies only three or four focus terms, with original English and Hebrew meaning notes. The learner's supplied movement lists are included, except **Meia-lua solta**, which they explicitly removed. The cartwheel, rhythm and song lessons have new IDs appended to the catalog, preserving existing lessons and their revisit order.
 
 The references were checked on 20 September 2026:
 
@@ -50,3 +50,15 @@ The learner's eleven rhythm/dance names are split across three lessons (four, fo
 - [ABADÁ San Francisco's performance program](https://www.abada.org/cigarra-guerreiras-nessa-arte/) presents maculelê and samba de roda as dance traditions alongside capoeira. They are taught as dances with accompanying music, not ordinary capoeira games.
 
 These are language conversations about music. The app does not play recordings of these rhythms or ask the learner to recognize unheard instruments. Beginner Portuguese, one new term at a time, the ten-exchange session and the five-item review limit still apply.
+
+## Song forms and the ensemble
+
+The learner's song-form list adds `ladainha`, `louvação`, `chula`, `quadra` and `corrido`. Two three-term lessons cover opening songs and group responses, reusing `coro`; existing `toque`, `bateria` and `berimbau` entries now clarify the berimbau's rhythmic lead and the complete ensemble. Accent-free `louvacao` matches without rewriting the original transcript.
+
+[ABADÁ Berlin's music overview](https://www.abada-berlin.de/en/game-music/music/) supports the berimbau's leading role and the solo opening song. [Companhia Pernas Pro Ar's song notes](https://cppa.com.br/M%C3%BAsicas-CPPA/) describe quadra as a short four-line stanza and corrido as the singer's call with chorus responses. [Capoeira Angola Sheffield's Louvação/Chula notes](https://mouse-recorder-jtab.squarespace.com/songbook/chula) use both names for the praise-and-response section; [Chicago Capoeira Center](https://colibricapoeira.com/the-music/) also notes a broader chula song form. Therefore, louvação and chula have separate entries with contextual overlap rather than a global alias. The lessons do not prescribe one universal opening sequence or reproduce song lyrics.
+
+## Short song phrases and the birthday roda
+
+The song-phrase lesson uses two short titles from [ABADÁ Berlin's song catalog](https://www.abada-berlin.de/en/game-music/songs/) as language material. It does not imply ABADÁ authorship or import full lyrics. An original phrase about singing together rounds out the three focus expressions. The partner explains a phrase and invites an original spoken response; existing Portuguese playback and support-language translation apply.
+
+The learner selected the familiar Brazilian birthday song for the birthday-roda scenario. Only a six-word excerpt is supplied, with an explicit instruction not to continue it; [Discografia Brasileira's recording history](https://discografiabrasileira.com.br/posts/247886/os-80-anos-do-1-disco-de-parabens-a-voce-do-kentucky-a-pindamonhangaba-um-bom-dia-que-virou-sinonimo-de-festa) documents the song. The scenario practises congratulations, identifying a fictional celebrant, joining a party and thanking classmates. It does not require a real birth date or impose a birthday-roda ritual. Playback pronounces the text; no song recording, melody or singing feature is included. New scenarios enter the learner's existing lesson rotation, and short phrases raised in other capoeira conversations are available through the term reference.

@@ -12,12 +12,12 @@ android {
         minSdk = 26
         targetSdk = 36
         val releaseCode = providers.environmentVariable("FALA_VERSION_CODE").orNull
-        versionCode = if (releaseCode == null) 8 else {
+        versionCode = if (releaseCode == null) 9 else {
             requireNotNull(releaseCode.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
                 "FALA_VERSION_CODE must be an integer between 1 and 2100000000"
             }
         }
-        versionName = "0.8.0"
+        versionName = "0.9.0"
         buildConfigField("String", "API_BASE_URL", "\"https://legendary-florentine-6b3c1f.netlify.app\"")
     }
     signingConfigs {

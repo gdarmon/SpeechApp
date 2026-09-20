@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web and Android 0.8.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web and Android 0.9.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">

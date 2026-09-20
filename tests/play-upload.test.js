@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { generateKeyPair, exportPKCS8, jwtVerify } from "jose";
 import { googleAccessToken, publishBundle, versionCode } from "../scripts/play-upload.mjs";
+import { checkRelease, releaseMetadata } from "../scripts/release.mjs";
 
 const bundle = Buffer.from("signed-test-bundle");
 const digest = createHash("sha256").update(bundle).digest("hex");
+const release = releaseMetadata("0.9.0", "More varied capoeira practice and birthday conversations.");
 function google({ failCommit = false, existing = 3, badUpload = {}, failureBody = "" } = {}) {
   const calls = [];
   const request = async (address, options) => {
@@ -21,7 +23,7 @@ function google({ failCommit = false, existing = 3, badUpload = {}, failureBody 
   };
   return { request, calls };
 }
-const publish = (mock, extra = {}) => publishBundle({ token: "private-access-token", bundle, expectedVersion: 100101, request: mock.request, ...extra });
+const publish = (mock, extra = {}) => publishBundle({ token: "private-access-token", bundle, release, expectedVersion: 100101, request: mock.request, ...extra });
 
 describe("Google Play publisher", () => {
   it("increments versions for builds and reruns and rejects invalid values", () => {
@@ -37,7 +39,7 @@ describe("Google Play publisher", () => {
     expect(upload.body).toBe(bundle); expect(upload.signal).toBeInstanceOf(AbortSignal);
     const track = mock.calls.find(c => c.method === "PUT");
     expect(track.url.pathname).toContain("/tracks/internal");
-    expect(JSON.parse(track.body)).toEqual({ track: "internal", releases: [{ name: "Fala build 100101", versionCodes: ["100101"], status: "completed" }] });
+    expect(JSON.parse(track.body)).toEqual({ track: "internal", releases: [{ name: "Fala 0.9.0 (100101)", versionCodes: ["100101"], status: "completed", releaseNotes: release.notes }] });
     const commit = mock.calls.find(c => c.url.pathname.endsWith(":commit"));
     expect(commit.url.searchParams.get("changesInReviewBehavior")).toBe("ERROR_IF_IN_REVIEW");
     expect(commit.body).toBeUndefined();
@@ -50,6 +52,16 @@ describe("Google Play publisher", () => {
       expect(mock.calls.some(c => c.url.pathname.startsWith("/upload/"))).toBe(false);
       expect(mock.calls.at(-1).method).toBe("DELETE");
     }
+  });
+  it("requires usable versioned release notes before contacting Google", async () => {
+    for (const invalid of [undefined, { version: "../secret", notes: release.notes }, { version: "0.9.0", notes: [] },
+      { version: "0.9.0", notes: [{ text: " " }] }, { version: "0.9.0", notes: [{ text: "x".repeat(501) }] }]) {
+      const mock = google();
+      await expect(publish(mock, { release: invalid })).rejects.toThrow();
+      expect(mock.calls).toEqual([]);
+    }
+    const current = await checkRelease();
+    expect(current.notes[0].text.length).toBeGreaterThan(0);
   });
   it("never releases a bundle with an unexpected checksum or version", async () => {
     for (const badUpload of [{ sha256: "wrong" }, { versionCode: 3 }]) {

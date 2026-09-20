@@ -1,7 +1,10 @@
 import { cp, mkdir, rm } from "node:fs/promises";
+import { checkRelease } from "./release.mjs";
+
+const release = await checkRelease();
 
 // Only this public directory is published. Source, .env and database files cannot enter dist.
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist", { recursive: true });
 await cp("public", "dist", { recursive: true });
-console.log("Built the public landing page. Netlify bundles the API separately.");
+console.log(`Built Fala ${release.version}; release versions and notes verified. Netlify bundles the API separately.`);

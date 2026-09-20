@@ -2,6 +2,7 @@ import { readFile, appendFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { importPKCS8, SignJWT } from "jose";
+import { checkRelease, releaseMetadata } from "./release.mjs";
 
 const apiRoot = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.fala.app/edits";
 const uploadRoot = "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/com.fala.app/edits";
@@ -38,10 +39,11 @@ export async function googleAccessToken(raw, request = fetch) {
   return result.access_token;
 }
 
-export async function publishBundle({ token, bundle, expectedVersion, status = "completed", request = fetch }) {
+export async function publishBundle({ token, bundle, expectedVersion, release, status = "completed", request = fetch }) {
   if (!token || !Buffer.isBuffer(bundle) || bundle.length === 0) throw new Error("Missing Google access token or signed App Bundle.");
   if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1 || expectedVersion > 2100000000) throw new Error("Invalid bundle version code.");
   if (!["draft", "completed"].includes(status)) throw new Error("Play release status must be draft or completed.");
+  const metadata = releaseMetadata(release?.version, release?.notes?.[0]?.text);
   const call = async (url, method = "GET", value, media = false) => {
     let response;
     try {
@@ -81,7 +83,8 @@ export async function publishBundle({ token, bundle, expectedVersion, status = "
     }
     // The destination is deliberately fixed: automation never promotes to production or other tracks.
     await call(`${base}/tracks/internal`, "PUT", { track: "internal", releases: [{
-      name: `Fala build ${expectedVersion}`, versionCodes: [String(expectedVersion)], status,
+      name: `Fala ${metadata.version} (${expectedVersion})`, versionCodes: [String(expectedVersion)], status,
+      releaseNotes: metadata.notes,
     }] });
     // Never silently cancel an unrelated review in progress.
     await call(`${base}:commit?changesInReviewBehavior=ERROR_IF_IN_REVIEW`, "POST");
@@ -102,11 +105,12 @@ async function main() {
     return;
   }
   if (process.argv[2] !== "upload") throw new Error("Use play-upload.mjs version or upload.");
+  const release = await checkRelease();
   const token = await googleAccessToken(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || "");
   const bundle = await readFile("android/app/build/outputs/bundle/release/app-release.aab");
-  const result = await publishBundle({ token, bundle, expectedVersion: Number(process.env.FALA_VERSION_CODE),
+  const result = await publishBundle({ token, bundle, release, expectedVersion: Number(process.env.FALA_VERSION_CODE),
     status: process.env.FALA_PLAY_RELEASE_STATUS || "completed" });
-  const summary = `Fala ${result.versionCode} uploaded to Google Play internal testing (${result.status}).\nSHA-256: ${result.sha256}\n`;
+  const summary = `Fala ${release.version} (build ${result.versionCode}) uploaded to Google Play internal testing (${result.status}).\nSHA-256: ${result.sha256}\n\n${release.notes[0].text}\n`;
   console.log(summary);
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary);
 }

@@ -2,7 +2,7 @@
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The user created this app in the Console; the shared screenshot showed an empty internal-testing track.
 
-Prepared application: **Fala**, package **com.fala.app**, version **0.3.0 (3)**, Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
+Prepared application: **Fala**, package **com.fala.app**, version **0.9.0** (local version code 9; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
 ## Files
 
@@ -18,7 +18,7 @@ To rebuild a signed bundle locally, export the four `FALA_UPLOAD_*` variables fr
 
 The **Publish Play internal testing** workflow runs after **Build and check Fala** succeeds for a push to `main`. A manual run is also available from `main`. The publishing workflow must be present on the default branch; publishing is inactive until `FALA_PLAY_UPLOAD_ENABLED=true` and the credentials below are installed.
 
-It checks/builds a signed AAB from the checked commit, verifies it, and uploads through Google's publishing API to **internal testing**. Each run gets version code `100000 + (workflow run number × 100) + run attempt`, so normal updates and reruns do not require editing the Android version manually. The user-facing version name remains 0.3.0 until intentionally changed. Do not reset the workflow's run numbering or upload unrelated larger version codes without adjusting this scheme.
+It checks/builds a signed AAB from the checked commit, verifies it, and uploads through Google's publishing API to **internal testing**. Each run gets version code `100000 + (workflow run number × 100) + run attempt`, so normal updates and reruns do not require editing the Android version manually. Every release also updates the visible version and adds `releases/<version>.txt` (at most 500 characters). The build checks that Android, web, service-worker cache and package versions agree. The Play release name and notes come from this checked metadata. Do not reset the workflow's run numbering or upload unrelated larger version codes without adjusting this scheme.
 
 Publishing runs are serialized. Older commits are skipped if main has advanced, checked both before building and immediately before uploading. The publisher rejects a used/older code, checks Google's uploaded bundle hash and version, and commits only the internal track. It fails if another Google review is already in progress instead of canceling it. There is no automatic production rollout. Google may still require review or account actions; “completed” in the API is a track release status, not a promise of immediate review approval.
 
@@ -42,7 +42,7 @@ Set `FALA_PLAY_UPLOAD_ENABLED=false` to stop subsequent publishing runs. App use
 
 ### Current connection status
 
-The automation has been implemented and tested locally with a simulated publishing API. No Google publishing service-account key or authenticated GitHub API session was available in this workspace, so repository publishing secrets/variables were not set and no Google Play upload was performed. The signed browser tab is not accessible to the agent's available tools. The first upload and one-time service-account connection remain required.
+On 20 September 2026, the owner enabled the Play Developer API, granted `fala-github-publisher@fala-509021.iam.gserviceaccount.com` access to Fala and stored its JSON key as a repository secret. The four existing upload-signing secrets were installed after verifying the certificate against the original Play upload key. Automatic internal-testing releases are enabled with status `completed`. The first manual Play release already exists. Check the **Publish Play internal testing** Actions run for the actual result of each upload; configuration alone does not confirm publication.
 
 ## First release: internal testing
 
