@@ -84,6 +84,17 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("médio", "middle-register berimbau", "בירימבאו בעל צליל בינוני"),
   term("viola", "high-register berimbau in this context", "בירימבאו בעל צליל גבוה בהקשר הזה"),
   term("bateria", "capoeira instrument ensemble", "הרכב כלי הנגינה בקפואירה"),
+  term("são bento grande da regional", "Regional berimbau rhythm associated with fast, energetic play", "מקצב של קפואירה רגיונל המזוהה עם משחק מהיר ואנרגטי", "são bento grande de regional", "são bento grande regional", "são bento grande de bimba"),
+  term("benguela", "measured capoeira rhythm and game with controlled, flowing movement", "בנגלה — מקצב ומשחק מדוד עם תנועה מבוקרת וזורמת"),
+  term("iúna", "rhythm traditionally for experienced players, usually without singing; clapping customs vary", "יוּנָה — מקצב למשחק של מתקדמים, לרוב בלי שירה; מחיאות הכפיים תלויות במסורת"),
+  term("são bento pequeno", "measured berimbau rhythm; its role and pace vary with the roda", "מקצב מדוד בבירימבאו; תפקידו ומהירותו משתנים לפי הרודה"),
+  term("amazonas", "rhythm used for greetings in some schools and animal-inspired play in some ABADÁ teaching", "אמזונס — מקצב לברכות בחלק מהקבוצות, ובאבאדה גם למשחק בהשראת בעלי חיים"),
+  term("santa maria", "traditional berimbau rhythm with uses that vary by school", "סנטה מריה — מקצב מסורתי בבירימבאו ששימושו משתנה בין קבוצות"),
+  term("idalina", "Regional berimbau rhythm often played at a measured pace; uses vary by school", "אידלינה — מקצב של רגיונל, לרוב מדוד; השימוש בו משתנה בין קבוצות"),
+  term("cavalaria", "berimbau warning rhythm, historically associated with approaching mounted police", "קבלריה — מקצב התראה, המזוהה היסטורית עם התקרבות שוטרים רכובים"),
+  term("angola", "Angola rhythm, often slow and associated with low, strategic play; also a capoeira style", "אנגולה — מקצב שלרוב מלווה משחק איטי, נמוך וערמומי; גם שם של סגנון קפואירה"),
+  term("samba de roda", "circle samba dance and its music, distinct from a capoeira game", "סמבה דה רודה — ריקוד סמבה במעגל והמוזיקה שלו, ולא משחק קפואירה"),
+  term("maculelê", "Afro-Brazilian stick dance and its accompanying rhythms, often presented at capoeira events", "מקוללה — ריקוד מקלות אפרו־ברזילאי והמקצבים המלווים אותו, המוצג גם באירועי קפואירה"),
 ];
 
 export const termKey = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().match(/[a-z]+/g)?.join(" ") ?? "";
@@ -116,6 +127,9 @@ export const CAPOEIRA_LESSONS = [
   lesson("ensemble-v1", "The berimbau ensemble", "Talk to classmates about the berimbaus and their sound registers while getting ready for the roda.", "gunga|médio|viola|bateria"),
   lesson("cartwheel-shapes-v1", "Recognizing cartwheel names", "Ask a classmate which cartwheel name the instructor used and request a short explanation or repetition. Keep the Portuguese at the learner's level, even for an advanced movement name.", "aú aberto|aú fechado|aú sem mão"),
   lesson("cartwheel-variations-v1", "Cartwheel variations in a demonstration", "Discuss names heard during an imagined demonstration. Ask the teacher to repeat or explain a name, acknowledging that variations differ by school. Talk about the vocabulary, without giving physical execution instructions.", "aú batido|aú de cabeça|aú helicóptero"),
+  lesson("roda-rhythms-v1", "Talking about the rhythm of the game", "Chat with a classmate about named rhythms and the pace of the roda. Ask which name they want repeated or explained. Angola also appears in ABADÁ; do not assume every roda uses every rhythm or quiz recognition of audio that was not played.", "são bento grande da regional|benguela|são bento pequeno|angola"),
+  lesson("traditional-toques-v1", "Asking about traditional toques", "Ask a classmate about rhythm names on an event's program. Explain one name at a time in simple Portuguese. Customs, clapping, eligible players and uses vary by school; ask about the learner's own teacher's practice instead of prescribing universal rules.", "iúna|amazonas|santa maria|idalina"),
+  lesson("event-music-v1", "Music and dance at a capoeira event", "Talk with a classmate about an event's music and dance demonstrations. Cavalaria is a warning rhythm; samba de roda and maculelê are distinct dance traditions with their own music. Discuss what the learner wants explained or repeated, without claiming a real emergency or asking them to identify unheard music.", "cavalaria|samba de roda|maculelê"),
 ];
 
 export type LessonChoice = { id: string; visit: number };
