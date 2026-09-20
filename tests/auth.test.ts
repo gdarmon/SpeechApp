@@ -41,7 +41,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 beforeAll(async () => {
   pg = new PGlite();
   await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
+  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
   db = { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))), close: () => pg.close() };
 }, 30000);
@@ -310,4 +310,26 @@ it('speaks only the selected saved answer, without coaching text, for openings a
   expect(spoken.every(reply => reply.turn_feedback === null)).toBe(true);
   expect((await say(alice, {})).status).toBe(200);
   expect(spoken.at(-1)).toMatchObject({ text: opening.text, turn_feedback: opening.turn_feedback });
+});
+
+it('protects reward APIs, rejects forged points and locked looks, and retains invitation attempt limits on failure', async () => {
+  const alice=await login('alice'), bob=await login('bob');
+  for(const path of ['/rewards','/friends']) expect((await call(path)).status).toBe(401);
+  expect((await call('/rewards/settings','POST',alice,{xp:99999})).status).toBe(422);
+  expect((await call('/rewards/settings','POST',alice,{theme:'sunset'})).status).toBe(403);
+  expect((await call('/rewards/settings','POST',alice,{nickname:'Gilad',reminder_enabled:true})).status).toBe(200);
+  const conversation=(await start(alice)).data;
+  const answer={request_id:randomUUID(),text:'Sim, eu gosto.',source:'typed'};
+  await call(`/sessions/${conversation.id}/turns`,'POST',alice,answer);
+  await call(`/sessions/${conversation.id}/turns`,'POST',alice,answer);
+  expect((await call('/rewards','GET',alice)).data.xp).toBe(2);
+  expect((await call('/rewards','GET',bob)).data.xp).toBe(0);
+  for(let i=0;i<10;i++) expect((await call('/friends','POST',bob,{action:'join',value:'a'.repeat(24)})).status).toBe(404);
+  expect((await call('/friends','POST',bob,{action:'join',value:'a'.repeat(24)})).status).toBe(429);
+  const circle=(await call('/friends','POST',alice,{action:'create',value:'Private roda'})).data;
+  expect(circle.circle.name).toBe('Private roda');
+  await call('/account','DELETE',alice);
+  expect((await call('/friends','GET',bob)).data.circle).toBe(null);
+  expect(await db.query('SELECT * FROM fala.reward_events')).toEqual([]);
+  expect(await db.query('SELECT * FROM fala.friend_circles')).toEqual([]);
 });

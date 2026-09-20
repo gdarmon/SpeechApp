@@ -75,3 +75,11 @@ Still requires cloud configuration and a phone:
 - Play Console app creation/upload, screenshots/listing graphics, actual-provider privacy/retention details, Data safety/target audience declarations, account-specific testing requirements, and production review. See [Play preparation](google-play.md).
 
 The locally built APK is `artifacts/fala-debug.apk` with a sibling SHA-256 file. Build outputs, private configuration, learner databases, downloaded toolchains, and local caches are excluded from Git. The signed upload bundle is `artifacts/fala-release.aab`; private upload signing material is also ignored and must be backed up securely. GitHub Actions builds a downloadable debug APK from source. See [deployment steps](deployment.md).
+
+## 0.10.0 — practice rewards
+
+- 89 backend tests pass, including reward caps and retry protection, earned cosmetic enforcement, private circles, rejected invitation rate limits, Israel time zones and reminder deduplication.
+- Clean `npm ci`, version/notes validation and Netlify API/reminder function bundles pass.
+- Browser checks cover actual app controls at 320, 390 and 1024-pixel widths, dark theme previews/equipping, circle creation, reminder preferences, reduced motion, sign-out cleanup, and existing speech/retry/offline behavior.
+- Android debug build, unit tests and lint pass. Scheduling tests include Jerusalem's autumn clock change.
+- The six additive production rewards tables have row security enabled. Real-device push permissions, background delivery and Android appearance need device testing; automated checks do not establish exact-time notification delivery.

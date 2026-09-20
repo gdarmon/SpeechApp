@@ -1,4 +1,5 @@
 import { Recorder, Voice } from './voice.js';
+import { createRewards } from './rewards.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, visible = true) => { $(id).hidden = !visible; };
@@ -30,12 +31,14 @@ async function api(path, options = {}) {
   return options.audio ? response.arrayBuffer() : response.json();
 }
 const post = (path, body = {}, options = {}) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), ...options });
+const rewards = createRewards({api,post,task,screen,home});
 function failure(error, retry = null) {
   text('error', error.message); show('error'); retryAction = retry; show('retry', !!retry);
 }
 function clearError() { show('error', false); show('retry', false); retryAction = null; }
 function setBusy(value) {
   busy = value;
+  document.querySelectorAll('#reward-nav button, #reward-settings input, #reward-settings select, #reward-settings button').forEach(button => { button.disabled = value; });
   for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin']) $(id).disabled = value;
   for (const id of ['microphone', 'draft', 'help']) $(id).disabled = value || !!pendingTurn;
   for (const id of ['topic', 'level', 'home-language']) $(id).disabled = value || !!pendingStart;
@@ -48,7 +51,7 @@ async function task(action, status = '') {
   try { await action(current); }
   catch (error) {
     if (current === epoch) {
-      if (error.status === 401) { leave(); user = null; screen('welcome'); failure(new Error('Please sign in again. Saved conversations will be waiting in your history.')); }
+      if (error.status === 401) { leave(); user = null; rewards.reset(); screen('welcome'); failure(new Error('Please sign in again. Saved conversations will be waiting in your history.')); }
       else failure(error, () => task(action, status));
     }
   } finally { if (current === epoch) { setBusy(false); show('notice', false); } }
@@ -56,6 +59,8 @@ async function task(action, status = '') {
 function screen(id) {
   document.querySelectorAll('.screen').forEach(element => { element.hidden = element.id !== id; });
   document.body.classList.toggle('in-conversation', id === 'conversation');
+  show('reward-nav',!!user&&['home','friends-screen','rewards-screen','reminders-screen'].includes(id));
+  document.querySelectorAll('#reward-nav button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.page===id)));
   $('conversation-options').close();
   $('conversation-content').scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -94,6 +99,7 @@ async function home() {
   screen('home'); text('account-email', user.email);
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
+    await rewards.initialize(dashboard.rewards); if(current!==epoch)return;
     const progress = dashboard.progress.practice;
     text('progress', progress ? `Level ${progress.level} · ${progress.title}. ${progress.goal}` : 'Start with short, simple replies.');
     $('history').replaceChildren();
@@ -133,7 +139,7 @@ $('login-begin').onclick = () => {
     google.accounts.id.renderButton($('google-sign-in'), { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', width: Math.min(320, $('google-sign-in').clientWidth) });
   }, 'Preparing Google sign-in…');
 };
-$('signout').onclick = () => { void task(async current => { await post('/auth/logout'); if (current !== epoch) return; user = null; leave(); screen('welcome'); }); };
+$('signout').onclick = () => { void task(async current => { try{await rewards.disconnect();}catch{} await post('/auth/logout'); if (current !== epoch) return; user = null; rewards.reset(); leave(); screen('welcome'); }); };
 $('start').onclick = () => {
   voice.unlock();
   if (!pendingStart) {
@@ -261,6 +267,7 @@ $('send').onclick = () => {
 };
 function review(report) {
   voice.stop(); recorder.cancel(); discardRecording(); screen('review');
+  show('reward-celebration',false);
   translated($('summary'), report.summary); $('pointers').replaceChildren(); $('words').replaceChildren();
   for (const pointer of report.pointers || []) { const p = document.createElement('p'); translated(p, pointer); $('pointers').append(p); }
   for (const word of (report.vocabulary || []).slice(0, 5)) {
@@ -273,7 +280,7 @@ $('finish').onclick = () => {
   $('conversation-options').close();
   recorder.cancel(); voice.stop();
   const id = session.id;
-  void task(async current => { const report = await post(`/sessions/${id}/finish`); if (current === epoch) review(report); }, 'Preparing your short review…');
+  void task(async current => { const report = await post(`/sessions/${id}/finish`); if (current === epoch) { review(report); await rewards.celebrate(); } }, 'Preparing your short review…');
 };
 $('complete').onclick = () => $('finish').click();
 $('back').onclick = () => { void home(); };

@@ -22,7 +22,8 @@ const settings = settingsFromEnv({ FALA_TOKEN: "private-test-token-32-characters
 const firstMigration = await readFile(new URL("../supabase/migrations/202609180001_fala.sql", import.meta.url), "utf8");
 const secondMigration = await readFile(new URL("../supabase/migrations/202609180002_google_sign_in.sql", import.meta.url), "utf8");
 const repairMigration = await readFile(new URL("../supabase/migrations/202609190001_repair_serialized_json.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration + repairMigration;
+const rewardsMigration = await readFile(new URL("../supabase/migrations/202609200001_rewards.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration + rewardsMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;
@@ -75,7 +76,7 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
-  await pg.exec("TRUNCATE fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits RESTART IDENTITY;");
+  await pg.exec("TRUNCATE fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits, fala.reward_events, fala.reward_profiles, fala.reminder_deliveries RESTART IDENTITY;");
   coach = new Coach(); handler = instance();
 });
 

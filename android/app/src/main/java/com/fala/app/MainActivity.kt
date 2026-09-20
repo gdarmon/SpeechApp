@@ -60,11 +60,7 @@ class MainActivity : ComponentActivity() {
         volumeControlStream = AudioManager.STREAM_MUSIC
         controller = ViewModelProvider(this)[SessionController::class.java]
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(
-                primary = Color(0xFF12664F), onPrimary = Color.White,
-                background = Color(0xFFFFFCF5), surface = Color(0xFFFFFCF5),
-                secondaryContainer = Color(0xFFE3EEE6), onSecondaryContainer = Color(0xFF164734)
-            )) {
+            FalaTheme(controller) {
                 FalaApp(controller, ::withMicrophone, google,
                     appSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
                     voiceSettings = { runCatching { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
@@ -89,7 +85,16 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
     Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
         topBar = { if (c.screen == "talk") ConversationHeader(c) { conversationOptions = true } },
-        bottomBar = { if (c.screen == "talk") ConversationComposer(c, mic) }) { padding ->
+        bottomBar = {
+            if (c.screen == "talk") ConversationComposer(c, mic)
+            else if (c.settings.signedIn && c.screen in listOf("home", "rewards", "friends", "settings")) Surface(color=MaterialTheme.colorScheme.surface) {
+                Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(6.dp),horizontalArrangement=Arrangement.SpaceEvenly) {
+                    listOf("home" to "Practise", "friends" to "Friends", "rewards" to "Rewards", "settings" to "Settings").forEach { (destination,label) ->
+                        TextButton(onClick={c.navigate(destination)},enabled=!c.busy) { Text(label,fontWeight=if(c.screen==destination) FontWeight.Bold else FontWeight.Normal) }
+                    }
+                }
+            }
+        }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(scroll).padding(if (c.screen == "talk") 16.dp else 24.dp),
             verticalArrangement = Arrangement.spacedBy(if (c.screen == "talk") 12.dp else 18.dp)) {
             if (c.screen != "talk") {
@@ -141,6 +146,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                         }
                     }
                 }
+                "rewards" -> RewardsScreen(c)
+                "friends" -> FriendsScreen(c)
                 "progress" -> Progress(c.progress)
                 "feedback" -> Feedback(c)
             }
@@ -151,8 +158,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         close = { conversationOptions = false }, finish = { conversationOptions = false; c.pause(); finishDialog = true })
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
         text = { Text(if (deleteTarget == "account") "This permanently deletes your Fala account, conversations, and learning progress and signs out all your devices. It does not delete your Google account."
-            else if (deleteTarget == "all") "This deletes all your conversations, assessments, and learning memory. It cannot be undone."
-            else "This deletes the conversation, its feedback, and the memory learned from it.") },
+            else if (deleteTarget == "all") "This deletes all conversations and learning memory, and resets your points, streak and unlocked looks. It cannot be undone."
+            else "This deletes the conversation, its feedback, and the memory learned from it. Your practice points stay.") },
         confirmButton = { TextButton(onClick = { val id = deleteTarget; deleteTarget = null; if (id == "account") c.deleteAccount(google::clear) else if (id == "all") c.deleteAll() else if (id != null) c.deleteSession(id) }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Keep") } })
     if (finishDialog) AlertDialog(onDismissRequest = { finishDialog = false }, title = { Text("How did speaking feel?") },
@@ -177,7 +184,12 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     val recommended = c.progress.optJSONObject("practice")?.optInt("level", 1)?.coerceIn(1,5) ?: 1
     val level = if (c.selectedLevel == 0) recommended else c.selectedLevel
     var chooseLevel by remember { mutableStateOf(false) }
-    Title("A little further, in Portuguese.", "Listen, answer, and build toward longer conversations.")
+    RewardsHome(c)
+    Title("Let's have a conversation.", "${if(c.practiceTopic == "capoeira class") "Capoeira class" else "Everyday life"} · Level $level · 10 replies")
+    Button(onClick = { c.start(false) }, enabled = !c.busy,
+        modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(20.dp)) {
+        Text("Talk", style = MaterialTheme.typography.headlineSmall)
+    }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Practice level $level · ${practiceLevels[level - 1].first}", fontWeight = FontWeight.Bold)
@@ -203,11 +215,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         Switch(c.listenFirst, c::chooseListenFirst, enabled = !c.busy)
         Text("Listen first · reveal the text when needed", Modifier.padding(start = 8.dp).weight(1f))
     }
-    Button(onClick = { c.start(false) }, enabled = !c.busy,
-        modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(28.dp)) {
-        Text("Talk", style = MaterialTheme.typography.headlineLarge)
-    }
-    Text("10 answers · quick feedback · up to 5 words to keep")
+
     if (c.settings.activeSession.isNotBlank()) OutlinedButton(onClick = { c.resume() }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Resume your conversation") }
     val memory = c.progress.optJSONArray("memory")?.takeIf { it.length() > 0 }
         ?: c.progress.optJSONArray("help_patterns")
@@ -241,8 +249,12 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         if (c.holding) c.finishHolding() else mic { c.beginHolding() }
     }
     Surface(color = if (c.holding) Color(0xFFA23C31) else MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = RoundedCornerShape(16.dp), modifier = modifier.heightIn(min = 52.dp)
+        contentColor = if (c.holding) Color.White else MaterialTheme.colorScheme.onPrimary,
+        shape = when(c.rewards.optJSONObject("profile")?.optString("skin")) {
+            "wave" -> RoundedCornerShape(topStart=28.dp,topEnd=12.dp,bottomEnd=28.dp,bottomStart=12.dp)
+            "rhythm" -> RoundedCornerShape(28.dp)
+            else -> RoundedCornerShape(16.dp)
+        }, modifier = modifier.heightIn(min = 52.dp)
             .semantics {
                 role = Role.Button
                 contentDescription = "Hold to speak. Release to finish."
@@ -283,7 +295,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 c.phase == "Recognizing" -> "Finishing…"
                 c.phase == "Starting microphone" -> "Getting ready…"
                 c.holding -> "Release to stop"
-                else -> "Hold to speak"
+                else -> if(c.rewards.optJSONObject("profile")?.optString("skin")=="rhythm") "♪ Hold to speak" else "Hold to speak"
             }, style = MaterialTheme.typography.titleMedium)
         }
     }
@@ -355,7 +367,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 
 @Composable private fun TurnFeedback(c: SessionController) {
     c.reply.optJSONObject("turn_feedback")?.let { feedback ->
-        Surface(color = Color(0xFFFFF3DB), shape = RoundedCornerShape(14.dp)) {
+        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 TranslatedText(feedback.optString("message"), c.conversationLanguage)
                 if (feedback.optString("kind") == "correction" && feedback.optString("natural").isNotBlank()) {
@@ -512,6 +524,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     voiceSettings: () -> Unit, onDelete: () -> Unit, onDeleteAccount: () -> Unit) {
     var network by remember { mutableStateOf(c.settings.networkRecognition) }
     Title("Your Fala", c.settings.email)
+    RewardPreferences(c)
     SupportLanguageChoice(c)
     Text("This choice applies to new conversations.", style = MaterialTheme.typography.bodySmall)
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -568,6 +581,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 }
 
 @Composable private fun Feedback(c: SessionController) {
+    RewardCelebration(c)
     val f = c.feedback
     val session = c.session
     val language = c.conversationLanguage

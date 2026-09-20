@@ -2,7 +2,7 @@
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 
-Prepared application: **Fala**, package **com.fala.app**, version **0.9.1** (local version code 10; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
+Prepared application: **Fala**, package **com.fala.app**, version **0.10.0** (local version code 11; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
 ## Files
 
@@ -72,7 +72,7 @@ After a conversation, review a few useful corrections and phrases from what you 
 
 Replay replies, slow the voice, pause, or show the transcript when useful. Delete individual conversations, clear your learning data, or delete your account in Settings.
 
-No points, streaks, or random flashcards. Just more opportunities to find your own words.
+Earn practice points, unlock themes, and practise with friends in private circles.
 
 An internet connection and Google account are required. Speech recognition and voice quality depend on your phone and installed Brazilian Portuguese voice. AI and speech recognition can make mistakes. Assessments are approximate and do not measure pronunciation from audio.
 

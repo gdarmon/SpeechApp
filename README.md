@@ -1,11 +1,11 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web and Android 0.9.1 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web and Android 0.10.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
 
-A native Android app for learning to **speak Brazilian Portuguese** through natural conversations. Choose English or Hebrew once, tap **Talk**, and listen to Fala’s first question. Hold to speak, release, review your words, and send. English/Hebrew help gets you unstuck; selective feedback and personal memory guide later conversations. No XP, streaks, or random flashcards.
+A native Android app for learning to **speak Brazilian Portuguese** through natural conversations. Choose English or Hebrew once, tap **Talk**, and listen to Fala’s first question. Hold to speak, release, review your words, and send. English/Hebrew help gets you unstuck; selective feedback and personal memory guide later conversations. Earn practice points, build a gentle daily streak, and unlock new looks.
 
 **Native Android, Google sign-in, separate learner accounts.** Users install Fala, sign in with Google, and tap Talk. The app knows the service address; there are no server or token fields to configure. Netlify runs the conversation API and public pages; PostgreSQL (including Supabase) stores accounts, transcripts, and learning memory.
 
@@ -76,3 +76,5 @@ Build checks do not establish live Portuguese coaching quality or phone audio be
 Speech is turn-based, with hold-to-speak and explicit sending; streaming speech-to-speech and automatic simultaneous interruption are future work. Recognition and voice quality depend on the phone's engines. Review uses a next-day schedule, not mastery-based spacing. No audio-based pronunciation score or invented fluency trend is shown.
 
 Fala creates no audio recordings. Android's recognition/TTS provider may process audio remotely. The text AI provider receives conversation text. The configured PostgreSQL host retains transcripts and derived memory until deletion. App deletion cannot erase provider logs or database backups. `.env`, local tools, databases, and build outputs are excluded from Git.
+
+Practice rewards, friend circles, notification setup and migration details: [Gamification](docs/gamification.md).

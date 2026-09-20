@@ -15,5 +15,5 @@ const handler = createHandler({
 export default (request: Request, context: Context) => handler(request, context.ip || "unknown");
 
 export const config: Config = {
-  path: ["/auth/*", "/account", "/health", "/status", "/dashboard", "/diagnostics", "/progress", "/sessions", "/sessions/*", "/speech/*", "/learner", "/api/*"],
+  path: ["/auth/*", "/account", "/health", "/status", "/dashboard", "/diagnostics", "/progress", "/sessions", "/sessions/*", "/speech/*", "/learner", "/rewards", "/rewards/*", "/friends", "/api/*"],
 };

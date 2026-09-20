@@ -48,6 +48,12 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var progress by mutableStateOf(JSONObject())
         private set
+    var rewards by mutableStateOf(JSONObject().put("profile", runCatching { JSONObject(settings.rewardProfile) }.getOrDefault(JSONObject())))
+        private set
+    var friends by mutableStateOf(JSONObject())
+        private set
+    var celebration by mutableStateOf("")
+        private set
     var feedback by mutableStateOf(JSONObject())
         private set
     var demo by mutableStateOf(false)
@@ -155,11 +161,13 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     private fun clearAccount() {
+        ReminderScheduler.cancel(getApplication())
         pause(); settings.clearSession()
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
         feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
         selectedLevel = 0
+        rewards = JSONObject(); friends = JSONObject(); celebration = ""
     }
 
     fun signOut(clearGoogle: suspend () -> Unit) = execute(retryable = false) {
@@ -178,6 +186,30 @@ class SessionController(application: Application) : AndroidViewModel(application
         progress = dashboard.getJSONObject("progress")
         history = dashboard.getJSONArray("history")
         demo = dashboard.getJSONObject("status").optBoolean("demo")
+        dashboard.optJSONObject("rewards")?.let { updateRewards(it) }
+        if (rewards.has("profile") && !rewards.getJSONObject("profile").optBoolean("timezone_confirmed")) {
+            updateRewards(api.post("/rewards/settings", JSONObject().put("timezone", java.time.ZoneId.systemDefault().id)))
+        }
+    }
+
+    private fun updateRewards(value: JSONObject) {
+        rewards = value
+        value.optJSONObject("profile")?.let { profile ->
+            settings.rewardProfile = profile.toString()
+            ReminderScheduler.schedule(getApplication(), profile)
+        }
+    }
+    fun saveRewardPreferences(input: JSONObject) = execute {
+        updateRewards(api.post("/rewards/settings", input))
+    }
+    fun circleAction(action: String, value: String = "") = execute {
+        val body = JSONObject().put("action", action)
+        if (action == "create" || action == "join") body.put("value", value)
+        friends = api.post("/friends", body)
+    }
+    private suspend fun celebratePractice() {
+        loadProgress()
+        celebration = "${rewards.optInt("today_xp")} XP today · ${rewards.optInt("xp")} XP total"
     }
 
     fun refresh() = execute { loadProgress() }
@@ -188,10 +220,13 @@ class SessionController(application: Application) : AndroidViewModel(application
         error = ""; retryAction = null; retryAvailable = false
         screen = destination
         if (destination in listOf("home", "history", "progress")) refresh()
+        if (destination == "rewards") execute { updateRewards(api.get("/rewards")) }
+        if (destination == "friends") execute { updateRewards(api.get("/rewards")); friends = api.get("/friends") }
     }
 
     fun start(assessment: Boolean, topic: String = practiceTopic) {
         if (busy) return
+        celebration = ""
         audioEnabled = true
         val request = JSONObject().put("request_id", UUID.randomUUID().toString())
             .put("kind", if (assessment) "assessment" else "conversation").put("topic", topic)
@@ -208,6 +243,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun resume(id: String = settings.activeSession) = execute {
+        celebration = ""
         pause()
         session = api.get("/sessions/$id")
         if (!session.isNull("feedback")) {
@@ -260,7 +296,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         feedback = api.post("/sessions/$id/finish")
         settings.activeSession = ""
         showSummaryWhenReady()
-        loadProgress()
+        celebratePractice()
     }
 
     private fun speakPortuguese(text: String) {
@@ -396,7 +432,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             if (confidence != null) body.put("confidence", confidence)
             feedback = api.post("/sessions/$id/finish", body)
             settings.activeSession = ""; screen = "feedback"
-            loadProgress()
+            celebratePractice()
         }
     }
 

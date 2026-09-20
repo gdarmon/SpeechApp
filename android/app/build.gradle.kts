@@ -12,12 +12,12 @@ android {
         minSdk = 26
         targetSdk = 36
         val releaseCode = providers.environmentVariable("FALA_VERSION_CODE").orNull
-        versionCode = if (releaseCode == null) 10 else {
+        versionCode = if (releaseCode == null) 11 else {
             requireNotNull(releaseCode.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
                 "FALA_VERSION_CODE must be an integer between 1 and 2100000000"
             }
         }
-        versionName = "0.9.1"
+        versionName = "0.10.0"
         buildConfigField("String", "API_BASE_URL", "\"https://legendary-florentine-6b3c1f.netlify.app\"")
     }
     signingConfigs {
@@ -57,6 +57,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2")
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

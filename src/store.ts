@@ -6,6 +6,7 @@ import type { Timing } from "./timing.js";
 import { practiceLevel, practiceProgress } from "./learning.js";
 import { compactFeedback, vocabularyForms } from "./vocabulary.js";
 import type { LessonChoice, LessonHistory } from "./capoeira.js";
+import { Rewards } from './rewards.js';
 
 const due = (date: string) => new Date(new Date(date).getTime() + 86400000).toISOString();
 
@@ -142,6 +143,7 @@ export class Store {
     await this.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply)
       SELECT $1::uuid,$2,$3::text::jsonb,$4,$5,$6,$7,$8::text::jsonb FROM fala.sessions WHERE id=$1::uuid AND user_id=$9::uuid`,
       [id, input.request_id, JSON.stringify(input), input.text, input.help, input.language, input.speech_ms, JSON.stringify(reply), this.userId]);
+    await new Rewards(this, this.userId).recordReply(id, input.request_id);
   }
 
   async finish(id: string, feedback: Feedback, demo: boolean) {
@@ -198,7 +200,10 @@ export class Store {
     if (id) {
       const rows = await this.query("DELETE FROM fala.sessions WHERE id=$1::uuid AND user_id=$2::uuid RETURNING id", [id, this.userId]);
       if (!rows.length) throw new AppError(404, "Conversation not found.");
-    } else await this.query("DELETE FROM fala.sessions WHERE user_id=$1::uuid", [this.userId]);
+    } else {
+      await this.query("DELETE FROM fala.sessions WHERE user_id=$1::uuid", [this.userId]);
+      await new Rewards(this, this.userId).reset();
+    }
   }
 
   async deleteAccount() {

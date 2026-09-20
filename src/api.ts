@@ -8,6 +8,8 @@ import { Sessions } from "./service.js";
 import { Store, publicSession } from "./store.js";
 import { Timing } from "./timing.js";
 import { Speech, readRecording, speechAvailable, speechSchema } from "./speech.js";
+import { Rewards, rewardSettingsSchema } from './rewards.js';
+import { saveSubscription, subscriptionSchema } from './reminders.js';
 
 type Dependencies = {
   settings: () => Settings;
@@ -65,6 +67,35 @@ export function createHandler(dependencies: Dependencies) {
       if (path === "/auth/me" && request.method === "GET") return respond(await auth.account(user.id));
       if (path === "/auth/logout" && request.method === "POST") { await auth.signOut(request); const response = respond({ signed_out: true }); response.headers.set("Set-Cookie", webCookie()); return response; }
       const store = new Store(database, timing, user.id, settings.dailyUserLimit, settings.dailyAppLimit);
+      const rewards = new Rewards(store, user.id);
+      if (path === '/rewards/push' && request.method === 'POST') {
+        const input=subscriptionSchema.parse(await body(request));
+        return respond(await store.mutate(tx=>saveSubscription(tx,user.id,input)));
+      }
+      if (path === '/rewards/push/remove' && request.method === 'POST') {
+        const input=z.strictObject({endpoint:z.string().max(2048)}).parse(await body(request));
+        await store.query('DELETE FROM fala.push_subscriptions WHERE user_id=$1::uuid AND endpoint=$2',[user.id,input.endpoint]);
+        return respond({removed:true});
+      }
+      if (path === '/rewards' && request.method === 'GET') return respond(await rewards.snapshot());
+      if (path === '/rewards/settings' && request.method === 'POST') {
+        const input = rewardSettingsSchema.parse(await body(request));
+        return respond(await store.mutate(tx => new Rewards(tx,user.id).settings(input)));
+      }
+      if (path === '/rewards/reminder' && request.method === 'POST') {
+        z.strictObject({}).parse(await body(request));
+        return respond(await store.mutate(tx => new Rewards(tx,user.id).claimReminder()));
+      }
+      if (path === '/friends' && request.method === 'GET') return respond(await rewards.social());
+      if (path === '/friends' && request.method === 'POST') {
+        const input = z.discriminatedUnion('action',[
+          z.strictObject({ action:z.literal('create'),value:z.string().trim().min(1).max(50) }),
+          z.strictObject({ action:z.literal('join'),value:z.string().regex(/^[A-Za-z0-9_-]{24}$/) }),
+          z.strictObject({ action:z.enum(['leave','rotate']) }),
+        ]).parse(await body(request));
+        if(input.action==='create' || input.action==='join') await rewards.circleBudget();
+        return respond(await store.mutate(tx => new Rewards(tx,user.id).circle(input.action,'value' in input?input.value:'')));
+      }
       if (path === "/account" && request.method === "DELETE") {
         if (user.operator) throw new AppError(403, "Sign in with Google to delete your account.");
         await store.mutate(tx => tx.deleteAccount()); return respond({ deleted: true });
@@ -90,7 +121,7 @@ export function createHandler(dependencies: Dependencies) {
             database_region_hint: host.match(/aws-\d+-([a-z]+-[a-z]+-\d+)\.pooler\.supabase\.com/)?.[1] || null,
             model: settings.model });
         }
-        if (path === "/dashboard") return respond({ status, progress: await store.progress(), history: await store.history() });
+        if (path === "/dashboard") return respond({ status, progress: await store.progress(), history: await store.history(), rewards: await rewards.snapshot() });
         if (path === "/progress") return respond(await store.progress());
         if (path === "/sessions") return respond(await store.history());
       }

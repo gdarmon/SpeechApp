@@ -31,8 +31,11 @@ class ConnectionSettings(context: Context) {
             .putString("email", session.getString("email")).putLong("expires", expires).remove("active").remove("url").apply()
     }
     fun clearSession() {
-        prefs.edit().remove("token").remove("origin").remove("email").remove("expires").remove("active").remove("url").apply()
+        prefs.edit().remove("token").remove("origin").remove("email").remove("expires").remove("active").remove("url").remove("rewardProfile").apply()
     }
+    var rewardProfile: String
+        get() = prefs.getString("rewardProfile", "{}").orEmpty()
+        set(value) { prefs.edit().putString("rewardProfile", value).apply() }
     var activeSession: String
         get() = prefs.getString("active", "") ?: ""
         set(value) { prefs.edit().putString("active", value).apply() }

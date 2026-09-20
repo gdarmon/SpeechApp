@@ -134,3 +134,64 @@ dialog::backdrop { background: #163d3055; backdrop-filter: blur(3px); }
 }
 @media (hover: hover) { button:not(:disabled):hover { filter: brightness(.94); } .idea-text:hover { background: #f2f6f1; } }
 @media (prefers-reduced-motion: no-preference) { button { transition: background .12s, opacity .12s; } }
+
+/* Earned palettes share readable surfaces and the same conversation layout. */
+:root { color-scheme:light dark; --page:light-dark(#fffcf5,#14211d); --surface:light-dark(#fffefa,#20332b); --ink:light-dark(#20392e,#eff5ed); --on-green:light-dark(#fff,#0d3024); --green:light-dark(#12664f,#a4dfc7); --pale:light-dark(#e7f1e9,#294237); --line:light-dark(#dce5dd,#486254); --muted:light-dark(#52685c,#bdcdbf); background:var(--page); color:var(--ink); }
+[data-theme=beach] { --green:light-dark(#006b80,#97dbe5); --pale:light-dark(#e2f1f5,#173740); --on-green:light-dark(#fff,#103039); }
+[data-theme=roda] { --green:light-dark(#815214,#ebc17e); --pale:light-dark(#f6ead5,#433321); --on-green:light-dark(#fff,#33240f); }
+[data-theme=sunset] { --green:light-dark(#963f40,#f4b2a6); --pale:light-dark(#f7e4df,#422828); --on-green:light-dark(#fff,#391d1e); }
+article,.word,dialog,select,textarea,#history button,.in-conversation header,.in-conversation #messages,#composer { background:var(--surface); }
+.in-conversation main {background:var(--page)}
+.language-tag,.translation {color:var(--muted)}
+button {color:var(--on-green)}
+.text-button,.icon-button,.secondary,.idea-text {color:var(--green)}
+.idea-text {color:var(--ink)}
+@media(hover:hover){.idea-text:hover {background:var(--pale)}}
+input:not([type=checkbox]) {font:inherit;font-size:16px;min-height:46px;padding:12px;border:1px solid var(--line);border-radius:12px;max-width:100%;width:100%;background:var(--surface);color:var(--ink)}
+.reward-nav {display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:5px;margin:4px 0 22px}
+.reward-nav button {flex:1;min-width:0;padding:10px 5px;font-size:13px}
+.reward-nav button[aria-pressed=true] {background:var(--pale);color:var(--green)}
+.reward-overview {margin:12px 0;padding:18px}
+.reward-overview h2 {margin:0}
+.reward-overview p {margin:10px 0 0}
+.reward-days {display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:16px 0 8px}
+.reward-day {display:flex;flex-direction:column;gap:5px;align-items:center;color:var(--muted);font-size:12px}
+.reward-day span {width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--pale);font-weight:700}
+.reward-day.practised span {background:var(--green);color:var(--on-green)}
+.reward-day.protected span {border:1px dashed var(--green)}
+.reward-day.today span {box-shadow:0 0 0 2px var(--green)}
+progress {appearance:none;width:100%;height:7px;border:0;background:var(--line);border-radius:8px;overflow:hidden;margin:12px 0}
+progress::-webkit-progress-bar {background:var(--line)}
+progress::-webkit-progress-value {background:var(--green);border-radius:8px;transition:width .45s ease}
+progress::-moz-progress-bar {background:var(--green)}
+.reward-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.reward-look {margin:0;padding:15px;display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.reward-look h2,.reward-look p {margin:0}
+.reward-look button {font-size:13px;padding:8px;min-height:44px}
+.look-swatch {background:var(--pale);color:var(--green);border-radius:12px;padding:20px 12px;font-weight:750;min-height:70px;display:flex;align-items:center}
+.leaderboard {list-style:none;margin:18px 0;padding:0;counter-reset:place}
+.leaderboard li {padding:15px 8px;border-bottom:1px solid var(--line);counter-increment:place}
+.leaderboard li::before {content:counter(place);color:var(--muted);width:20px}
+.leaderboard li span {flex:1;overflow-wrap:anywhere;min-width:0}
+#circle-content form {display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 28px}
+#circle-content form input {flex:1;min-width:180px}
+#circle-content>button {margin:8px 6px 8px 0}
+.reward-celebration {position:relative;overflow:hidden;background:var(--pale);color:var(--green);border-radius:20px;padding:22px;text-align:center;margin-bottom:18px}
+.reward-celebration strong {font-size:24px;display:block}
+.reward-celebration p {margin:8px 0 0}
+.reward-celebration.celebrate {animation:reward-arrive .55s cubic-bezier(.2,.8,.2,1) both}
+.reward-celebration.celebrate::before,.reward-celebration.celebrate::after {content:'✦  ·  ✧';position:absolute;font-size:23px;top:8px;left:8px;pointer-events:none;animation:reward-spark 1.2s ease-out both}
+.reward-celebration.celebrate::after {left:auto;right:8px;animation-delay:.08s}
+[data-skin=wave] .microphone {border-radius:28px 12px 28px 12px}
+[data-skin=wave] .microphone:not([data-recording=true]):not([data-recording=starting]) {background:linear-gradient(120deg,var(--green),color-mix(in srgb,var(--green),var(--ink) 22%))}
+[data-skin=rhythm] .microphone {border-radius:26px;border-style:double;border-width:4px;border-color:var(--on-green);outline:2px solid var(--green);outline-offset:-2px}
+@keyframes reward-arrive {from{transform:translateY(12px) scale(.94);opacity:.2}to{transform:translateY(0) scale(1);opacity:1}}
+@keyframes reward-spark {0%{transform:translateY(25px) rotate(-15deg);opacity:0}35%{opacity:1}100%{transform:translateY(-15px) rotate(20deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.reduce-motion *,.reduce-motion *::before,.reduce-motion *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.reduce-motion .reward-celebration::before,.reduce-motion .reward-celebration::after {display:none}
+@media(max-width:380px){.reward-look {padding:11px}.reward-grid {gap:10px}.reward-nav button {font-size:12px}main {padding-left:16px;padding-right:16px}}
+
+#conversation-progress { margin: 0; }
+.reward-look[data-theme="classic"] { --green: light-dark(#12664f, #a4dfc7); --pale: light-dark(#e3eee6, #294237); --on-green: light-dark(#fff, #172a21); }
+#microphone[data-recording="true"] { color: white; }
