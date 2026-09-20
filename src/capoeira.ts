@@ -41,6 +41,11 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("corda azul e verde", "blue-and-green cord", "חבל כחול וירוק", "corda azul-verde", "corda azul/verde"),
   term("aú", "cartwheel", "גלגלון"),
   term("aú sem mão", "aerial cartwheel without hand support", "גלגלון באוויר ללא תמיכת הידיים", "aú sem mãos", "au sem mau"),
+  term("aú aberto", "open cartwheel with extended, spread legs", "גלגלון פתוח עם רגליים ישרות ופרושות"),
+  term("aú fechado", "compact cartwheel with tucked legs", "גלגלון סגור עם רגליים מכונסות"),
+  term("aú batido", "cartwheel variation with a kick", "גרסת גלגלון המשלבת בעיטה"),
+  term("aú de cabeça", "head-supported cartwheel variation", "גרסת גלגלון בתמיכת הראש"),
+  term("aú helicóptero", "helicopter cartwheel with circling leg movement; variations differ by school", "גלגלון מסוק עם תנועת רגליים מעגלית; הגרסה תלויה בבית הספר"),
   term("macaco", "backward acrobatic transition (literally: monkey)", "מעבר אקרובטי לאחור (מילולית: קוף)"),
   term("bananeira", "handstand (literally: banana tree)", "עמידת ידיים (מילולית: עץ בננה)"),
   term("queda de rins", "elbow-supported balance", "תנוחת שיווי משקל בתמיכה על המרפק", "queda de rim"),
@@ -109,6 +114,8 @@ export const CAPOEIRA_LESSONS = [
   lesson("teacher-cords-v1", "Teacher cord colors", "Identify adult ABADÁ instructor titles and cord colors at an event. Do not assign the learner a rank.", "corda marrom|corda marrom e vermelha|corda vermelha|corda vermelha e branca"),
   lesson("ceremony-v1", "At the batizado", "Chat about the ceremony, nicknames and adult graduation. The white cord is the highest graduation, not the beginner's undyed cord.", "batizado|troca de cordas|apelido|corda branca"),
   lesson("ensemble-v1", "The berimbau ensemble", "Talk to classmates about the berimbaus and their sound registers while getting ready for the roda.", "gunga|médio|viola|bateria"),
+  lesson("cartwheel-shapes-v1", "Recognizing cartwheel names", "Ask a classmate which cartwheel name the instructor used and request a short explanation or repetition. Keep the Portuguese at the learner's level, even for an advanced movement name.", "aú aberto|aú fechado|aú sem mão"),
+  lesson("cartwheel-variations-v1", "Cartwheel variations in a demonstration", "Discuss names heard during an imagined demonstration. Ask the teacher to repeat or explain a name, acknowledging that variations differ by school. Talk about the vocabulary, without giving physical execution instructions.", "aú batido|aú de cabeça|aú helicóptero"),
 ];
 
 export type LessonChoice = { id: string; visit: number };
