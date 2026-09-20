@@ -80,6 +80,19 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("grounds a learner's movement question outside the current lesson without rewriting their transcript", async () => {
+    const session = (await start({ topic: "capoeira class", support_language: "he-IL" })).data;
+    const input = { text: "O que é au sem mau?", source: "typed", speech_ms: 0 };
+    expect((await turn(session.id, input)).status).toBe(200);
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1" });
+    expect(coach.calls.at(-1)?.capoeira_reference).toContainEqual({ term: "aú sem mão",
+      meaning: "aerial cartwheel without hand support", translation: "גלגלון באוויר ללא תמיכת הידיים" });
+    expect(coach.calls.at(-1)?.input).toMatchObject(input);
+    const stored = (await call(`/sessions/${session.id}`)).data;
+    expect(stored.turns[0].text).toBe(input.text);
+    const report = (await call(`/sessions/${session.id}/finish`, "POST", {})).data;
+    expect(report.vocabulary).toContainEqual(expect.objectContaining({ word: "aú sem mão", translation: "גלגלון באוויר ללא תמיכת הידיים" }));
+  });
   it("persists a rotating lesson without changing it on retries, help or resume", async () => {
     const input = { topic: "capoeira class", support_language: "he-IL", request_id: randomUUID() };
     const first = (await start(input)).data;

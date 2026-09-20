@@ -32,3 +32,9 @@ Reviews remain capped at five useful items from actual dialogue. Longest-match v
 The same bounded word/phrase candidates are checked against prior actual utterances for exposure; aliases are recognized without returning other sessions' text from the database. Curated English/Hebrew meanings are used for known catalog terms in curriculum sessions; other meanings remain contextual AI output. Prior exposure means encountered, not mastered. Old saved reports remain readable and are not rewritten.
 
 Lesson history, opening history, exposure and deletion use the same per-user scoped database relations as other learner memory. No global counter or cross-user conversation data influences a learner's rotation.
+
+## Names raised by the learner
+
+The conversation also receives a small reference of known terms mentioned by the learner or in the latest partner sentence, even when they are outside the current lesson's four planned words. Full movement names take precedence over their component words. This works for continuing sessions as well as new ones; no client update or database migration is required.
+
+`aú sem mão` means an aerial cartwheel without hand support; see [Lalaue's movement reference](https://www.lalaue.com/moves/au-sem-mao/) and [Grand Rapids Capoeira's curriculum](https://www.grcapoeira.com/curriculum). `aú sem mãos`, unaccented spellings and the learner's `au sem mau` spelling map to the complete name in capoeira context. The original transcript is retained. This does not change the meaning of `mau` elsewhere or assess pronunciation from spelling. These are language meanings, not an official ABADÁ syllabus or physical execution instructions.

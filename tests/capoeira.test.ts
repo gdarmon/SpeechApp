@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { CAPOEIRA_LESSONS, capoeiraTerm, chooseLesson, lessonContext, type LessonHistory } from "../src/capoeira.js";
-import { focusWords, sessionVocabulary, vocabularyUnits } from "../src/vocabulary.js";
+import { focusWords, mentionedCapoeiraTerms, sessionVocabulary, vocabularyUnits } from "../src/vocabulary.js";
 import { coachingReplySchema } from "../src/coaching.js";
 import { replySchema, type Session } from "../src/models.js";
 
 describe("varied ABADÁ conversations", () => {
+  it("recognizes the complete aerial cartwheel name and supplies context outside the planned lesson", () => {
+    for (const spelling of ["aú sem mão", "au sem mao", "aú sem mãos", "au sem maos", "au sem mau"]) {
+      expect(capoeiraTerm(spelling)?.word).toBe("aú sem mão");
+      expect(vocabularyUnits(`Quero aprender ${spelling}.`, true)).toEqual(["quero", "aprender", "aú sem mão"]);
+    }
+    expect(mentionedCapoeiraTerms("ABADÁ capoeira", ["O que é au sem mau?", "Aú sem mãos."], "he-IL")).toEqual([
+      { term: "aú sem mão", meaning: "aerial cartwheel without hand support", translation: "גלגלון באוויר ללא תמיכת הידיים" },
+    ]);
+    expect(mentionedCapoeiraTerms("everyday life", ["au sem mau"], "he-IL")).toEqual([]);
+    expect(capoeiraTerm("mau")).toBeUndefined();
+    expect(vocabularyUnits("Um dia mau. Aú.", true)).toEqual(["um", "dia", "mau", "aú"]);
+  });
   it("covers the full curriculum before revisiting, then rotates vocabulary on the oldest lesson", () => {
     const history: LessonHistory[] = [];
     for (let i = 0; i < CAPOEIRA_LESSONS.length; i++) {

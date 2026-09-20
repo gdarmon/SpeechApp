@@ -17,6 +17,15 @@ export function vocabularyUnits(text: string, capoeira: boolean): string[] {
   return units;
 }
 
+// Retrieve complete names from this exchange, even outside the lesson's small
+// teaching vocabulary. The learner's original transcript stays unchanged.
+export function mentionedCapoeiraTerms(topic: string, texts: string[], language = "en-US") {
+  if (!isCapoeira(topic)) return [];
+  return [...new Set(texts.flatMap(text => vocabularyUnits(text, true)))]
+    .map(capoeiraTerm).filter(term => term !== undefined).slice(0, 6)
+    .map(term => ({ term: term.word, meaning: term.en, translation: language === "he-IL" ? term.he : term.en }));
+}
+
 const common = new Set("a o as os um uma uns umas e ou de do da dos das em no na nos nas ao aos à às por para com sem que qual quais como onde quando quem porque eu você vocês ele ela eles elas nós me se meu minha seu sua seus suas sim não oi olá bom boa bem tudo muito mais menos esse essa isso isto aqui ali então é são foi ser estar está estou tá também favor obrigado obrigada até tchau legal claro ótimo ok quero quer querer tenho tem ter vou vai ir".split(" "));
 const classWords = new Set("ginga gingar esquiva esquivar roda mestre professor professora treino treinar aula direita direito esquerda esquerdo frente trás lado devagar rápido rápida repetir repita novo vez perna pernas braço braços mão mãos pé pés cabeça joelho atenção pare parar comece começar troque trocar parceiro parceira dupla sequência ritmo primeiro depois antes junto juntos".split(" "));
 const families: Record<string, string> = { gingar: "ginga", esquivar: "esquiva", direita: "direção-direita", direito: "direção-direita", esquerda: "direção-esquerda", esquerdo: "direção-esquerda", rápido: "rápido", rápida: "rápido", repetir: "repetir", repita: "repetir", perna: "perna", pernas: "perna", braço: "braço", braços: "braço", mão: "mão", mãos: "mão", pé: "pé", pés: "pé", troque: "trocar", trocar: "trocar", treino: "treino", treinar: "treino" };

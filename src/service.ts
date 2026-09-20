@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { AppError, PRACTICE_TURNS, type Start, type TurnInput, type Finish, type Feedback, type Reply, type Session, type LearnerContext } from "./models.js";
-import { compactFeedback, focusWords, sessionVocabulary } from "./vocabulary.js";
+import { compactFeedback, focusWords, mentionedCapoeiraTerms, sessionVocabulary } from "./vocabulary.js";
 import { independentAnswer, practiceLevel, practiceResult } from "./learning.js";
 import { capoeiraTerm, chooseLesson, lessonContext } from "./capoeira.js";
 import type { AIProvider } from "./provider.js";
@@ -68,6 +68,8 @@ export class Sessions {
       if (session.turns.length >= 80) throw new AppError(409, "Please finish this session and start a new conversation.");
       const round = session.turns.filter(t => !t.help).length + (input.help ? 0 : 1);
       const reply = await this.ai.reply({ ...context(session.kind, session.topic, learner, session, round),
+        capoeira_reference: mentionedCapoeiraTerms(`${session.request.topic} ${session.topic}`,
+          [input.text, session.turns.at(-1)?.reply.text ?? session.opening.text], session.request.support_language),
         practice_round: round,
         last_turn: !input.help && session.turns.filter(t => !t.help).length >= PRACTICE_TURNS - 1,
         action: input.help ? "help" : "continue", input });

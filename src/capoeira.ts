@@ -40,6 +40,7 @@ export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
   term("corda azul", "blue cord; start of ABADÁ's adult graduated-student group", "חבל כחול — תחילת קבוצת התלמידים הבוגרים המוסמכים באבאדה"),
   term("corda azul e verde", "blue-and-green cord", "חבל כחול וירוק", "corda azul-verde", "corda azul/verde"),
   term("aú", "cartwheel", "גלגלון"),
+  term("aú sem mão", "aerial cartwheel without hand support", "גלגלון באוויר ללא תמיכת הידיים", "aú sem mãos", "au sem mau"),
   term("macaco", "backward acrobatic transition (literally: monkey)", "מעבר אקרובטי לאחור (מילולית: קוף)"),
   term("bananeira", "handstand (literally: banana tree)", "עמידת ידיים (מילולית: עץ בננה)"),
   term("queda de rins", "elbow-supported balance", "תנוחת שיווי משקל בתמיכה על המרפק", "queda de rim"),
