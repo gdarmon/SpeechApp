@@ -4,7 +4,8 @@ import { AppError, PRACTICE_TURNS, type Session, type Start, type TurnInput, typ
   type Assessment, type LearnerContext, type Memory, type Turn } from "./models.js";
 import type { Timing } from "./timing.js";
 import { practiceLevel, practiceProgress } from "./learning.js";
-import { compactFeedback } from "./vocabulary.js";
+import { compactFeedback, vocabularyForms } from "./vocabulary.js";
+import type { LessonChoice, LessonHistory } from "./capoeira.js";
 
 const due = (date: string) => new Date(new Date(date).getTime() + 86400000).toISOString();
 
@@ -27,6 +28,12 @@ SELECT
     GROUP BY t.reply->>'practice_phrase'
   ) h), '[]'::jsonb) AS help_patterns,
   COALESCE((SELECT jsonb_agg(topic) FROM (SELECT topic FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC LIMIT 5) r), '[]'::jsonb) AS recent_topics,
+  COALESCE((SELECT jsonb_agg(text) FROM (SELECT opening->>'text' AS text FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC LIMIT 5) r), '[]'::jsonb) AS recent_openings,
+  COALESCE((SELECT jsonb_agg(to_jsonb(l)) FROM (
+    SELECT request->'resolved_lesson'->>'id' AS id, count(*)::int AS visits, max(started_at) AS last_used
+    FROM fala.sessions WHERE NOT demo AND request->'resolved_lesson'->>'id' IS NOT NULL
+    GROUP BY request->'resolved_lesson'->>'id'
+  ) l), '[]'::jsonb) AS lessons,
   COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM (
     SELECT (feedback->'practice_result'->>'level')::int AS level, count(*)::int AS sessions
     FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL AND feedback->'practice_result'->>'ready'='true'
@@ -39,6 +46,7 @@ type SnapshotRow = {
   memory: { correction: Correction; observed_at: string; occurrences: number }[];
   help_patterns: { natural: string; last_seen: string; occurrences: number; topic: string }[];
   recent_topics: string[];
+  recent_openings: string[]; lessons: LessonHistory[];
   practice_results: { level: number; sessions: number }[];
 };
 
@@ -102,7 +110,8 @@ export class Store {
       last_seen: m.observed_at, due_at: due(m.observed_at) }));
     const help_patterns: Memory[] = row.help_patterns.map(h => ({ ...h, category: "retrieval", due_at: due(h.last_seen) }));
     return { session: row.session ? { ...row.session, turns: row.turns.map(savedTurn) } : null,
-      learner: { assessment: row.assessment, memory, help_patterns, recent_topics: row.recent_topics, practice: practiceProgress(row.practice_results) } };
+      learner: { assessment: row.assessment, memory, help_patterns, recent_topics: row.recent_topics, recent_openings: row.recent_openings,
+        lessons: row.lessons, practice: practiceProgress(row.practice_results) } };
   }
 
   async session(id: string): Promise<Session> {
@@ -119,13 +128,13 @@ export class Store {
     return row ? this.session(row.id) : null;
   }
 
-  async create(input: Start, opening: Reply, demo: boolean, level = 1): Promise<Session> {
+  async create(input: Start, opening: Reply, demo: boolean, level = 1, lesson?: LessonChoice): Promise<Session> {
     const id = randomUUID();
     // Bind serialized JSON as text first: Postgres.js JSON parameters would encode the string again.
     const [row] = await this.query<Omit<Session, "turns">>(`
       INSERT INTO fala.sessions(id,request_id,request,kind,topic,opening,demo,user_id)
       VALUES($1::uuid,$2,$3::text::jsonb,$4,$5,$6::text::jsonb,$7,$8::uuid) RETURNING *`,
-      [id, input.request_id, JSON.stringify({ ...input, resolved_level: level }), input.kind, opening.topic || input.topic, JSON.stringify(opening), demo, this.userId]);
+      [id, input.request_id, JSON.stringify({ ...input, resolved_level: level, ...(lesson ? { resolved_lesson: lesson } : {}) }), input.kind, opening.topic || input.topic, JSON.stringify(opening), demo, this.userId]);
     return { ...row, started_at: new Date(row.started_at).toISOString(), turns: [] };
   }
 
@@ -168,7 +177,9 @@ export class Store {
   async previouslySeenWords(sessionId: string, words: string[]): Promise<Set<string>> {
     if (!words.length) return new Set();
     const rows = await this.read<{ word: string }>(`
-      SELECT DISTINCT word FROM (
+      SELECT DISTINCT candidate->>'word' AS word
+      FROM jsonb_array_elements($2::text::jsonb) candidate
+      WHERE EXISTS (SELECT 1 FROM (
         SELECT opening->>'text' AS text FROM fala.sessions WHERE NOT demo AND id<>$1::uuid
         UNION ALL SELECT t.text FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
           WHERE NOT s.demo AND NOT t.help AND s.id<>$1::uuid
@@ -176,8 +187,10 @@ export class Store {
           WHERE NOT s.demo AND s.id<>$1::uuid
         UNION ALL SELECT t.reply->'turn_feedback'->>'natural' FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
           WHERE NOT s.demo AND s.id<>$1::uuid AND t.reply->'turn_feedback'->>'kind'='correction'
-      ) exposure, LATERAL regexp_split_to_table(lower(exposure.text), '[^a-zà-öø-ÿ]+') word
-      WHERE word IN (SELECT jsonb_array_elements_text($2::text::jsonb))`, [sessionId, JSON.stringify(words)]);
+      ) exposure, LATERAL jsonb_array_elements_text(candidate->'forms') form
+      WHERE position(' ' || form || ' ' IN ' ' || regexp_replace(
+        translate(lower(exposure.text), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+        '[^a-z]+', ' ', 'g') || ' ') > 0)`, [sessionId, JSON.stringify(words.map(word => ({ word, forms: vocabularyForms(word) })))]);
     return new Set(rows.map(row => row.word));
   }
 

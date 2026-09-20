@@ -1,6 +1,21 @@
 import type { Feedback, Reply, Session } from "./models.js";
+import { CAPOEIRA_LESSONS, CAPOEIRA_TERMS, capoeiraTerm, isCapoeira, termKey } from "./capoeira.js";
 
 export const vocabularyTokens = (text: string) => text.normalize("NFC").toLowerCase().match(/[a-zà-öø-ÿ]+/g) ?? [];
+const phrases = CAPOEIRA_TERMS.flatMap(term => [term.word, ...term.aliases].map(alias => ({ word: term.word, parts: termKey(alias).split(" ") })))
+  .sort((a,b) => b.parts.length - a.parts.length);
+export const vocabularyForms = (word: string) => [...new Set([word, ...(capoeiraTerm(word)?.aliases ?? [])].map(termKey))];
+export function vocabularyUnits(text: string, capoeira: boolean): string[] {
+  const tokens = vocabularyTokens(text);
+  if (!capoeira) return tokens;
+  const keys = tokens.map(termKey), units: string[] = [];
+  for (let index = 0; index < tokens.length;) {
+    const phrase = phrases.find(entry => entry.parts.every((part, offset) => keys[index + offset] === part));
+    units.push(phrase?.word ?? tokens[index]);
+    index += phrase?.parts.length ?? 1;
+  }
+  return units;
+}
 
 const common = new Set("a o as os um uma uns umas e ou de do da dos das em no na nos nas ao aos à às por para com sem que qual quais como onde quando quem porque eu você vocês ele ela eles elas nós me se meu minha seu sua seus suas sim não oi olá bom boa bem tudo muito mais menos esse essa isso isto aqui ali então é são foi ser estar está estou tá também favor obrigado obrigada até tchau legal claro ótimo ok quero quer querer tenho tem ter vou vai ir".split(" "));
 const classWords = new Set("ginga gingar esquiva esquivar roda mestre professor professora treino treinar aula direita direito esquerda esquerdo frente trás lado devagar rápido rápida repetir repita novo vez perna pernas braço braços mão mãos pé pés cabeça joelho atenção pare parar comece começar troque trocar parceiro parceira dupla sequência ritmo primeiro depois antes junto juntos".split(" "));
@@ -9,12 +24,14 @@ const families: Record<string, string> = { gingar: "ginga", esquivar: "esquiva",
 // Keep a small, useful review. Novelty means absent from retained Fala history,
 // not unknown to the learner; function words never crowd out useful content.
 export function focusWords(session: Session, counts: Map<string, number>, seen: Set<string>): string[] {
-  const focus = new Set(session.turns.flatMap(turn => vocabularyTokens(
-    turn.reply.turn_feedback?.kind === "correction" ? turn.reply.turn_feedback.natural : turn.help ? turn.reply.practice_phrase : "")));
-  const capoeira = /capoeira/i.test(session.request.topic + " " + session.topic);
+  const capoeira = isCapoeira((session.request?.topic ?? "") + " " + session.topic);
+  const focus = new Set(session.turns.flatMap(turn => vocabularyUnits(
+    turn.reply.turn_feedback?.kind === "correction" ? turn.reply.turn_feedback.natural : turn.help ? turn.reply.practice_phrase : "", capoeira)));
+  const relevant = (word: string) => classWords.has(word) || !!capoeiraTerm(word);
+  const lessonWords = new Set(CAPOEIRA_LESSONS.find(lesson => lesson.id === session.request?.resolved_lesson?.id)?.words ?? []);
   const score = (word: string, count: number) => (seen.has(word) ? 0 : 5) + (focus.has(word) ? 3 : 0)
-    + (capoeira && classWords.has(word) ? 4 : 0) + Math.min(3, Math.log2(count + 1));
-  const ranked = [...counts].filter(([word]) => !common.has(word) && (word.length >= 3 || classWords.has(word)))
+    + (capoeira && relevant(word) ? 4 : 0) + (lessonWords.has(word) ? 3 : 0) + Math.min(3, Math.log2(count + 1));
+  const ranked = [...counts].filter(([word]) => !common.has(word) && (word.length >= 3 || capoeira && relevant(word)))
     .sort((a,b) => score(b[0], b[1]) - score(a[0], a[1]) || a[0].localeCompare(b[0], "pt-BR"));
   const used = new Set<string>();
   return ranked.filter(([word]) => { const family = families[word] ?? word; if (used.has(family)) return false; used.add(family); return true; })
@@ -32,8 +49,9 @@ export function compactFeedback(feedback: Feedback, session: Session): Feedback 
 // Count actual Portuguese exposure, not translations, help-language requests, or invented examples.
 export function sessionVocabulary(session: Session): Map<string, number> {
   const counts = new Map<string, number>();
+  const capoeira = isCapoeira((session.request?.topic ?? "") + " " + session.topic);
   const add = (text: string) => {
-    for (const word of vocabularyTokens(text)) counts.set(word, (counts.get(word) ?? 0) + 1);
+    for (const word of vocabularyUnits(text, capoeira)) counts.set(word, (counts.get(word) ?? 0) + 1);
   };
   const partner = (reply: Reply) => {
     add(reply.text);

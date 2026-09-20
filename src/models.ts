@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PracticeProgress, PracticeResult } from "./learning.js";
+import type { LessonChoice, LessonHistory } from "./capoeira.js";
 
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
 export const PRACTICE_TURNS = 10;
@@ -67,14 +68,15 @@ export type Correction = z.infer<typeof correctionSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type Turn = TurnInput & { id?: number; session_id: string; reply: Reply; request?: TurnInput };
 export type Session = {
-  id: string; request_id: string; request: Start & { resolved_level?: number }; kind: Start["kind"]; topic: string;
+  id: string; request_id: string; request: Start & { resolved_level?: number; resolved_lesson?: LessonChoice }; kind: Start["kind"]; topic: string;
   started_at: string; ended_at: string | null; opening: Reply; feedback: Feedback | null;
   demo: boolean; turns: Turn[];
 };
 export type Memory = Partial<Correction> & {
   natural: string; category: string; occurrences: number; last_seen: string; due_at: string; topic?: string;
 };
-export type LearnerContext = { assessment: Assessment | null; memory: Memory[]; help_patterns: Memory[]; recent_topics: string[]; practice: PracticeProgress };
+export type LearnerContext = { assessment: Assessment | null; memory: Memory[]; help_patterns: Memory[]; recent_topics: string[]; practice: PracticeProgress;
+  lessons?: LessonHistory[]; recent_openings?: string[] };
 
 export class AppError extends Error {
   constructor(public status: number, message: string) { super(message); }

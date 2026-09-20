@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { AppError, PRACTICE_TURNS, type Start, type TurnInput, type Finish, type Feedback, type Reply, type Session, type LearnerContext } from "./models.js";
 import { compactFeedback, focusWords, sessionVocabulary } from "./vocabulary.js";
 import { independentAnswer, practiceLevel, practiceResult } from "./learning.js";
+import { capoeiraTerm, chooseLesson, lessonContext } from "./capoeira.js";
 import type { AIProvider } from "./provider.js";
 import type { Store } from "./store.js";
 
@@ -16,8 +17,10 @@ const coachedCorrections = (session: Session) => session.turns.flatMap(turn => {
   return !turn.help && point?.kind === "correction" && turn.text.includes(point.said) ? [point] : [];
 });
 
-function context(kind: string, topic: string, learner: LearnerContext, session?: Session) {
+function context(kind: string, topic: string, learner: LearnerContext, session?: Session, question = 0) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
+    recent_openings: session ? undefined : learner.recent_openings,
+    lesson: lessonContext(session?.request.resolved_lesson, question, session?.request.support_language),
     support_language: session?.request.support_language ?? "en-US",
     practice_target: PRACTICE_TURNS,
     practice: practiceLevel(session ? session.request.resolved_level : learner.practice.level),
@@ -36,14 +39,17 @@ export class Sessions {
     return this.store.mutate(async tx => {
       const previous = await tx.started(input.request_id);
       if (previous) {
-        const { resolved_level: _resolved, ...original } = previous.request;
+        const { resolved_level: _resolved, resolved_lesson: _lesson, ...original } = previous.request;
         if (!isDeepStrictEqual(original, input)) throw new AppError(409, "This request ID was already used with different content.");
         return previous;
       }
       const { learner } = await tx.snapshot();
       const level = practiceLevel(input.practice_level ?? learner.practice.level);
-      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), practice: level, support_language: input.support_language ?? "en-US", action: "start" });
-      return tx.create(input, reply, this.ai.demo, level.level);
+      const choice = this.ai.demo ? undefined : chooseLesson(input.topic, learner.lessons ?? []);
+      const lesson = lessonContext(choice, 0, input.support_language);
+      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), lesson, practice: level, support_language: input.support_language ?? "en-US", action: "start" });
+      if (lesson) reply.topic = `ABADÁ capoeira · ${lesson.title}`;
+      return tx.create(input, reply, this.ai.demo, level.level, choice);
     });
   }
 
@@ -60,8 +66,9 @@ export class Sessions {
       if (session.ended_at) throw new AppError(409, "This conversation has ended. Start a new one.");
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
       if (session.turns.length >= 80) throw new AppError(409, "Please finish this session and start a new conversation.");
-      const reply = await this.ai.reply({ ...context(session.kind, session.topic, learner, session),
-        practice_round: session.turns.filter(t => !t.help).length + (input.help ? 0 : 1),
+      const round = session.turns.filter(t => !t.help).length + (input.help ? 0 : 1);
+      const reply = await this.ai.reply({ ...context(session.kind, session.topic, learner, session, round),
+        practice_round: round,
         last_turn: !input.help && session.turns.filter(t => !t.help).length >= PRACTICE_TURNS - 1,
         action: input.help ? "help" : "continue", input });
       await tx.append(id, input, reply);
@@ -84,7 +91,8 @@ export class Sessions {
         ...(session.turns.some(t => t.reply.turn_feedback) ? { coached_corrections: coachedCorrections(session) } : {}) });
       const result = sanitizeFeedback(feedback, session, input);
       const translations = new Map(feedback.vocabulary.map(item => [item.word.normalize("NFC").toLowerCase(), item.translation]));
-      result.vocabulary = words.map(word => ({ word, translation: translations.get(word) ?? "",
+      result.vocabulary = words.map(word => ({ word, translation: (session.request.resolved_lesson ?
+        capoeiraTerm(word)?.[session.request.support_language === "he-IL" ? "he" : "en"] : undefined) ?? translations.get(word) ?? "",
         occurrences: counts.get(word)!, seen_before: seenBefore.has(word) }));
       result.vocabulary_total = counts.size;
       result.practice_result = practiceResult(session);

@@ -85,6 +85,28 @@ it("keeps prior vocabulary exposure private to each learner", async () => {
   expect(repeated.vocabulary.find((v: { word: string }) => v.word === "abacaxi").seen_before).toBe(true);
 });
 
+it("scopes lesson rotation and phrase exposure to a learner's retained history", async () => {
+  const alice = await login("alice"), bob = await login("bob");
+  const classStart = (token: string) => call("/sessions", "POST", token, { request_id: randomUUID(), topic: "capoeira class" });
+  const a = (await classStart(alice)).data;
+  await call(`/sessions/${a.id}/turns`, "POST", alice, { request_id: randomUUID(), text: "Meia lua de compasso. Queda de rim." });
+  const a2 = (await classStart(alice)).data;
+  expect(contexts.at(-1)?.lesson).toMatchObject({ id: "instruments-v1" });
+  const b = (await classStart(bob)).data;
+  expect(contexts.at(-1)?.lesson).toMatchObject({ id: "kicks-v1" });
+  expect(contexts.at(-1)?.recent_openings).toEqual([]);
+  for (const [token, id, seen] of [[alice, a2.id, true], [bob, b.id, false]] as const) {
+    await call(`/sessions/${id}/turns`, "POST", token, { request_id: randomUUID(), text: "Meia-lua de compasso. Queda de rins." });
+    const report = (await call(`/sessions/${id}/finish`, "POST", token, {})).data;
+    for (const phrase of ["meia-lua de compasso", "queda de rins"]) expect(report.vocabulary.find((item: { word: string }) => item.word === phrase).seen_before).toBe(seen);
+  }
+  await call("/learner", "DELETE", alice);
+  await classStart(alice);
+  expect(contexts.at(-1)?.lesson).toMatchObject({ id: "kicks-v1" });
+  await classStart(bob);
+  expect(contexts.at(-1)?.lesson).toMatchObject({ id: "instruments-v1" });
+});
+
 it("keeps level evidence scoped to its learner and removes it with practice history", async () => {
   const alice = await login("alice"), bob = await login("bob");
   for (let i = 0; i < 2; i++) {

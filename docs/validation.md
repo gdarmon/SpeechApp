@@ -1,5 +1,13 @@
 # Validation
 
+## ABADÁ curriculum update — 20 September 2026
+
+- 68 backend tests passed. Coverage includes rotation through all lesson themes, changed focus on revisits, frozen lesson retries/resume, failed-start behavior, legacy-session compatibility, help-turn counting, user isolation/deletion, whole-expression counting and prior exposure, two-letter aú, and guards against repeated questions or choice loops. TypeScript/site build and Netlify function packaging passed.
+- The final local API check completed ten beginner answers, a Hebrew help turn, a closing reply, and an idempotent five-item review: queixada, armada, martelo, devagar and meia-lua de frente. Subsequent starts selected instruments, first cord colors, evasions and exercises; level-4 opening and continuation also succeeded. Test accounts and all their practice data were deleted.
+- This is a server-only update for the current Android app. It adds no database migration, changes no phone speech adapter and builds no replacement APK/AAB. The installed version remains 0.6.0.
+- Live tests use temporary accounts with actual OpenAI GPT-5.6 Terra and Supabase. Early samples exposed too many either/or questions despite varied vocabulary; the final implementation adds explicit speaking tasks and validates open-question turns, repeated question clauses and topic vocabulary in openings. Reviewed words retain complete movement names and curated Hebrew meanings. Model-generated wording still requires ongoing quality observation; structural tests do not prove universal language accuracy or physical voice behavior.
+
+
 ## 0.6.0 — 19 September 2026
 
 - 61 backend tests passed, including hidden-idea provenance, five-word selection, compact legacy reviews, unused suggestion exclusion, level-specific reply limits, qualification exclusions, saved level/retry behavior, advancement, deletion and cross-account isolation. TypeScript/site build and Netlify API packaging passed.

@@ -80,6 +80,35 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("persists a rotating lesson without changing it on retries, help or resume", async () => {
+    const input = { topic: "capoeira class", support_language: "he-IL", request_id: randomUUID() };
+    const first = (await start(input)).data;
+    expect(first.topic).toContain("Kicks in class");
+    expect(first.request).toBeUndefined();
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "martelo" } });
+    const calls = coach.calls.length;
+    expect((await start(input)).data.id).toBe(first.id);
+    expect(coach.calls.length).toBe(calls);
+    coach.fail = true;
+    expect((await start({ topic: "capoeira class" })).status).toBe(503);
+    coach.fail = false;
+    expect((await start({ resolved_lesson: { id: "kicks-v1", visit: 99 } })).status).toBe(422);
+    const second = (await start({ topic: "capoeira class" })).data;
+    expect(second.topic).toContain("Instruments");
+    await turn(first.id, { text: "Prefiro martelo." });
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "queixada" } });
+    await turn(first.id, { text: "Please repeat", help: true, language: "en-US" });
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "queixada" } });
+    expect((await call(`/sessions/${first.id}`)).data.topic).toBe(first.topic);
+    const review = (await finish(first.id)).data;
+    expect(review.vocabulary.find((item: { word: string }) => item.word === "martelo").translation).toContain("בעיטה");
+    // Existing pre-curriculum conversations remain resumable and retryable.
+    await db.query("UPDATE fala.sessions SET request=request-'resolved_lesson' WHERE id=$1::uuid", [first.id]);
+    expect((await start(input)).data.id).toBe(first.id);
+    await db.query("UPDATE fala.sessions SET request=request-'resolved_lesson' WHERE id=$1::uuid", [second.id]);
+    expect((await turn(second.id)).status).toBe(200);
+    expect(coach.calls.at(-1)?.lesson).toBeUndefined();
+  });
   it("persists practice levels, advances only after evidence, and recomputes after deletion", async () => {
     const answers = ["Primeiro vou levantar a mão direita.", "Depois eu vou trocar de lado.", "Eu quero repetir o movimento devagar.", "Agora vou formar uma dupla aqui.", "Vou prestar atenção no meu professor.", "Eu vou seguir o ritmo agora.", "Sim.", "Tudo bem.", "Claro.", "Obrigado."];
     const ids: string[] = [];
