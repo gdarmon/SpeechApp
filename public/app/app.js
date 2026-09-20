@@ -1,12 +1,11 @@
 import { Recorder, Voice } from './voice.js';
-import { familyLessons, familyReply } from './family.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, visible = true) => { $(id).hidden = !visible; };
 const text = (id, value) => { $(id).textContent = value ?? ''; };
 const preferences = { get: key => { try { return localStorage.getItem(`fala.${key}`); } catch { return null; } }, set: (key, value) => { try { localStorage.setItem(`fala.${key}`, value); } catch { /* Private browsing may disallow storage. */ } } };
 let language = preferences.get('language') === 'en-US' ? 'en-US' : 'he-IL';
-let mode = location.hash === '#family' ? 'family' : 'online', user = null, session = null, reply = null, lesson = null, familyIndex = 0;
+let user = null, session = null, reply = null;
 let busy = false, epoch = 0, retryAction = null, recordingUrl = null, recorded = null, speechMs = 0;
 let ideasHidden = preferences.get('hideIdeas') === 'true', assisted = !ideasHidden, pendingTurn = null, pendingStart = null;
 const audioCache = new Map();
@@ -69,7 +68,6 @@ function leave() {
 }
 async function home() {
   leave();
-  if (mode === 'family') { screen('family-home'); return; }
   if (!user) { screen('welcome'); return; }
   screen('home'); text('account-email', user.email);
   await task(async current => {
@@ -90,7 +88,7 @@ async function home() {
   });
 }
 
-// Load Google only for an explicitly chosen online sign-in, never for family practice.
+// Load Google only when the learner chooses to sign in.
 let googleScript;
 function loadGoogle() {
   googleScript ??= new Promise((resolve, reject) => {
@@ -101,13 +99,13 @@ function loadGoogle() {
   return googleScript;
 }
 $('login-begin').onclick = () => {
-  if (!$('eligible').checked) { failure(new Error('Online AI practice is for ages 13 and up with parent or guardian permission under 18. Younger learners can use Family practice below.')); return; }
+  if (!$('eligible').checked) { failure(new Error('Online AI practice is for ages 13 and up with parent or guardian permission under 18.')); return; }
   void task(async current => {
     const [challenge] = await Promise.all([post('/auth/google/challenge'), loadGoogle()]); if (current !== epoch) return;
     google.accounts.id.initialize({ client_id: challenge.google_client_id, nonce: challenge.nonce, auto_select: false,
       callback: credential => { void task(async current => {
         const account = await post('/auth/web/google', { challenge_id: challenge.challenge_id, id_token: credential.credential, age_eligible: true });
-        if (current !== epoch) return; user = account; mode = 'online'; await home();
+        if (current !== epoch) return; user = account; await home();
       }, 'Signing you in…'); } });
     $('google-sign-in').replaceChildren();
     google.accounts.id.renderButton($('google-sign-in'), { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', width: Math.min(320, $('google-sign-in').clientWidth) });
@@ -123,7 +121,7 @@ $('start').onclick = () => {
   const input = pendingStart;
   void task(async current => {
     const saved = await post('/sessions', input); if (current !== epoch) return;
-    pendingStart = null; mode = 'online'; session = saved; renderSession(); listen();
+    pendingStart = null; session = saved; renderSession(); listen();
   }, 'Fala is starting a conversation…');
 };
 function renderSession() {
@@ -154,11 +152,10 @@ function renderReply(round, topic, complete = false) {
     row.append(pt, meaning, controls); $('ideas').append(row);
   }
   show('ideas-card', !ideasHidden && !complete); show('show-ideas', ideasHidden && !complete);
-  show('online-draft', mode === 'online' && !complete); show('family-next', mode === 'family'); show('microphone', !complete); show('mic-hint', !complete);
-  text('family-next', familyIndex === 9 ? 'I practiced it · See my words' : 'I practiced it · Continue');
+  show('online-draft', !complete); show('microphone', !complete); show('mic-hint', !complete);
   text('finish', complete ? 'See my summary' : 'Finish and review');
-  text('voice-disclosure', mode === 'family' ? 'Prepared examples read by your device’s voice. Your recording stays here and is discarded when you continue. No automatic grading.' : 'AI-generated voice. Recording is sent to OpenAI for transcription when you release. Check the words before sending your answer.');
-  text('mic-hint', mode === 'family' ? 'Hold to record, release to listen to yourself. No recording is uploaded.' : 'Hold while speaking. Release to transcribe, then check and send. Up to 45 seconds.');
+  text('voice-disclosure', 'AI-generated voice. Recording is sent to OpenAI for transcription when you release. Check the words before sending your answer.');
+  text('mic-hint', 'Hold while speaking. Release to transcribe, then check and send. Up to 45 seconds.');
   if (complete) text('voice-state', 'Conversation complete. Listen, then open your summary.');
 }
 function listen(slow = false, suggestionIndex = null) {
@@ -167,7 +164,6 @@ function listen(slow = false, suggestionIndex = null) {
   if (!selected) return;
   if (suggestionIndex !== null) assisted = true;
   $('recording').pause();
-  if (mode === 'family') { voice.speak(selected.text, slow); return; }
   const turnId = session.turns.at(-1)?.id ?? null;
   const key = `${session.id}:${turnId ?? 'opening'}:${suggestionIndex ?? 'partner'}`;
   if (!audioCache.has(key)) audioCache.set(key, { promise: null });
@@ -198,7 +194,6 @@ $('microphone').onkeyup = event => { if ([' ', 'Enter'].includes(event.key)) { e
 $('microphone').onblur = () => { if (recorder.active) recorder.cancel(); };
 async function recordedAnswer(recording) {
   discardRecording(); recorded = recording; recordingUrl = URL.createObjectURL(recording.blob); $('recording').src = recordingUrl; show('recording');
-  if (mode === 'family') { text('voice-state', 'Play your recording and compare it with the example. Try again whenever you like.'); return; }
   const requestedLanguage = $('help').checked ? language.slice(0, 2) : 'pt';
   await task(async current => {
     const result = await api(`/speech/transcribe?language=${requestedLanguage}`, { method: 'POST', headers: { 'Content-Type': recording.blob.type }, body: recording.blob });
@@ -233,23 +228,11 @@ function review(report) {
 }
 $('finish').onclick = () => {
   recorder.cancel(); voice.stop();
-  if (mode === 'family') { familyReview(); return; }
   const id = session.id;
   void task(async current => { const report = await post(`/sessions/${id}/finish`); if (current === epoch) review(report); }, 'Preparing your short review…');
 };
 $('back').onclick = () => { void home(); };
 $('again').onclick = () => { void home(); };
-$('family-begin').onclick = () => { leave(); mode = 'family'; screen('family-home'); };
-$('family-back').onclick = () => { leave(); mode = 'online'; if (user) void home(); else screen('welcome'); };
-$('family-start').onclick = () => { leave(); mode = 'family'; lesson = familyLessons[+$('family-topic').value]; familyIndex = 0; renderFamily(); };
-function renderFamily() { reply = familyReply(lesson, familyIndex, language); renderReply(`${familyIndex + 1} / 10`, `Family practice · ${lesson.title}`); listen(); }
-$('family-next').onclick = () => { clearError(); if (familyIndex < 9) { familyIndex++; renderFamily(); } else familyReview(true); };
-function familyReview(completed = false) {
-  const he = language === 'he-IL';
-  review({ summary: he ? (completed ? 'סיימתם עשרה משפטים. כל הכבוד על התרגול!' : 'התרגול הסתיים. אפשר לחזור ולתרגל בכל זמן.') : (completed ? 'You practiced ten short exchanges. Well done for making time to speak!' : 'Practice finished. Come back to these phrases whenever you like.'),
-    pointers: [he ? 'אין כאן ציון אוטומטי. נסו לחזור על משפט אחד בלי לקרוא את ההצעה, ולהקשיב יחד להבדלים.' : 'There is no automatic score. Try one phrase without reading the suggestion, and listen together for differences.'],
-    vocabulary: lesson.words.filter(word => lesson.steps.slice(0, familyIndex + 1).some(step => `${step.text} ${step.answer}`.toLowerCase().includes(word.text))).map(word => ({ word: word.text, translation: he ? word.he : word.en })) });
-}
 $('retry').onclick = () => retryAction?.();
 document.addEventListener('visibilitychange', () => { if (document.hidden) { recorder.cancel(); voice.stop(); $('recording').pause(); } });
 window.addEventListener('pagehide', () => { recorder.cancel(); voice.stop(); discardRecording(); });
@@ -258,5 +241,5 @@ window.addEventListener('beforeinstallprompt', event => { event.preventDefault()
 $('install').onclick = async () => { if (installPrompt) { await installPrompt.prompt(); installPrompt = null; show('install', false); } };
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/app/sw.js').catch(() => { /* Online practice still works without installation. */ });
 // Session credentials are HttpOnly cookies. Browser storage holds preferences only.
-try { if (mode === 'family') screen('family-home'); else { user = await api('/auth/me'); if (mode === 'online' && !$('welcome').hidden) await home(); } }
-catch { /* Family practice remains available without an account or a network. */ }
+try { user = await api('/auth/me'); if (!$('welcome').hidden) await home(); }
+catch { /* Keep the sign-in screen available when there is no active session. */ }

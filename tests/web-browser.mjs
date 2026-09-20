@@ -21,7 +21,7 @@ const browser = await chromium.launch({ executablePath: process.env.FALA_TEST_CH
   args: ['--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['microphone'], serviceWorkers: 'block' });
-  const page = await context.newPage(); const errors = [], familyRequests = [];
+  const page = await context.newPage(); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${base}/app/`);
   // Releasing before permission resolves must close the late stream without producing an answer.
@@ -36,37 +36,10 @@ try {
     return { answers, closed: stream.getTracks().every(track => track.readyState === 'ended') };
   });
   assert.deepEqual(latePermission, { answers: 0, closed: true });
-  await page.locator('#family-begin').click();
-  page.on('request', request => { if (request.url().startsWith('http')) familyRequests.push(new URL(request.url()).pathname); });
-  await page.evaluate(() => {
-    window.familySpoken = [];
-    speechSynthesis.speak = utterance => window.familySpoken.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate });
-  });
-  await page.locator('#family-start').click();
-  const idea = await page.locator('#ideas .pt').innerText();
-  await page.locator('.idea-actions .secondary').click();
-  await page.locator('.idea-actions .text-button').click();
-  const spokenIdeas = await page.evaluate(() => window.familySpoken.slice(-2));
-  assert.deepEqual(spokenIdeas.map(item => item.text), [idea, idea]);
-  assert.ok(spokenIdeas.every(item => item.lang === 'pt-BR'));
-  assert.ok(spokenIdeas[1].rate < spokenIdeas[0].rate);
-  assert.match(await page.locator('#partner-text').innerText(), /Oi/);
-  assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
-  const mic = page.locator('#microphone'); await mic.scrollIntoViewIfNeeded();
-  const position = await mic.boundingBox();
-  await page.mouse.move(position.x + 50, position.y + 50); await page.mouse.down();
-  await page.waitForFunction(() => document.getElementById('microphone').dataset.recording === 'true');
-  await page.waitForTimeout(800); await page.mouse.up();
-  await page.locator('#recording').waitFor({ state: 'visible' });
-  assert.equal(await page.evaluate(() => document.getElementById('microphone').dataset.recording), 'false');
-  const localUrl = await page.locator('#recording').getAttribute('src'); assert.ok(localUrl.startsWith('blob:'));
-  await page.locator('#family-next').click();
-  assert.equal(await page.locator('#recording').getAttribute('src'), null);
-  for (let i = 1; i < 10; i++) await page.locator('#family-next').click();
-  await page.locator('#review').waitFor({ state: 'visible' }); assert.equal(await page.locator('.word').count(), 5);
-  assert.equal(familyRequests.filter(path => !path.startsWith('/app/') && path !== '/logo.png').length, 0);
-  await page.screenshot({ path: `${root}/artifacts/fala-web-family-review.png`, fullPage: true });
-  assert.deepEqual(errors, []);
+  await page.goto(`${base}/app/#family`);
+  await page.locator('#login-begin').waitFor({ state: 'visible' });
+  assert.equal(await page.getByText(/family practice/i).count(), 0);
+  const mic = page.locator('#microphone');
   // Exercise the online UI with a deterministic API and audio fixture, without a Google account.
   let saved, dropGet = false, postCount = 0; const speechRequests = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
   const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
@@ -92,6 +65,7 @@ try {
   await page.goto(`${base}/app/`); await page.locator('#home').waitFor({ state: 'visible' });
   await page.locator('#start').click(); await page.locator('#conversation').waitFor({ state: 'visible' });
   await page.locator('#send').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
   await page.waitForFunction(() => !document.getElementById('microphone').disabled);
   for (const index of [0, 1]) {
     const response = page.waitForResponse(res => res.url().endsWith('/speech') && res.request().postDataJSON().suggestion_index === index);
@@ -131,10 +105,10 @@ try {
   const offlinePage = await offline.newPage(); await offlinePage.goto(`${base}/app/`);
   await offlinePage.evaluate(() => navigator.serviceWorker.ready);
   await offlinePage.reload(); await offline.setOffline(true); await offlinePage.goto(`${base}/app/#family`);
-  await offlinePage.reload(); await offlinePage.locator('#family-start').click();
-  assert.match(await offlinePage.locator('#partner-text').innerText(), /Oi/);
+  await offlinePage.reload(); await offlinePage.locator('#login-begin').waitFor({ state: 'visible' });
+  assert.equal(await offlinePage.getByText(/family practice/i).count(), 0);
   const cached = await offlinePage.evaluate(async () => { const keys = await caches.keys(); return (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat(); });
-  assert.ok(cached.length >= 8); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
+  assert.ok(cached.length >= 7); assert.ok(!cached.includes('/app/family.js')); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
   await offline.close();
-  console.log('PASS: suggested answer playback in family/online modes, per-turn audio caching, slow playback; family local recording/replay and 10 exchanges; zero family API calls; Hebrew RTL; online recording/transcription and 10 turns; idempotent retry after lost response; 5-word cap; offline public-only cache; no browser exceptions.');
+  console.log('PASS: legacy links open normal sign-in; suggested answer playback, per-turn audio caching and slow playback; Hebrew RTL; recording/transcription and 10 turns; idempotent retry after lost response; review; offline public-only app shell; no browser exceptions.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

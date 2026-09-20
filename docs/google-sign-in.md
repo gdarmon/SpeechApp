@@ -57,4 +57,4 @@ Device sessions expire after 90 days. Android encrypts the bearer credential wit
 
 ### Website on iPhone and Android
 
-The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://legendary-florentine-6b3c1f.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice, family practice and installation.
+The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://legendary-florentine-6b3c1f.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice and installation.

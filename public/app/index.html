@@ -10,7 +10,7 @@
 </head>
 <body>
   <main>
-    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.7.1</small></a><span>PORTUGUÊS<br>BRASILEIRO</span></header>
+    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.7.2</small></a><span>PORTUGUÊS<br>BRASILEIRO</span></header>
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <p id="error" class="error" role="alert" hidden></p>
     <button id="retry" class="secondary" hidden>Try again</button>
@@ -23,7 +23,6 @@
         <button id="login-begin">Continue with Google</button><div id="google-sign-in"></div>
         <p class="fine">An AI conversation partner, with an AI-generated voice. Online speaking sends your short recording to OpenAI for transcription. Fala does not save the audio file.</p>
       </article>
-      <article class="family-card"><p class="eyebrow">PRACTICE TOGETHER</p><h2>Family practice</h2><p>Ready-made capoeira conversations for children and families. Listen, record your answer and hear it back. No account, no upload of your recording, and no AI grading.</p><button id="family-begin" class="secondary">Start family practice</button></article>
     </section>
     <section id="home" class="screen" hidden>
       <div class="row"><p id="account-email" class="fine"></p><button id="signout" class="text-button">Sign out</button></div>
@@ -34,12 +33,6 @@
       <details><summary>Recent conversations</summary><div id="history"></div></details>
       <label for="home-language">Help language</label><select id="home-language"><option value="he-IL">עברית — Hebrew</option><option value="en-US">English</option></select>
       <p><a href="/delete-account.html">Delete your account</a> · <a href="/privacy.html">Privacy</a></p>
-    </section>
-    <section id="family-home" class="screen" hidden>
-      <button class="text-button" id="family-back">Back</button><p class="eyebrow">FAMILY PRACTICE</p><h1>Listen. Say it.<br>Try it together.</h1>
-      <p>These conversations are prepared in advance. Your recording stays in this page and is discarded when you move on. You can compare it with the example; Fala doesn't grade it.</p>
-      <label for="family-topic">Choose a conversation</label><select id="family-topic"><option value="0">Kicks and movements</option><option value="1">Instruments in the roda</option><option value="2">In capoeira class</option></select>
-      <button id="family-start" class="primary">Let's practice</button>
     </section>
     <section id="conversation" class="screen" hidden>
       <div class="row"><button id="back" class="text-button">Back to home</button><span id="round" class="badge"></span></div>
@@ -58,13 +51,12 @@
           <label class="check"><input id="help" type="checkbox"> Help me say something in Portuguese</label>
           <button id="send" class="primary">Send answer</button>
         </div>
-        <button id="family-next" class="primary" hidden>I practiced it · Continue</button>
         <button id="finish" class="text-button">Finish and review</button>
       </div>
       <p id="voice-disclosure" class="fine"></p>
     </section>
     <section id="review" class="screen" hidden><p class="eyebrow">A LITTLE MORE CONFIDENCE</p><h1>Keep these words.</h1><p id="summary"></p><div id="pointers"></div><div id="words" class="words"></div><button id="again" class="primary">Another conversation</button></section>
-    <aside class="install"><details><summary>Add Fala to your home screen</summary><p><strong>iPhone:</strong> open this link in Safari, tap Share, then “Add to Home Screen”.<br><strong>Android:</strong> open Chrome's menu and choose “Install app” or “Add to Home screen”.</p><p>AI conversations need an internet connection. Family practice can reopen offline after your first visit. Microphone access needs your permission.</p><button id="install" class="secondary" hidden>Install Fala</button></details></aside>
+    <aside class="install"><details><summary>Add Fala to your home screen</summary><p><strong>iPhone:</strong> open this link in Safari, tap Share, then “Add to Home Screen”.<br><strong>Android:</strong> open Chrome's menu and choose “Install app” or “Add to Home screen”.</p><p>AI conversations need an internet connection. Microphone access needs your permission.</p><button id="install" class="secondary" hidden>Install Fala</button></details></aside>
     <footer><a href="/privacy.html">Privacy</a> · <a href="mailto:gdarmon@gmail.com">Help</a><p>Uma conversa de cada vez.</p></footer>
   </main>
 </body></html>

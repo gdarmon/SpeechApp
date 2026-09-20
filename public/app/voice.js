@@ -54,7 +54,7 @@ export class Voice {
   stop() {
     ++this.generation;
     try { this.source?.stop(); } catch { /* Playback may already have ended. */ }
-    this.source = null; globalThis.speechSynthesis?.cancel(); this.status('');
+    this.source = null; this.status('');
   }
   async play(load, slow = false) {
     this.stop(); const generation = this.generation; this.status('Preparing the voice…');
@@ -70,16 +70,5 @@ export class Voice {
       source.onended = () => { if (generation === this.generation) this.status('Your turn. Hold the microphone when you’re ready.'); };
       source.start(); this.status('Listen to Fala…');
     } catch (error) { if (generation === this.generation) this.status(error.message || 'Tap Listen to try the voice again.'); }
-  }
-  speak(text, slow = false) {
-    this.stop(); const generation = this.generation;
-    if (!globalThis.speechSynthesis) { this.status('This browser has no reading voice. Read the example together.'); return; }
-    const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'pt-BR'; utterance.rate = slow ? .65 : .85;
-    const voices = speechSynthesis.getVoices();
-    utterance.voice = voices.find(voice => voice.lang.toLowerCase() === 'pt-br') || voices.find(voice => voice.lang.startsWith('pt')) || null;
-    utterance.onstart = () => { if (generation === this.generation) this.status('Listen to the example…'); };
-    utterance.onend = () => { if (generation === this.generation) this.status('Your turn. Say it aloud, or hold the microphone to record.'); };
-    utterance.onerror = () => { if (generation === this.generation) this.status('Tap Listen again. You may need a Portuguese voice installed in your device settings.'); };
-    speechSynthesis.speak(utterance);
   }
 }
