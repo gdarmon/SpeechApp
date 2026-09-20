@@ -45,3 +45,9 @@ Release readiness also requires deployment/authentication hardening, retention/b
 - Enable Listen first. Initially hear the prompt with its text and answer ideas hidden. Reveal the Portuguese/Hebrew question independently, or show answer ideas when needed. Test Hebrew layout, Talk composer access and scrolling on a small display and with larger fonts.
 - Use Try without answer ideas. Ideas should stay hidden on subsequent questions until requested. Showing then hiding an idea still counts that answer as guided. Speech recognition and hold/release behavior should match the working 0.5.0 behavior.
 - Check the recommended level and roadmap in Progress. Merely choosing a harder level, typing answers, or reading examples should not raise the recommendation. Two qualifying conversations should; deleting the evidence should recompute it. These are practice levels, not capoeira ranks or formal language grades.
+
+## Compact conversation UI (0.8.0)
+
+- On Android and iPhone Safari, read a long question and scroll the ideas; the microphone and Send must stay reachable. Open the keyboard, edit a reply, then dismiss it and rotate the device. Repeat with a larger system font. No control should overlap the keyboard or system navigation.
+- Listen to a suggested reply, use its text, edit it and send. Selecting/listening alone must never submit. Hold and release the microphone, cancel a hold, and retry after a connection interruption.
+- Use the top-right options to switch help language input, replay a web recording or finish early. Complete ten answers and open the review. Confirm version 0.8.0 under the Fala logo.

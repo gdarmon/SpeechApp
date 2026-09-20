@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#12664f"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Fala"><meta name="description" content="Speak Brazilian Portuguese with English or Hebrew help, on iPhone, Android or your computer.">
   <title>Fala — Let's talk</title><link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/logo.png">
@@ -9,11 +9,20 @@
   <script type="module" src="/app/app.js"></script>
 </head>
 <body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m21 3-7 18-4-7-7-4 18-7ZM10 14 21 3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6M8 12h13"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  </defs></svg>
   <main>
-    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.7.2</small></a><span>PORTUGUÊS<br>BRASILEIRO</span></header>
+    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.8.0</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
+    <div id="messages">
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <p id="error" class="error" role="alert" hidden></p>
     <button id="retry" class="secondary" hidden>Try again</button>
+    </div>
     <section id="welcome" class="screen">
       <p class="eyebrow">A LITTLE PRACTICE. EVERY DAY.</p><h1>Find your words.<br>Make yourself heard.</h1>
       <p>Short Brazilian Portuguese conversations, with a little help when you need it.</p>
@@ -34,27 +43,49 @@
       <label for="home-language">Help language</label><select id="home-language"><option value="he-IL">עברית — Hebrew</option><option value="en-US">English</option></select>
       <p><a href="/delete-account.html">Delete your account</a> · <a href="/privacy.html">Privacy</a></p>
     </section>
-    <section id="conversation" class="screen" hidden>
-      <div class="row"><button id="back" class="text-button">Back to home</button><span id="round" class="badge"></span></div>
-      <p id="session-topic" class="eyebrow"></p><p id="voice-state" class="hint" aria-live="polite"></p>
-      <article class="partner"><p class="eyebrow">FALA</p><p id="partner-text" lang="pt-BR" class="portuguese"></p><p id="partner-translation" class="translation"></p>
-        <div class="row"><button id="listen" class="secondary">▶ Listen</button><button id="slow" class="text-button">Slower</button><button id="stop-audio" class="text-button">Stop</button></div>
-      </article>
-      <p id="feedback" class="feedback" hidden></p>
-      <article id="ideas-card"><div class="row"><h2>You could say</h2><button id="hide-ideas" class="text-button">Hide ideas</button></div><div id="ideas"></div></article>
-      <button id="show-ideas" class="secondary" hidden>Show answer ideas</button>
-      <div id="composer">
-        <button id="microphone" class="microphone" aria-label="Hold to speak">Hold to speak</button>
-        <p id="mic-hint" class="fine">Hold while speaking. Release to review your answer.</p>
-        <audio id="recording" controls hidden aria-label="Your recording"></audio>
-        <div id="online-draft"><label for="draft">Your answer — check it before sending</label><textarea id="draft" rows="3" maxlength="2500" lang="pt-BR" dir="auto" placeholder="You can also type here…"></textarea>
-          <label class="check"><input id="help" type="checkbox"> Help me say something in Portuguese</label>
-          <button id="send" class="primary">Send answer</button>
+    <section id="conversation" class="screen" hidden aria-label="Speaking practice">
+      <nav class="conversation-nav" aria-label="Conversation">
+        <button id="back" class="icon-button" aria-label="Back to home"><svg class="icon"><use href="#i-back"/></svg></button>
+        <div class="conversation-title"><span id="session-topic"></span><span class="fine">A little more confident, every turn</span></div>
+        <span id="round" class="badge" aria-label="Conversation progress"></span>
+        <button id="options" class="icon-button" aria-label="Conversation options"><svg class="icon"><use href="#i-more"/></svg></button>
+      </nav>
+      <progress id="conversation-progress" max="10" value="0" aria-label="Answers completed"></progress>
+      <div id="conversation-content" tabindex="0" aria-label="Question and answer ideas">
+        <div class="conversation-grid">
+          <div class="partner-column">
+            <article class="partner">
+              <div class="row"><p class="eyebrow">YOUR CONVERSATION PARTNER</p><span class="language-tag">PT–BR</span></div>
+              <p id="partner-text" lang="pt-BR" class="portuguese"></p><p id="partner-translation" class="translation"></p>
+              <div class="playback"><button id="listen" class="secondary"><svg class="icon"><use href="#i-play"/></svg> Listen</button><button id="slow" class="text-button">0.8× Slower</button><button id="stop-audio" class="text-button">Stop</button></div>
+            </article>
+            <p id="feedback" class="feedback" hidden></p>
+          </div>
+          <div class="ideas-column">
+            <article id="ideas-card"><div class="row"><h2>Ideas for your reply</h2><button id="hide-ideas" class="text-button">Hide</button></div><p class="ideas-hint">Say it your way, or tap an idea to edit it.</p><div id="ideas"></div></article>
+            <button id="show-ideas" class="secondary" hidden>Show answer ideas</button>
+          </div>
         </div>
-        <button id="finish" class="text-button">Finish and review</button>
       </div>
-      <p id="voice-disclosure" class="fine"></p>
+      <div id="composer" aria-label="Your reply">
+        <p id="voice-state" class="hint" role="status" aria-live="polite"></p>
+        <div id="online-draft" class="draft-row">
+          <label for="draft" class="sr-only">Your answer — check it before sending</label><textarea id="draft" rows="1" maxlength="2500" lang="pt-BR" dir="auto" placeholder="Your reply… speak or type"></textarea>
+          <button id="send" aria-label="Send answer"><svg class="icon"><use href="#i-send"/></svg><span>Send</span></button>
+        </div>
+        <button id="microphone" class="microphone" aria-label="Hold to speak"><svg class="icon"><use href="#i-mic"/></svg><span id="mic-label">Hold to speak</span></button>
+        <p id="mic-hint" class="fine">Hold, speak, release. Check your words, then send.</p>
+        <button id="complete" class="primary" hidden>See my summary →</button>
+      </div>
     </section>
+    <dialog id="conversation-options" aria-labelledby="options-title">
+      <div class="row"><h2 id="options-title">Conversation options</h2><button id="close-options" class="text-button">Done</button></div>
+      <label class="check"><input id="help" type="checkbox"> Help me say something in Portuguese</label>
+      <p class="fine">Speak or write in your help language first. Fala will help you find the Portuguese words.</p>
+      <audio id="recording" controls hidden aria-label="Replay your recording"></audio>
+      <p id="voice-disclosure" class="fine"></p>
+      <button id="finish" class="secondary">Finish and review</button>
+    </dialog>
     <section id="review" class="screen" hidden><p class="eyebrow">A LITTLE MORE CONFIDENCE</p><h1>Keep these words.</h1><p id="summary"></p><div id="pointers"></div><div id="words" class="words"></div><button id="again" class="primary">Another conversation</button></section>
     <aside class="install"><details><summary>Add Fala to your home screen</summary><p><strong>iPhone:</strong> open this link in Safari, tap Share, then “Add to Home Screen”.<br><strong>Android:</strong> open Chrome's menu and choose “Install app” or “Add to Home screen”.</p><p>AI conversations need an internet connection. Microphone access needs your permission.</p><button id="install" class="secondary" hidden>Install Fala</button></details></aside>
     <footer><a href="/privacy.html">Privacy</a> · <a href="mailto:gdarmon@gmail.com">Help</a><p>Uma conversa de cada vez.</p></footer>

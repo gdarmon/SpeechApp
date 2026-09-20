@@ -2,6 +2,8 @@ package com.fala.app
 
 import com.fala.app.data.GoogleSignIn
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import android.Manifest
 import android.media.AudioManager
 import android.content.Intent
@@ -23,6 +25,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,31 +83,35 @@ private fun JSONArray.strings(): List<String> = (0 until length()).map { getStri
 private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: GoogleSignIn, appSettings: () -> Unit, voiceSettings: () -> Unit) {
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var finishDialog by remember { mutableStateOf(false) }
+    var conversationOptions by remember { mutableStateOf(false) }
     BackHandler(c.screen !in listOf("home", "welcome", "language")) { if (!c.busy) c.navigate("home") }
     val scroll = rememberScrollState()
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
     Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
+        topBar = { if (c.screen == "talk") ConversationHeader(c) { conversationOptions = true } },
         bottomBar = { if (c.screen == "talk") ConversationComposer(c, mic) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(scroll).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Image(painterResource(R.drawable.fala_logo), contentDescription = "Fala",
-                        modifier = Modifier.size(if (c.screen == "talk") 40.dp else 64.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)))
-                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.semantics { contentDescription = "App version ${BuildConfig.VERSION_NAME}" })
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(scroll).padding(if (c.screen == "talk") 16.dp else 24.dp),
+            verticalArrangement = Arrangement.spacedBy(if (c.screen == "talk") 12.dp else 18.dp)) {
+            if (c.screen != "talk") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Image(painterResource(R.drawable.fala_logo), contentDescription = "Fala",
+                            modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp)))
+                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.semantics { contentDescription = "App version ${BuildConfig.VERSION_NAME}" })
+                    }
+                    Text("PORTUGUÊS BRASILEIRO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
-                Text("PORTUGUÊS BRASILEIRO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            }
-            if (c.screen !in listOf("home", "welcome", "language") && c.settings.signedIn) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
-            if (c.demo) Notice("Connection test mode · scripted replies, no AI teaching or assessment.")
-            if (c.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("One moment…", style = MaterialTheme.typography.labelMedium) }
-            if (c.error.isNotBlank()) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(c.error)
-                        if (c.retryAvailable) TextButton(onClick = c::retry, enabled = !c.busy) { Text("Retry") }
+                if (c.screen !in listOf("home", "welcome", "language") && c.settings.signedIn) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
+                if (c.demo) Notice("Connection test mode · scripted replies, no AI teaching or assessment.")
+                if (c.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("One moment…", style = MaterialTheme.typography.labelMedium) }
+                if (c.error.isNotBlank()) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(c.error)
+                            if (c.retryAvailable) TextButton(onClick = c::retry, enabled = !c.busy) { Text("Retry") }
+                        }
                     }
                 }
             }
@@ -117,7 +124,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                     Button(onClick = c::finishLanguageSetup, enabled = c.supportLanguage.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Continue") }
                 }
                 "home" -> Home(c)
-                "talk" -> Conversation(c, voiceSettings) { c.pause(); finishDialog = true }
+                "talk" -> Conversation(c)
                 "history" -> {
                     Title("Your conversations", "A little more Portuguese, each time.")
                     if (c.history.length() == 0) Text("Your first conversation will appear here.")
@@ -140,6 +147,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             Spacer(Modifier.height(12.dp))
         }
     }
+    if (conversationOptions && c.screen == "talk") ConversationOptions(c, voiceSettings,
+        close = { conversationOptions = false }, finish = { conversationOptions = false; c.pause(); finishDialog = true })
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
         text = { Text(if (deleteTarget == "account") "This permanently deletes your Fala account, conversations, and learning progress and signs out all your devices. It does not delete your Google account."
             else if (deleteTarget == "all") "This deletes all your conversations, assessments, and learning memory. It cannot be undone."
@@ -231,8 +240,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     fun accessibleToggle() {
         if (c.holding) c.finishHolding() else mic { c.beginHolding() }
     }
-    Surface(color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = RoundedCornerShape(24.dp), modifier = modifier.heightIn(min = 72.dp)
+    Surface(color = if (c.holding) Color(0xFFA23C31) else MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = RoundedCornerShape(16.dp), modifier = modifier.heightIn(min = 52.dp)
             .semantics {
                 role = Role.Button
                 contentDescription = "Hold to speak. Release to finish."
@@ -267,112 +277,181 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                     }
                 })
             }) {
-        Box(Modifier.padding(18.dp), contentAlignment = Alignment.Center) {
+        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(20.dp))
             Text(when {
                 c.phase == "Recognizing" -> "Finishing…"
                 c.phase == "Starting microphone" -> "Getting ready…"
                 c.holding -> "Release to stop"
                 else -> "Hold to speak"
-            }, style = MaterialTheme.typography.titleLarge)
+            }, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
 
-@Composable private fun Conversation(c: SessionController, voiceSettings: () -> Unit, finish: () -> Unit) {
-    var speechOptions by remember { mutableStateOf(false) }
-    var network by remember { mutableStateOf(c.settings.networkRecognition) }
-    val language = c.conversationLanguage
-    val languageName = if (language == "he-IL") "Hebrew" else "English"
-    Text("${c.completedTurns.coerceAtMost(c.targetTurns)} of ${c.targetTurns} answers · ${c.session.optString("topic")}",
-        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-    c.session.optJSONObject("practice")?.let { practice ->
-        Text("Level ${practice.optInt("level", 1)} · ${practice.optString("answer_goal")}", style = MaterialTheme.typography.bodyMedium)
-    }
-    c.reply.optJSONObject("turn_feedback")?.let { feedback ->
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(if (feedback.optString("kind") == "correction") "A small adjustment" else "Your last answer", style = MaterialTheme.typography.labelLarge)
-                if (feedback.optString("said").isNotBlank()) Text("You said: ${feedback.getString("said")}", style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr))
-                if (feedback.optString("natural").isNotBlank()) Text(feedback.getString("natural"), fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
-                TranslatedText(feedback.optString("message"), language)
+@Composable private fun ConversationHeader(c: SessionController, options: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.statusBarsPadding()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { c.navigate("home") }, enabled = !c.busy) {
+                    Icon(painterResource(R.drawable.ic_back), contentDescription = "Back to home")
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(painterResource(R.drawable.fala_logo), "Fala", Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp)))
+                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(c.session.optString("topic").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (c.demo) "Connection test · scripted replies" else "Level ${c.session.optJSONObject("practice")?.optInt("level", 1) ?: 1} · Speaking practice", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(20.dp)) {
+                    Text("${(c.completedTurns + 1).coerceAtMost(c.targetTurns)} / ${c.targetTurns}", Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelMedium)
+                }
+                IconButton(onClick = { c.pause(); options() }, enabled = !c.recording) {
+                    Icon(painterResource(R.drawable.ic_more), contentDescription = "Conversation options")
+                }
             }
+            LinearProgressIndicator(progress = { c.completedTurns.toFloat() / c.targetTurns }, modifier = Modifier.fillMaxWidth().height(3.dp))
         }
     }
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if (c.phase == "Speaking") "Fala · speaking Portuguese…" else "Fala", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            if (c.replySupport.textVisible || c.practiceComplete) {
-                Text(c.reply.optString("text"), style = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr))
-                if (c.reply.optString("translation").isNotBlank()) TranslatedText(c.reply.optString("translation"), language)
-                else Text("Translations will appear with the next reply.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Text("Listen, then try to answer. You can replay as often as you need.")
-                OutlinedButton(onClick = c::revealText) { Text("Show Portuguese and $languageName") }
+}
+
+@Composable private fun Conversation(c: SessionController) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 700.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1.1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { ConversationQuestion(c); TurnFeedback(c) }
+                Column(Modifier.weight(1f)) { ConversationIdeas(c) }
             }
-            Row {
-                TextButton(onClick = c::play, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text("▶ Listen") }
-                TextButton(onClick = { c.slow = !c.slow }, enabled = !c.recording) { Text(if (c.slow) "Slow ✓" else "Slower") }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { ConversationQuestion(c); TurnFeedback(c); ConversationIdeas(c) }
+        }
+    }
+}
+
+@Composable private fun ConversationQuestion(c: SessionController) {
+    val language = c.conversationLanguage
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (c.phase == "Speaking") "FALA · SPEAKING" else "YOUR CONVERSATION PARTNER", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            if (c.replySupport.textVisible || c.practiceComplete) {
+                Text(c.reply.optString("text"), style = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr), fontWeight = FontWeight.SemiBold)
+                if (c.reply.optString("translation").isNotBlank()) TranslatedText(c.reply.optString("translation"), language)
+            } else {
+                Text("Listen, then try to answer. Replay whenever you need.")
+                OutlinedButton(onClick = c::revealText) { Text("Show the words and translation") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = c::play, enabled = !c.busy && !c.recording && !c.retryAvailable) {
+                    Icon(painterResource(R.drawable.ic_play), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Listen")
+                }
+                TextButton(onClick = { c.slow = !c.slow; c.play() }, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text(if (c.slow) "Slow ✓" else "Slower") }
+                Spacer(Modifier.weight(1f))
                 if (c.phase == "Speaking") TextButton(onClick = c::pause) { Text("Stop") }
             }
         }
     }
-    val ideas = c.reply.optJSONArray("suggested_replies")?.objects().orEmpty()
-    if (ideas.isNotEmpty() && c.replySupport.ideasVisible) {
-        Text("You could say…", style = MaterialTheme.typography.titleMedium)
-        ideas.forEach { idea ->
-            OutlinedCard(onClick = { c.chooseSuggestion(idea.getString("text")) }, enabled = !c.busy && !c.recording && !c.retryAvailable,
-                modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(idea.getString("text"), style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
-                    TranslatedText(idea.optString("translation"), language)
-                    TextButton(onClick = { c.listenTo(idea.getString("text")) }, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text("▶ Hear this answer") }
+}
+
+@Composable private fun TurnFeedback(c: SessionController) {
+    c.reply.optJSONObject("turn_feedback")?.let { feedback ->
+        Surface(color = Color(0xFFFFF3DB), shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TranslatedText(feedback.optString("message"), c.conversationLanguage)
+                if (feedback.optString("kind") == "correction" && feedback.optString("natural").isNotBlank()) {
+                    Text(feedback.getString("natural"), style = MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
-        Text("Tap an idea to use or adapt it. Your own words are welcome, too.", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = c::hideIdeas, enabled = !c.busy && !c.recording) { Text("Try without answer ideas") }
+    }
+}
+
+@Composable private fun ConversationIdeas(c: SessionController) {
+    val ideas = c.reply.optJSONArray("suggested_replies")?.objects().orEmpty()
+    val enabled = !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete
+    if (c.practiceComplete) return
+    if (ideas.isNotEmpty() && c.replySupport.ideasVisible) {
+        OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ideas for your reply", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = c::hideIdeas, enabled = enabled) { Text("Hide", style = MaterialTheme.typography.labelMedium) }
+                }
+                Text("Say it your way, or tap an idea to edit it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ideas.forEach { idea ->
+                    HorizontalDivider(Modifier.padding(top = 8.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { c.chooseSuggestion(idea.getString("text")) }, enabled = enabled,
+                            modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 0.dp)) {
+                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(idea.getString("text"), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))
+                                TranslatedText(idea.optString("translation"), c.conversationLanguage)
+                            }
+                        }
+                        IconButton(onClick = { c.listenTo(idea.getString("text")) }, enabled = enabled) {
+                            Icon(painterResource(R.drawable.ic_play), "Listen to ${idea.getString("text")}", Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
+        }
     } else if (ideas.isNotEmpty()) {
-        OutlinedButton(onClick = c::revealIdeas, enabled = !c.busy && !c.recording && !c.retryAvailable, modifier = Modifier.fillMaxWidth()) { Text("Show answer ideas") }
+        OutlinedButton(onClick = c::revealIdeas, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("Show answer ideas") }
     } else if (c.replySupport.textVisible && c.reply.optString("practice_phrase").isNotBlank()) {
-        OutlinedButton(onClick = { c.chooseSuggestion(c.reply.getString("practice_phrase")) }, enabled = !c.busy && !c.recording) {
-            Text(c.reply.getString("practice_phrase"))
+        OutlinedButton(onClick = { c.chooseSuggestion(c.reply.getString("practice_phrase")) }, enabled = enabled) { Text(c.reply.getString("practice_phrase")) }
+    }
+}
+
+@Composable private fun ConversationOptions(c: SessionController, voiceSettings: () -> Unit, close: () -> Unit, finish: () -> Unit) {
+    var network by remember { mutableStateOf(c.settings.networkRecognition) }
+    AlertDialog(onDismissRequest = close, title = { Text("Conversation options") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { c.toggleHelp(); close() }, enabled = !c.busy && !c.retryAvailable && !c.practiceComplete) {
+                Text(if (c.helpMode) "Back to Portuguese" else "Help me say it in ${if (c.conversationLanguage == "he-IL") "Hebrew" else "English"} first")
+            }
+            c.session.optJSONObject("practice")?.optString("answer_goal")?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(network, { network = it; c.settings.networkRecognition = it })
+                Text("Network speech recognition", Modifier.padding(start = 8.dp).weight(1f))
+            }
+            Text("Your phone’s online speech service may receive your audio when this is on.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
+            OutlinedButton(onClick = finish, enabled = !c.busy && !c.recording) { Text("Finish and review") }
         }
-    }
-    TextButton(onClick = c::toggleHelp, enabled = !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete) {
-        Text(if (c.helpMode) "Back to Portuguese" else "I need to say it in $languageName first")
-    }
-    TextButton(onClick = { c.pause(); speechOptions = !speechOptions }, enabled = !c.busy) { Text("Speech options") }
-    if (speechOptions) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(network, { network = it; c.settings.networkRecognition = it })
-            Text("Use network speech recognition", Modifier.padding(start = 8.dp).weight(1f))
-        }
-        Text("If on-device recognition cannot hear Portuguese, try your phone’s online speech service. It may send audio to your phone’s speech provider.", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
-    }
-    OutlinedButton(onClick = finish, enabled = !c.busy && !c.recording, modifier = Modifier.fillMaxWidth()) { Text("Finish and see summary") }
+    }, confirmButton = { TextButton(onClick = close) { Text("Done") } })
 }
 
 @Composable private fun ConversationComposer(c: SessionController, mic: (() -> Unit) -> Unit) {
     val language = c.conversationLanguage
-    val languageName = if (language == "he-IL") "Hebrew" else "English"
-    Surface(shadowElevation = 6.dp) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val enabled = !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete
+    Surface(shadowElevation = 8.dp, color = Color.White) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (c.voiceNotice.isNotBlank()) Text(c.voiceNotice, style = MaterialTheme.typography.bodySmall)
-            if (c.holding) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = if (c.recording) listOf(c.draft.text, c.partialWords).filter { it.isNotBlank() }.joinToString(" ") else c.draft.text,
-                onValueChange = c::editDraft,
-                label = { Text(if (c.helpMode) "Say what you mean in $languageName" else "Your reply in Portuguese") },
-                placeholder = { Text("Speak or type here") },
-                modifier = Modifier.fillMaxWidth(), enabled = !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete,
-                minLines = 1, maxLines = 3,
-                textStyle = LocalTextStyle.current.copy(textDirection = if (c.helpMode && language == "he-IL") TextDirection.Rtl else TextDirection.Ltr))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                HoldToSpeak(c, mic, Modifier.weight(1f))
-                Button(onClick = c::sendDraft, enabled = c.draft.text.isNotBlank() && !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete,
-                    modifier = Modifier.heightIn(min = 72.dp), shape = RoundedCornerShape(24.dp)) { Text("Send") }
+            if (c.error.isNotBlank()) {
+                Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.error, Modifier.weight(1f).heightIn(max = 72.dp).verticalScroll(rememberScrollState()).padding(vertical = 10.dp), style = MaterialTheme.typography.bodySmall)
+                    if (c.retryAvailable) TextButton(onClick = c::retry, enabled = !c.busy) { Text("Retry") }
+                }
+            }
+            if (c.voiceNotice.isNotBlank()) Text(c.voiceNotice, Modifier.heightIn(max = 64.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
+            if (c.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp))
+            if (c.holding) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
+            if (!c.practiceComplete) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = if (c.recording) listOf(c.draft.text, c.partialWords).filter { it.isNotBlank() }.joinToString(" ") else c.draft.text,
+                        onValueChange = c::editDraft, placeholder = { Text(if (c.helpMode) "Say it in ${if (language == "he-IL") "Hebrew" else "English"} first…" else "Your reply… speak or type", style = MaterialTheme.typography.bodyMedium) },
+                        modifier = Modifier.weight(1f).semantics { contentDescription = "Your answer — check before sending" }, enabled = enabled,
+                        minLines = 1, maxLines = 2, shape = RoundedCornerShape(14.dp),
+                        textStyle = LocalTextStyle.current.copy(textDirection = if (c.helpMode && language == "he-IL") TextDirection.Rtl else TextDirection.Ltr))
+                    FilledIconButton(onClick = { keyboard?.hide(); focus.clearFocus(); c.sendDraft() }, enabled = c.draft.text.isNotBlank() && enabled,
+                        modifier = Modifier.size(52.dp), shape = RoundedCornerShape(14.dp)) {
+                        Icon(painterResource(R.drawable.ic_send), "Send answer", Modifier.size(22.dp))
+                    }
+                }
+                HoldToSpeak(c, { action -> keyboard?.hide(); mic(action) }, Modifier.fillMaxWidth())
             }
             Text(when {
                 c.phase == "Starting microphone" -> "Wait for Listening, then speak."
@@ -380,9 +459,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 c.phase == "Recognizing" -> "Finishing your words…"
                 c.practiceComplete -> "Practice complete · preparing your summary…"
                 c.busy -> "Fala is preparing a reply…"
-                c.helpMode -> "Send your meaning; Fala will help you say it in Portuguese."
+                c.helpMode -> "Say it in your language. Fala will help with Portuguese."
                 else -> "Hold, speak, release. Check your words, then send."
-            }, style = MaterialTheme.typography.bodySmall)
+            }, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

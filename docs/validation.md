@@ -1,5 +1,13 @@
 # Validation
 
+## 0.8.0 — 20 September 2026
+
+- Web conversation uses a viewport-sized layout with an independently scrolling reading area and a persistent reply composer. Native Android uses a compact fixed header and composer; both show question/ideas side by side on wider screens. Portuguese, Hebrew/English translations and audio controls stay together.
+- Suggested text can be copied into the editable reply without submitting it. Voice playback stays separate. Secondary controls move into a labelled conversation options dialog. Audio, retry/idempotency and ten-answer feedback behavior remain covered by browser tests.
+- Browser checks cover 390×844, 360×640, 320×568, 390×400 and 1280×800, and verify controls are on-screen and unobstructed even after scrolling. Browser fixture screenshots document the implemented UI. This is not a claim of physical iPhone or Android device testing.
+- Android 0.8.0 (local version code 8) builds as a debug APK and a signed AAB using the existing upload certificate. Unit tests and debug/release lint pass. Google Play delivery still depends on the repository publishing credentials or uploading the signed bundle.
+
+
 ## ABADÁ curriculum update — 20 September 2026
 
 - 68 backend tests passed. Coverage includes rotation through all lesson themes, changed focus on revisits, frozen lesson retries/resume, failed-start behavior, legacy-session compatibility, help-turn counting, user isolation/deletion, whole-expression counting and prior exposure, two-letter aú, and guards against repeated questions or choice loops. TypeScript/site build and Netlify function packaging passed.

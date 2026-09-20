@@ -12,9 +12,10 @@ const audioCache = new Map();
 const voice = new Voice(value => text('voice-state', value));
 const recorder = new Recorder(state => {
   $('microphone').dataset.recording = state === 'recording' ? 'true' : state === 'starting' ? 'starting' : 'false';
-  text('microphone', state === 'recording' ? 'Speaking… release when done' : state === 'starting' ? 'Allow microphone access…' : 'Hold to speak');
-  $('send').disabled = busy || state !== 'idle';
-  document.querySelectorAll('.idea-actions button').forEach(button => { button.disabled = busy || state !== 'idle'; });
+  text('mic-label', state === 'recording' ? 'Listening… release when done' : state === 'starting' ? 'Allow microphone access…' : 'Hold to speak');
+  $('send').disabled = busy || state !== 'idle' || !$('draft').value.trim();
+  $('options').disabled = state !== 'idle';
+  document.querySelectorAll('#ideas button').forEach(button => { button.disabled = busy || state !== 'idle' || !!pendingTurn; });
 }, recording => { void recordedAnswer(recording); }, error => failure(error));
 
 async function api(path, options = {}) {
@@ -35,10 +36,11 @@ function failure(error, retry = null) {
 function clearError() { show('error', false); show('retry', false); retryAction = null; }
 function setBusy(value) {
   busy = value;
-  for (const id of ['start', 'send', 'finish', 'microphone', 'draft', 'help', 'signout', 'login-begin']) $(id).disabled = value;
+  for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin']) $(id).disabled = value;
   for (const id of ['microphone', 'draft', 'help']) $(id).disabled = value || !!pendingTurn;
   for (const id of ['topic', 'level', 'home-language']) $(id).disabled = value || !!pendingStart;
-  document.querySelectorAll('.idea-actions button').forEach(button => { button.disabled = value || recorder.active; });
+  $('send').disabled = value || recorder.active || !$('draft').value.trim();
+  document.querySelectorAll('#ideas button').forEach(button => { button.disabled = value || recorder.active || !!pendingTurn; });
 }
 async function task(action, status = '') {
   if (busy) return;
@@ -51,7 +53,27 @@ async function task(action, status = '') {
     }
   } finally { if (current === epoch) { setBusy(false); show('notice', false); } }
 }
-function screen(id) { document.querySelectorAll('.screen').forEach(element => { element.hidden = element.id !== id; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function screen(id) {
+  document.querySelectorAll('.screen').forEach(element => { element.hidden = element.id !== id; });
+  document.body.classList.toggle('in-conversation', id === 'conversation');
+  $('conversation-options').close();
+  $('conversation-content').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  fitViewport();
+}
+function fitViewport() {
+  const viewport = window.visualViewport;
+  document.documentElement.style.setProperty('--app-height', `${viewport?.height || window.innerHeight}px`);
+  document.documentElement.style.setProperty('--viewport-top', `${viewport?.offsetTop || 0}px`);
+}
+window.visualViewport?.addEventListener('resize', fitViewport);
+window.visualViewport?.addEventListener('scroll', fitViewport);
+window.addEventListener('resize', fitViewport);
+function updateDraft() {
+  $('draft').style.height = '48px';
+  $('draft').style.height = `${Math.max(48, Math.min(76, $('draft').scrollHeight + 2))}px`;
+  $('send').disabled = busy || recorder.active || !$('draft').value.trim();
+}
 function translated(element, value) { element.textContent = value || ''; element.lang = language === 'he-IL' ? 'he' : 'en'; element.dir = language === 'he-IL' ? 'rtl' : 'ltr'; }
 function setLanguage(value) {
   language = value; preferences.set('language', language); $('language').value = $('home-language').value = language;
@@ -127,11 +149,13 @@ $('start').onclick = () => {
 function renderSession() {
   const last = session.turns.at(-1); reply = last?.reply || session.opening;
   const count = session.turns.filter(turn => !turn.help).length;
+  $('conversation-progress').value = Math.min(count, 10);
   renderReply(`${Math.min(count + 1, 10)} / 10`, `${session.topic} · Level ${session.practice?.level || 1}`, count >= 10);
 }
 function renderReply(round, topic, complete = false) {
   recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache.clear();
   $('draft').value = ''; $('draft').lang = 'pt-BR'; $('help').checked = false; assisted = !ideasHidden;
+  $('draft').placeholder = 'Your reply… speak or type'; updateDraft();
   screen('conversation'); text('round', round); text('session-topic', topic);
   text('partner-text', reply.text); translated($('partner-translation'), reply.translation);
   const feedback = reply.turn_feedback;
@@ -139,23 +163,35 @@ function renderReply(round, topic, complete = false) {
   $('ideas').replaceChildren();
   for (const [index, idea] of (reply.suggested_replies || []).entries()) {
     const row = document.createElement('div'); row.className = 'idea';
-    const pt = document.createElement('p'); pt.className = 'pt'; pt.lang = 'pt-BR'; pt.textContent = idea.text;
-    const meaning = document.createElement('p'); meaning.className = 'meaning'; translated(meaning, idea.translation);
+    const phrase = document.createElement('button'); phrase.type = 'button'; phrase.className = 'idea-text';
+    phrase.setAttribute('aria-label', `Use suggested answer ${index + 1}: ${idea.text}`);
+    phrase.onclick = () => {
+      if (busy || recorder.active || pendingTurn) return;
+      voice.stop(); $('recording').pause(); speechMs = 0; assisted = true;
+      $('help').checked = false; $('draft').lang = 'pt-BR'; $('draft').placeholder = 'Your reply… speak or type';
+      $('draft').value = idea.text; updateDraft();
+      text('voice-state', 'Make it your own, then send. Or hold the microphone to say it.');
+    };
+    const pt = document.createElement('span'); pt.className = 'pt'; pt.lang = 'pt-BR'; pt.textContent = idea.text;
+    const meaning = document.createElement('span'); meaning.className = 'meaning'; translated(meaning, idea.translation);
+    phrase.append(pt, meaning);
     const controls = document.createElement('div'); controls.className = 'idea-actions';
     for (const slow of [false, true]) {
       const button = document.createElement('button'); button.type = 'button'; button.className = slow ? 'text-button' : 'secondary';
-      button.textContent = slow ? 'Slower' : '▶ Listen';
+      button.textContent = slow ? '0.8×' : '▶';
+      button.title = slow ? 'Listen slowly' : 'Listen to this answer';
       button.setAttribute('aria-label', `${slow ? 'Slowly listen' : 'Listen'} to suggested answer ${index + 1}: ${idea.text}`);
       button.onclick = () => { voice.unlock(); listen(slow, index); };
       controls.append(button);
     }
-    row.append(pt, meaning, controls); $('ideas').append(row);
+    row.append(phrase, controls); $('ideas').append(row);
   }
   show('ideas-card', !ideasHidden && !complete); show('show-ideas', ideasHidden && !complete);
   show('online-draft', !complete); show('microphone', !complete); show('mic-hint', !complete);
+  show('complete', complete);
   text('finish', complete ? 'See my summary' : 'Finish and review');
   text('voice-disclosure', 'AI-generated voice. Recording is sent to OpenAI for transcription when you release. Check the words before sending your answer.');
-  text('mic-hint', 'Hold while speaking. Release to transcribe, then check and send. Up to 45 seconds.');
+  text('mic-hint', 'Hold, speak, release. Check your words, then send.');
   if (complete) text('voice-state', 'Conversation complete. Listen, then open your summary.');
 }
 function listen(slow = false, suggestionIndex = null) {
@@ -182,7 +218,7 @@ $('show-ideas').onclick = () => { ideasHidden = false; assisted = true; preferen
 
 function beginRecording() {
   if (busy || pendingTurn || recorder.active) return;
-  clearError(); voice.stop(); $('recording').pause(); void recorder.start();
+  $('draft').blur(); clearError(); voice.stop(); $('recording').pause(); void recorder.start();
 }
 $('microphone').onpointerdown = event => { if (event.button !== 0) return; event.preventDefault(); $('microphone').setPointerCapture(event.pointerId); beginRecording(); };
 $('microphone').onpointerup = event => { event.preventDefault(); recorder.stop(); };
@@ -197,12 +233,18 @@ async function recordedAnswer(recording) {
   const requestedLanguage = $('help').checked ? language.slice(0, 2) : 'pt';
   await task(async current => {
     const result = await api(`/speech/transcribe?language=${requestedLanguage}`, { method: 'POST', headers: { 'Content-Type': recording.blob.type }, body: recording.blob });
-    if (current !== epoch) return; $('draft').value = result.text; speechMs = recording.duration;
-    text('voice-state', 'Check the words below, then send your answer.');
+    if (current !== epoch) return; $('draft').value = result.text; speechMs = recording.duration; updateDraft();
+    text('voice-state', 'Your words are ready. Check, then send.');
   }, 'Listening to your recording…');
 }
-$('draft').oninput = () => { speechMs = 0; pendingTurn = null; clearError(); };
-$('help').onchange = () => { pendingTurn = null; clearError(); $('draft').lang = $('help').checked ? language : 'pt-BR'; };
+$('draft').oninput = () => { speechMs = 0; pendingTurn = null; clearError(); updateDraft(); };
+$('help').onchange = () => {
+  pendingTurn = null; clearError(); $('draft').lang = $('help').checked ? language : 'pt-BR';
+  $('draft').placeholder = $('help').checked ? `Say it in ${language === 'he-IL' ? 'Hebrew' : 'English'} first…` : 'Your reply… speak or type';
+};
+$('options').onclick = () => { voice.stop(); $('conversation-options').showModal(); };
+$('close-options').onclick = () => $('conversation-options').close();
+$('conversation-options').onclose = () => $('recording').pause();
 $('send').onclick = () => {
   if (recorder.active) return;
   if (!$('draft').value.trim()) { failure(new Error('Record or type a short answer first.')); return; }
@@ -210,6 +252,7 @@ $('send').onclick = () => {
   pendingTurn ??= { request_id: crypto.randomUUID(), text: $('draft').value.trim(), help: $('help').checked, language: $('help').checked ? language : 'pt-BR',
     speech_ms: speechMs, source: speechMs ? 'speech' : 'typed', assisted, ideas_hidden: !assisted && ideasHidden };
   const input = pendingTurn, id = session.id;
+  $('draft').blur(); voice.stop();
   void task(async current => {
     await post(`/sessions/${id}/turns`, input); if (current !== epoch) return;
     const saved = await api(`/sessions/${id}`); if (current !== epoch) return;
@@ -227,10 +270,12 @@ function review(report) {
   }
 }
 $('finish').onclick = () => {
+  $('conversation-options').close();
   recorder.cancel(); voice.stop();
   const id = session.id;
   void task(async current => { const report = await post(`/sessions/${id}/finish`); if (current === epoch) review(report); }, 'Preparing your short review…');
 };
+$('complete').onclick = () => $('finish').click();
 $('back').onclick = () => { void home(); };
 $('again').onclick = () => { void home(); };
 $('retry').onclick = () => retryAction?.();

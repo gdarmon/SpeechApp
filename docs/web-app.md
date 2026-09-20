@@ -1,8 +1,14 @@
 # Fala on iPhone, Android and the web
 
-Share https://legendary-florentine-6b3c1f.netlify.app/app/ . Web 0.7.2 is separate from the native Android version. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
+Share https://legendary-florentine-6b3c1f.netlify.app/app/ . Web and native Android both display version 0.8.0; each is distributed separately. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
 
 On iPhone, open Safari → Share → Add to Home Screen. Android Chrome offers Install app / Add to Home screen. HTTPS and microphone permission are required. Actual device permission, available voices and autoplay policies vary; the Listen button always offers explicit playback. Browser support was checked in desktop Chrome with a mobile viewport and synthetic microphone, not on a physical iPhone.
+
+## Conversation layout
+
+During a conversation the microphone, editable reply and Send stay at the bottom. Only the question/ideas area scrolls; desktop widths show the question and ideas side by side. The layout follows the browser's visual viewport so the composer can remain above a software keyboard. Selecting an idea fills the reply for editing but never sends it. Audio buttons only play the phrase. Additional help, recording replay and early finish are under the top-right conversation options button. After ten replies the bottom action opens the summary.
+
+`npm run test:web` checks reply controls at 320–1280px widths and keyboard-sized heights, including hit-testing after scrolling, microphone transcription, suggestions, retries and completing ten turns. Physical iPhone keyboard/permission behavior still needs a device check.
 
 ## One Google configuration check
 
