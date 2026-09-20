@@ -3,7 +3,10 @@ import { AppError, type Reply } from "./models.js";
 import type { Settings } from "./config.js";
 
 export const AUDIO_LIMIT = 2_000_000;
-export const speechSchema = z.strictObject({ turn_id: z.number().int().positive().nullable().default(null) });
+export const speechSchema = z.strictObject({
+  turn_id: z.number().int().positive().nullable().default(null),
+  suggestion_index: z.number().int().min(0).max(1).nullable().default(null),
+});
 const formats: Record<string, string> = { "audio/mp4": "mp4", "video/mp4": "mp4", "audio/webm": "webm", "video/webm": "webm", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mpeg": "mp3" };
 export const speechAvailable = (settings: Settings) => !settings.demo && !!settings.apiKey && new URL(settings.baseUrl).hostname === "api.openai.com";
 

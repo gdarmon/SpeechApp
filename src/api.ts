@@ -107,8 +107,12 @@ export function createHandler(dependencies: Dependencies) {
           const session = await store.session(id);
           const reply = input.turn_id === null ? session.opening : session.turns.find(turn => turn.id === input.turn_id)?.reply;
           if (!reply) throw new AppError(404, "Conversation reply not found.");
+          const suggestion = input.suggestion_index === null ? null : reply.suggested_replies?.[input.suggestion_index];
+          if (input.suggestion_index !== null && !suggestion) throw new AppError(404, "Suggested answer not found.");
+          // Select only saved, owned text. A suggested answer must not include the partner's correction.
+          const spoken = suggestion ? { ...reply, text: suggestion.text, turn_feedback: null } : reply;
           await store.budget();
-          return new Response(await speech.speak(reply), { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Server-Timing": timing.header() } });
+          return new Response(await speech.speak(spoken), { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Server-Timing": timing.header() } });
         }
         if (!match[2] && request.method === "GET") return respond(publicSession(await store.session(id)));
         if (!match[2] && request.method === "DELETE") { await store.mutate(tx => tx.delete(id)); return respond({ deleted: true }); }

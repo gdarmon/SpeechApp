@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web 0.7.0 includes hold-to-speak, AI voice, shared learner progress, and prepared Family practice without account or recording uploads. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://legendary-florentine-6b3c1f.netlify.app/app/). Web 0.7.1 includes hold-to-speak, AI voice, shared learner progress, and prepared Family practice without account or recording uploads. [Setup and browser details](docs/web-app.md).
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">

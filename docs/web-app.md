@@ -1,6 +1,6 @@
 # Fala on iPhone, Android and the web
 
-Share https://legendary-florentine-6b3c1f.netlify.app/app/ . Web 0.7.0 is separate from the native Android version. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
+Share https://legendary-florentine-6b3c1f.netlify.app/app/ . Web 0.7.1 is separate from the native Android version. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
 
 On iPhone, open Safari → Share → Add to Home Screen. Android Chrome offers Install app / Add to Home screen. HTTPS and microphone permission are required. Actual device permission, available voices and autoplay policies vary; the Listen button always offers explicit playback. Browser support was checked in desktop Chrome with a mobile viewport and synthetic microphone, not on a physical iPhone.
 
@@ -20,7 +20,7 @@ The website exchanges Google's nonce-bound ID token for a Secure, HttpOnly, Same
 
 The website uses MediaRecorder (MP4 on Safari; WebM where supported), not browser speech recognition. Hold to record, release to transcribe, review/edit, then explicitly send. Recording stops on cancellation, backgrounding or 45 seconds, and audio uploads are capped at 2 MB. No audio is saved in Fala's database or application logs.
 
-Online voice requires the existing paid OpenAI configuration (`FALA_OPENAI_API_KEY`, or an OpenAI endpoint/key in the compatible settings). Transcription uses `gpt-4o-mini-transcribe`; replies use `gpt-4o-mini-tts` with a Brazilian Portuguese instruction. Only the signed-in learner's saved replies can be synthesized. Existing per-user/global budgets include voice requests; a full spoken exchange costs additional requests and provider usage. The Android speech engine remains unchanged.
+Online voice requires the existing paid OpenAI configuration (`FALA_OPENAI_API_KEY`, or an OpenAI endpoint/key in the compatible settings). Transcription uses `gpt-4o-mini-transcribe`; replies use `gpt-4o-mini-tts` with a Brazilian Portuguese instruction. Each suggested answer has Listen and Slower buttons for Portuguese pronunciation. Replaying a phrase at either speed reuses its audio for the current turn. Only the signed-in learner’s saved replies and suggested answers can be synthesized; clients cannot submit arbitrary text for playback. Existing per-user/global budgets include voice requests; a full spoken exchange costs additional requests and provider usage. The Android speech engine remains unchanged.
 
 The direct family link is https://legendary-florentine-6b3c1f.netlify.app/app/#family . It opens without an account lookup.
 

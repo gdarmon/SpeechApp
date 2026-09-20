@@ -280,3 +280,34 @@ it('authorizes voice, scopes synthesized replies to their learner, and rejects a
   expect(await (await record(alice)).json()).toEqual({ text: 'Gosto da ginga.' }); expect(transcribed).toEqual([300]);
   expect((await db.query('SELECT * FROM fala.turns')).length).toBe(0);
 });
+
+it('speaks only the selected saved answer, without coaching text, for openings and later turns', async () => {
+  const alice = await login('alice'), bob = await login('bob');
+  const saved = (await start(alice)).data;
+  const opening = { ...saved.opening, turn_feedback: { kind: 'correction', natural: 'Eu fui.', message: 'Use fui.' }, suggested_replies: [
+    { text: 'Gosto da ginga.', translation: 'I like the ginga.' }, { text: 'Prefiro o martelo.', translation: 'I prefer the martelo.' },
+  ] };
+  await db.query('UPDATE fala.sessions SET opening=$2::jsonb WHERE id=$1::uuid', [saved.id, JSON.stringify(opening)]);
+  await call(`/sessions/${saved.id}/turns`, 'POST', alice, { request_id: randomUUID(), text: 'Gosto da ginga.' });
+  const [turn] = await db.query<{ id: number }>('SELECT id FROM fala.turns WHERE session_id=$1::uuid', [saved.id]);
+  const later = { ...opening, suggested_replies: [{ text: 'Quero aprender.', translation: 'I want to learn.' }] };
+  await db.query('UPDATE fala.turns SET reply=$2::jsonb WHERE id=$1', [turn.id, JSON.stringify(later)]);
+  const spoken: { text: string; turn_feedback: unknown }[] = [];
+  const target = createHandler({ settings: () => settings, database: () => db, speech: () => ({
+    speak: async reply => { spoken.push(reply); return new ArrayBuffer(10); }, transcribe: async () => ({ text: '' }),
+  }) });
+  const say = (token: string, body: unknown) => target(new Request(`https://fala.test/sessions/${saved.id}/speech`, { method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }));
+  expect((await say(bob, { suggestion_index: 0 })).status).toBe(404);
+  for (const index of [-1, 2, 0.5, '0']) expect((await say(alice, { suggestion_index: index })).status).toBe(422);
+  expect((await say(alice, { suggestion_index: 0, text: 'Untrusted input' })).status).toBe(422);
+  expect((await say(alice, { turn_id: turn.id, suggestion_index: 1 })).status).toBe(404);
+  expect(spoken).toEqual([]);
+  for (const index of [0, 1]) expect((await say(alice, { suggestion_index: index })).status).toBe(200);
+  expect((await say(alice, { turn_id: turn.id, suggestion_index: 0 })).status).toBe(200);
+  expect(spoken.map(reply => reply.text)).toEqual(['Gosto da ginga.', 'Prefiro o martelo.', 'Quero aprender.']);
+  expect(spoken.every(reply => reply.turn_feedback === null)).toBe(true);
+  expect((await say(alice, {})).status).toBe(200);
+  expect(spoken.at(-1)).toMatchObject({ text: opening.text, turn_feedback: opening.turn_feedback });
+});

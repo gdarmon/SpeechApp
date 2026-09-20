@@ -38,7 +38,18 @@ try {
   assert.deepEqual(latePermission, { answers: 0, closed: true });
   await page.locator('#family-begin').click();
   page.on('request', request => { if (request.url().startsWith('http')) familyRequests.push(new URL(request.url()).pathname); });
+  await page.evaluate(() => {
+    window.familySpoken = [];
+    speechSynthesis.speak = utterance => window.familySpoken.push({ text: utterance.text, lang: utterance.lang, rate: utterance.rate });
+  });
   await page.locator('#family-start').click();
+  const idea = await page.locator('#ideas .pt').innerText();
+  await page.locator('.idea-actions .secondary').click();
+  await page.locator('.idea-actions .text-button').click();
+  const spokenIdeas = await page.evaluate(() => window.familySpoken.slice(-2));
+  assert.deepEqual(spokenIdeas.map(item => item.text), [idea, idea]);
+  assert.ok(spokenIdeas.every(item => item.lang === 'pt-BR'));
+  assert.ok(spokenIdeas[1].rate < spokenIdeas[0].rate);
   assert.match(await page.locator('#partner-text').innerText(), /Oi/);
   assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
   const mic = page.locator('#microphone'); await mic.scrollIntoViewIfNeeded();
@@ -57,8 +68,8 @@ try {
   await page.screenshot({ path: `${root}/artifacts/fala-web-family-review.png`, fullPage: true });
   assert.deepEqual(errors, []);
   // Exercise the online UI with a deterministic API and audio fixture, without a Google account.
-  let saved, dropGet = false, postCount = 0; const ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
-  const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }] };
+  let saved, dropGet = false, postCount = 0; const speechRequests = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
+  const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
   const wav = Buffer.alloc(44 + 16000); wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40);
   await page.route('**/*', async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
@@ -66,7 +77,7 @@ try {
     if (path === '/auth/me') return send({ email: 'browser-fixture@fala.invalid' });
     if (path === '/dashboard') return send({ progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [] });
     if (path === '/sessions') { saved = { id: 'session-fixture', topic: 'Capoeira', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
-    if (path.endsWith('/speech')) return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav });
+    if (path.endsWith('/speech')) { speechRequests.push(request.postDataJSON()); return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }); }
     if (path === '/speech/transcribe') { assert.ok(request.postDataBuffer().length > 128); return send({ text: 'Sim, conheço.' }); }
     if (path.endsWith('/turns')) {
       const input = request.postDataJSON(); ids.push(input.request_id); postCount++;
@@ -82,6 +93,16 @@ try {
   await page.locator('#start').click(); await page.locator('#conversation').waitFor({ state: 'visible' });
   await page.locator('#send').waitFor({ state: 'visible' });
   await page.waitForFunction(() => !document.getElementById('microphone').disabled);
+  for (const index of [0, 1]) {
+    const response = page.waitForResponse(res => res.url().endsWith('/speech') && res.request().postDataJSON().suggestion_index === index);
+    await page.locator('.idea-actions .secondary').nth(index).click(); await response;
+  }
+  assert.deepEqual(speechRequests, [{ turn_id: null, suggestion_index: null }, { turn_id: null, suggestion_index: 0 }, { turn_id: null, suggestion_index: 1 }]);
+  await page.locator('.idea-actions .text-button').first().click();
+  await page.locator('.idea-actions .secondary').first().click();
+  await page.locator('#listen').click(); await page.waitForTimeout(100);
+  assert.equal(speechRequests.length, 3, 'Repeating or slowing a saved clip must not request it again');
+  assert.equal(await page.locator('#draft').inputValue(), ''); assert.equal(postCount, 0);
   await mic.scrollIntoViewIfNeeded(); const box = await mic.boundingBox();
   await page.mouse.move(box.x + 50, box.y + 40); await page.mouse.down();
   await page.waitForFunction(() => document.getElementById('microphone').dataset.recording === 'true');
@@ -92,7 +113,10 @@ try {
   await page.locator('#retry').click();
   await page.waitForFunction(() => document.getElementById('round').textContent === '2 / 10');
   assert.equal(ids[0], ids[1]); assert.equal(saved.turns.length, 1);
-  assert.equal(saved.turns[0].source, 'speech');
+  assert.equal(saved.turns[0].source, 'speech'); assert.equal(saved.turns[0].assisted, true);
+  const laterAudio = page.waitForResponse(res => res.url().endsWith('/speech') && res.request().postDataJSON().suggestion_index === 0);
+  await page.locator('.idea-actions .secondary').first().click(); await laterAudio;
+  assert.deepEqual(speechRequests.at(-1), { turn_id: 1, suggestion_index: 0 });
   await page.screenshot({ path: `${root}/artifacts/fala-web-conversation.png`, fullPage: true });
   for (let i = 1; i < 10; i++) {
     await page.locator('#draft').fill('Sim, gosto da ginga.'); await page.locator('#send').click();
@@ -112,5 +136,5 @@ try {
   const cached = await offlinePage.evaluate(async () => { const keys = await caches.keys(); return (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat(); });
   assert.ok(cached.length >= 8); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
   await offline.close();
-  console.log('PASS: family local recording/replay and 10 exchanges; zero family API calls; Hebrew RTL; online recording/transcription and 10 turns; idempotent retry after lost response; 5-word cap; offline public-only cache; no browser exceptions.');
+  console.log('PASS: suggested answer playback in family/online modes, per-turn audio caching, slow playback; family local recording/replay and 10 exchanges; zero family API calls; Hebrew RTL; online recording/transcription and 10 turns; idempotent retry after lost response; 5-word cap; offline public-only cache; no browser exceptions.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

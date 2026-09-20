@@ -8,12 +8,14 @@ const preferences = { get: key => { try { return localStorage.getItem(`fala.${ke
 let language = preferences.get('language') === 'en-US' ? 'en-US' : 'he-IL';
 let mode = location.hash === '#family' ? 'family' : 'online', user = null, session = null, reply = null, lesson = null, familyIndex = 0;
 let busy = false, epoch = 0, retryAction = null, recordingUrl = null, recorded = null, speechMs = 0;
-let ideasHidden = preferences.get('hideIdeas') === 'true', assisted = !ideasHidden, pendingTurn = null, pendingStart = null, audioCache = null;
+let ideasHidden = preferences.get('hideIdeas') === 'true', assisted = !ideasHidden, pendingTurn = null, pendingStart = null;
+const audioCache = new Map();
 const voice = new Voice(value => text('voice-state', value));
 const recorder = new Recorder(state => {
   $('microphone').dataset.recording = state === 'recording' ? 'true' : state === 'starting' ? 'starting' : 'false';
   text('microphone', state === 'recording' ? 'Speaking… release when done' : state === 'starting' ? 'Allow microphone access…' : 'Hold to speak');
   $('send').disabled = busy || state !== 'idle';
+  document.querySelectorAll('.idea-actions button').forEach(button => { button.disabled = busy || state !== 'idle'; });
 }, recording => { void recordedAnswer(recording); }, error => failure(error));
 
 async function api(path, options = {}) {
@@ -37,6 +39,7 @@ function setBusy(value) {
   for (const id of ['start', 'send', 'finish', 'microphone', 'draft', 'help', 'signout', 'login-begin']) $(id).disabled = value;
   for (const id of ['microphone', 'draft', 'help']) $(id).disabled = value || !!pendingTurn;
   for (const id of ['topic', 'level', 'home-language']) $(id).disabled = value || !!pendingStart;
+  document.querySelectorAll('.idea-actions button').forEach(button => { button.disabled = value || recorder.active; });
 }
 async function task(action, status = '') {
   if (busy) return;
@@ -61,7 +64,7 @@ function discardRecording() {
   if (recordingUrl) URL.revokeObjectURL(recordingUrl); recordingUrl = null; recorded = null; speechMs = 0;
 }
 function leave() {
-  ++epoch; recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache = null;
+  ++epoch; recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache.clear();
   setBusy(false); clearError(); show('notice', false); $('draft').value = ''; $('draft').lang = 'pt-BR'; $('help').checked = false;
 }
 async function home() {
@@ -129,18 +132,26 @@ function renderSession() {
   renderReply(`${Math.min(count + 1, 10)} / 10`, `${session.topic} · Level ${session.practice?.level || 1}`, count >= 10);
 }
 function renderReply(round, topic, complete = false) {
-  recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache = null;
+  recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache.clear();
   $('draft').value = ''; $('draft').lang = 'pt-BR'; $('help').checked = false; assisted = !ideasHidden;
   screen('conversation'); text('round', round); text('session-topic', topic);
   text('partner-text', reply.text); translated($('partner-translation'), reply.translation);
   const feedback = reply.turn_feedback;
   translated($('feedback'), feedback ? [feedback.message, feedback.kind === 'correction' ? feedback.natural : ''].filter(Boolean).join(' · ') : ''); show('feedback', !!feedback);
   $('ideas').replaceChildren();
-  for (const idea of reply.suggested_replies || []) {
+  for (const [index, idea] of (reply.suggested_replies || []).entries()) {
     const row = document.createElement('div'); row.className = 'idea';
     const pt = document.createElement('p'); pt.className = 'pt'; pt.lang = 'pt-BR'; pt.textContent = idea.text;
     const meaning = document.createElement('p'); meaning.className = 'meaning'; translated(meaning, idea.translation);
-    row.append(pt, meaning); $('ideas').append(row);
+    const controls = document.createElement('div'); controls.className = 'idea-actions';
+    for (const slow of [false, true]) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = slow ? 'text-button' : 'secondary';
+      button.textContent = slow ? 'Slower' : '▶ Listen';
+      button.setAttribute('aria-label', `${slow ? 'Slowly listen' : 'Listen'} to suggested answer ${index + 1}: ${idea.text}`);
+      button.onclick = () => { voice.unlock(); listen(slow, index); };
+      controls.append(button);
+    }
+    row.append(pt, meaning, controls); $('ideas').append(row);
   }
   show('ideas-card', !ideasHidden && !complete); show('show-ideas', ideasHidden && !complete);
   show('online-draft', mode === 'online' && !complete); show('family-next', mode === 'family'); show('microphone', !complete); show('mic-hint', !complete);
@@ -150,15 +161,19 @@ function renderReply(round, topic, complete = false) {
   text('mic-hint', mode === 'family' ? 'Hold to record, release to listen to yourself. No recording is uploaded.' : 'Hold while speaking. Release to transcribe, then check and send. Up to 45 seconds.');
   if (complete) text('voice-state', 'Conversation complete. Listen, then open your summary.');
 }
-function listen(slow = false) {
-  if (!reply) return;
+function listen(slow = false, suggestionIndex = null) {
+  if (!reply || recorder.active) return;
+  const selected = suggestionIndex === null ? reply : reply.suggested_replies[suggestionIndex];
+  if (!selected) return;
+  if (suggestionIndex !== null) assisted = true;
   $('recording').pause();
-  if (mode === 'family') { voice.speak(reply.text, slow); return; }
-  const key = `${session.id}:${session.turns.at(-1)?.id ?? 'opening'}`;
-  if (audioCache?.key !== key) audioCache = { key, promise: null };
-  const cached = audioCache;
+  if (mode === 'family') { voice.speak(selected.text, slow); return; }
+  const turnId = session.turns.at(-1)?.id ?? null;
+  const key = `${session.id}:${turnId ?? 'opening'}:${suggestionIndex ?? 'partner'}`;
+  if (!audioCache.has(key)) audioCache.set(key, { promise: null });
+  const cached = audioCache.get(key);
   void voice.play(() => {
-    cached.promise ??= post(`/sessions/${session.id}/speech`, { turn_id: session.turns.at(-1)?.id ?? null }, { audio: true }).catch(error => { cached.promise = null; throw error; });
+    cached.promise ??= post(`/sessions/${session.id}/speech`, { turn_id: turnId, suggestion_index: suggestionIndex }, { audio: true }).catch(error => { cached.promise = null; throw error; });
     return cached.promise;
   }, slow);
 }
