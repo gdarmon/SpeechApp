@@ -83,3 +83,5 @@ The locally built APK is `artifacts/fala-debug.apk` with a sibling SHA-256 file.
 - Browser checks cover actual app controls at 320, 390 and 1024-pixel widths, dark theme previews/equipping, circle creation, reminder preferences, reduced motion, sign-out cleanup, and existing speech/retry/offline behavior.
 - Android debug build, unit tests and lint pass. Scheduling tests include Jerusalem's autumn clock change.
 - The six additive production rewards tables have row security enabled. Real-device push permissions, background delivery and Android appearance need device testing; automated checks do not establish exact-time notification delivery.
+
+The initial GitHub install found optional Netlify peer dependencies pruned by local npm 12. The lockfile was regenerated with npm 10 and checked using CI's npm 10.9.7. This build-only correction keeps app version 0.10.0.

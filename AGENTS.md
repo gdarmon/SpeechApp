@@ -7,3 +7,5 @@ The user requires a visible version and release notes for every new app version.
 - Use the existing signing key and the existing `com.fala.app` identity. Never print or commit signing credentials, service-account keys or GitHub tokens.
 - Automated publishing targets Google Play internal testing. Confirm the upload result before reporting that an Android update is published. Netlify deployment alone does not update an installed Android binary.
 - For server-only content updates, explain that existing clients receive the content without a phone reinstall. Keep Portuguese difficulty separate from capoeira knowledge, and end-of-session vocabulary reviews capped at five items.
+
+- Use npm 10.9.7 (the Node 22 CI toolchain) when updating the lockfile. npm 12 can remove optional Netlify peer dependencies required by npm 10. Verify changes with `npx --yes npm@10.9.7 ci` before pushing.
