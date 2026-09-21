@@ -10,6 +10,7 @@ Open `preview.html` for the listing and a gallery. The files in this folder are 
 - `screenshots/ten-inch/`: five native 10-inch tablet screenshots, 1920 × 1080.
 - `app-access.txt`: reviewer instructions.
 - `console-answers.md`: proposed Console answers and outstanding requirements.
+- `closed-test-plan.md`: tester setup, practical checks and a feedback record.
 - `asset-manifest.json`: app version, image dimensions and SHA-256 hashes.
 
 Screenshots capture the actual Android interface on emulators at different display sizes, using fictional lesson examples. They are not photographs or generated screen mockups. The original Fala logo and character artwork are AI-generated; complete Google's asset declarations accurately.

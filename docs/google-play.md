@@ -6,6 +6,8 @@ Prepared application: **Fala**, package **com.fala.app**, version **0.12.1** (lo
 
 ## Files
 
+For an update to the existing Fala app, use the signed bundle artifact from the latest successful **Publish Play internal testing** run. The local files below were used during initial setup and may contain an older version; they are not a substitute for checking the current workflow artifact. The store package is in `store/google-play/`.
+
 - `artifacts/fala-release.aab`: locally signed upload bundle, for a **new** Play app using the generated upload key.
 - `artifacts/fala-debug.apk`: sideload testing build, with a different debug signing certificate.
 - `artifacts/fala-upload-certificate.pem`: public upload certificate.

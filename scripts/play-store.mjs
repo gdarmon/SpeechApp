@@ -29,6 +29,8 @@ try {
   const title=await read('title'),shortDescription=await read('short-description'),fullDescription=await read('full-description');
   if(title.length>30||shortDescription.length>80||fullDescription.length>4000)throw Error('Store text exceeds Google Play limits.');
   const currentVersion=JSON.parse(await readFile('package.json','utf8')).version;
+  const manifest=JSON.parse(await readFile('store/google-play/asset-manifest.json','utf8'));
+  if(manifest.version!==currentVersion)throw Error('The reviewed store assets belong to a different app version.');
   const internal=tracks.tracks?.find(t=>t.track==='internal')?.releases?.find(r=>r.status==='completed'&&r.name?.startsWith('Fala '+currentVersion+' '));
   if(!internal?.versionCodes?.length)throw Error('The matching app version must finish internal publishing before preparing the closed test.');
   await call('/'+edit.id+'/listings/en-US','PATCH',{title,shortDescription,fullDescription});
@@ -43,6 +45,10 @@ try {
    const existing=images['en-US']?.[type]||[];
    const data=await Promise.all(files.map(async file=>({file,bytes:await readFile(file)})));
    const hashes=data.map(d=>createHash('sha256').update(d.bytes).digest('hex'));
+   for(const [index,item] of data.entries()) {
+    const reviewed=manifest.images.find(image=>image.path===item.file.replace('store/google-play/',''));
+    if(reviewed?.sha256!==hashes[index])throw Error('Store image differs from the validated asset manifest: '+item.file);
+   }
    if(existing.some(image=>!hashes.includes(image.sha256)))throw Error('Existing '+type+' differs; preserve it until the owner reviews a replacement.');
    for(const item of data) {
     const hash=createHash('sha256').update(item.bytes).digest('hex');if(existing.some(image=>image.sha256===hash))continue;

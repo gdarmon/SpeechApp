@@ -22,7 +22,7 @@ The owner reports that production access is unavailable. The initial API audit f
 
 ## Content rating
 
-Complete the IARC questionnaire honestly from the actual features; the rating is assigned by IARC, not chosen by this checklist. Explain that this is a language-learning AI conversation app with sports/capoeira vocabulary and stylized characters. It has no gambling, ads, purchases or direct person-to-person chat. Learners can create nicknames and private circle names visible to circle members; do not declare there is no user-generated content. Review Google's UGC requirements for these limited social features before rollout, including handling reported names and blocking objectionable content. The new AI-report flow concerns AI replies and reviews, not social-user reports.
+Complete the IARC questionnaire honestly from the actual features; the rating is assigned by IARC, not chosen by this checklist. Explain that this is a language-learning AI conversation app with sports/capoeira vocabulary and stylized characters. It has no gambling, ads, purchases or direct person-to-person chat. Learners can create nicknames and private circle names visible to circle members; do not declare there is no user-generated content. The current circle feature still needs a user-content moderation flow before public rollout: appropriate rules/acceptance, reporting offensive nicknames or circle names, and applicable user blocking/moderation. The new AI-report flow concerns AI replies and reviews, and does not complete these separate social-feature requirements. Do not mark this item complete based on the new AI report button.
 
 ## Data safety — draft mapping for the Android binary
 
@@ -50,7 +50,7 @@ AI replies: Conversation options → Report this AI reply. End-of-session review
 ## Remaining steps the API cannot complete here
 
 1. Complete/confirm App content forms: privacy, ads, app access, target audience, content rating and Data safety. Clear any additional Console tasks shown for this account.
-2. Verify Google OAuth Audience allows the intended testers, not only the owner. Follow the app-access instructions and test sign-in using a different account.
+2. Verify Google Cloud → Google Auth Platform → Audience allows the intended testers, not only the owner. If it is still in Testing, eligible testers must be listed there too; for a public release, switch to In production and complete any verification Google requests. This Google sign-in setting is separate from Play production access. Follow the app-access instructions and test sign-in using a different account.
 3. Choose closed-test countries and add the tester list in Console. Use the closed-track opt-in URL supplied by Console. Existing internal testers must first opt out of internal testing, then opt into the closed track using the same Google account as the Play Store. Adding an email to a list alone is not opting in.
 4. Review and roll out the closed-testing draft after required forms are accepted. Share the opt-in link with at least 12 testers aged 13+, and gather genuine feedback. No invitations have been sent by this preparation.
 5. After the continuous testing requirement is met, apply for production access with truthful answers about tester engagement, feedback, fixes and readiness. Then create/review the production release.

@@ -1,0 +1,108 @@
+{
+  "version": "0.12.1",
+  "screenshots": "Actual native Android UI, fictional examples",
+  "images": [
+    {
+      "path": "icon-512.png",
+      "width": 512,
+      "height": 512,
+      "sha256": "e262a3fc043317350bea300a80df01821413ebd737448704d9dcb52b6c3fde19"
+    },
+    {
+      "path": "feature-graphic-1024x500.jpg",
+      "width": 1024,
+      "height": 500,
+      "sha256": "8f05dfb28afcb788533726f9ec9332391b4483e1e09ad5cfee08da3daed2b004"
+    },
+    {
+      "path": "screenshots/phone/01-capoeira-conversation.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "685d9380bb4f30013299eddfc2bed915a84865f502374487379b7714e0970b81"
+    },
+    {
+      "path": "screenshots/phone/02-hebrew-support.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "265fb9928f89190ff869342675115d238634587decf97d5b32fca05bc493c059"
+    },
+    {
+      "path": "screenshots/phone/03-practice-at-your-level.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "71740910eeded2fd583e4aa583bc919e41ac8d053dad49b8cc177dd3b52aae6d"
+    },
+    {
+      "path": "screenshots/phone/04-unlock-partners.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "69e91db856e0ffcac63af8e3b40b0a95c320008ef77ca975dbf4f861f1068a00"
+    },
+    {
+      "path": "screenshots/phone/05-words-to-keep.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "433a105a6a68163a31cc25193bfc70529dc54d622dfcff05ee9ca3321e37794d"
+    },
+    {
+      "path": "screenshots/seven-inch/01-capoeira-conversation.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "deb9a72dc43f842cf5e7c60c4068552edd4ab0d21a08c4610a6e20daec3f43d8"
+    },
+    {
+      "path": "screenshots/seven-inch/02-hebrew-support.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "56b4eeb230d53e493c5837d8957f51be8f2dc9096adb490565cc2af69eab4aad"
+    },
+    {
+      "path": "screenshots/seven-inch/03-practice-at-your-level.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "ba160a4eea43e196b0c88ec961964047776a2d02d0bc5f2dbddac4f3273c217a"
+    },
+    {
+      "path": "screenshots/seven-inch/04-unlock-partners.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "d5a574fb7d9ff6eb90d4fcfeeaabf337ae3a78c55476c65c2f4ec5ad7fa8f805"
+    },
+    {
+      "path": "screenshots/seven-inch/05-words-to-keep.jpg",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "6fd73aa62de514640ced57dfc0534b9a9da2ee95e78ad55b2ba788b6e5cf229b"
+    },
+    {
+      "path": "screenshots/ten-inch/01-capoeira-conversation.jpg",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "126577efa1d016928384931375f07a9289a3f55065803c3ba4b97ad511855011"
+    },
+    {
+      "path": "screenshots/ten-inch/02-hebrew-support.jpg",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1f4dc733932d6f392e80e88fe95daf6e106f85f80aa3c4d0a5d54c353dee8043"
+    },
+    {
+      "path": "screenshots/ten-inch/03-practice-at-your-level.jpg",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "d2765ac6a9188d2f93d5442e75fcf9a91d0afbb13168526ea57952ad79939c7a"
+    },
+    {
+      "path": "screenshots/ten-inch/04-unlock-partners.jpg",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "26c254556d6abdbe135d92fae6e4c306967ce366ae903425c472010ea6f373fd"
+    },
+    {
+      "path": "screenshots/ten-inch/05-words-to-keep.jpg",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "6d82d270febcc9a6dc881804de08f99d7470a3b4e609425ac8ac926f6159e25e"
+    }
+  ]
+}

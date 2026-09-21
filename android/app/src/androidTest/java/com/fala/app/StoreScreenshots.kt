@@ -55,6 +55,13 @@ class StoreScreenshots {
         }
         check(found) { "Could not frame store screenshot heading: $label" }
     }
+    private fun scrollReview() {
+        instrumentation.waitForIdleSync(); Thread.sleep(400)
+        val bitmap=requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val x=bitmap.width/2;val start=(bitmap.height*.76).toInt();val end=(bitmap.height*.28).toInt();bitmap.recycle()
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input swipe $x $start $x $end 450")).use { it.readBytes() }
+        Thread.sleep(800)
+    }
     @Test fun captureNativeScreens() {
         ConnectionSettings(instrumentation.targetContext).clearSession()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -89,7 +96,7 @@ class StoreScreenshots {
                 state(c,"feedback",JSONObject("""{"summary":"You asked about the ginga and followed a simple class instruction.","pointers":["Next time, try one answer without reading the suggestion."],"corrections":[],"vocabulary":[{"word":"ginga","translation":"capoeira's basic movement","occurrences":3},{"word":"devagar","translation":"slowly","occurrences":2},{"word":"aprender","translation":"to learn","occurrences":1},{"word":"de novo","translation":"again","occurrences":2}]}"""))
                 state(c,"screen","feedback")
             }
-            scrollToHeading("4 words to keep")
+            scrollReview()
             capture("05-words-to-keep")
             File(instrumentation.targetContext.getExternalFilesDir(null), "store-screenshots/capture.json").writeText(JSONObject()
                 .put("version",BuildConfig.VERSION_NAME).put("source","Native Android Compose UI on emulator")
