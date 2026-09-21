@@ -1,3 +1,4 @@
+import {config as netlifyRoutes} from "../netlify/functions/api.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
@@ -83,6 +84,14 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("routes AI reports on Netlify and stores a JSON object with the production database driver", async () => {
+    expect(netlifyRoutes.path).toContain('/content-reports');
+    const session=(await start()).data;
+    const response=await call('/content-reports','POST',{session_id:session.id,target:'opening',category:'inaccurate'});
+    expect(response.status).toBe(200);
+    const [saved]=await db.query<{content:unknown}>("SELECT content FROM fala.content_reports WHERE id=$1::uuid",[response.data.id]);
+    expect(saved.content).toEqual(session.opening);
+  });
   it("grounds a learner's movement question outside the current lesson without rewriting their transcript", async () => {
     const session = (await start({ topic: "capoeira class", support_language: "he-IL" })).data;
     const input = { text: "O que é au sem mau?", source: "typed", speech_ms: 0 };
