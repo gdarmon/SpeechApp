@@ -1,6 +1,6 @@
 # Fala: Play Console setup answers
 
-Prepared for Fala 0.12.1, 21 September 2026. These are answers grounded in the current code, not a claim that the owner has already submitted the forms. API access cannot read or complete all App content declarations or the account's production-access application.
+Prepared for Fala 0.12.2, 21 September 2026. These are answers grounded in the current code, not a claim that the owner has already submitted the forms. API access cannot read or complete all App content declarations or the account's production-access application.
 
 ## Confirmed account state
 

@@ -1,9 +1,6 @@
 {
-  "version": "0.12.1",
+  "version": "0.12.2",
   "source": "Native Android Compose UI on emulator",
   "data": "Fictional demonstration examples, not a real learner account",
-  "workflow_runs": {
-    "01-03 and 05": "https://github.com/gdarmon/SpeechApp/actions/runs/35587661533",
-    "04": "https://github.com/gdarmon/SpeechApp/actions/runs/35588732689"
-  }
+  "workflow_run": "https://github.com/gdarmon/SpeechApp/actions/runs/35590193387"
 }

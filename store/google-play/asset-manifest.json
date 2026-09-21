@@ -1,5 +1,5 @@
 {
-  "version": "0.12.1",
+  "version": "0.12.2",
   "screenshots": "Actual native Android UI, fictional examples",
   "images": [
     {
@@ -18,55 +18,55 @@
       "path": "screenshots/phone/01-capoeira-conversation.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "685d9380bb4f30013299eddfc2bed915a84865f502374487379b7714e0970b81"
+      "sha256": "33d8f40ea3fa38ffd2e34080587e36c7dfdf0a1a8d08e1c674414949bb491b4e"
     },
     {
       "path": "screenshots/phone/02-hebrew-support.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "265fb9928f89190ff869342675115d238634587decf97d5b32fca05bc493c059"
+      "sha256": "24c0561f897f77003737f8ab6e3f2781f77720bbafe251e33329c1a490262367"
     },
     {
       "path": "screenshots/phone/03-practice-at-your-level.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "71740910eeded2fd583e4aa583bc919e41ac8d053dad49b8cc177dd3b52aae6d"
+      "sha256": "2e08f1b8a7acdb99a8289f7b8356cee8d5ed9d27db9a58a00604b65c7c6c8af1"
     },
     {
       "path": "screenshots/phone/04-unlock-partners.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "69e91db856e0ffcac63af8e3b40b0a95c320008ef77ca975dbf4f861f1068a00"
+      "sha256": "d87c312b4f9148b0d15ee83c1c1481173ecc6c5b85ae683eb1ff200aad24c986"
     },
     {
       "path": "screenshots/phone/05-words-to-keep.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "433a105a6a68163a31cc25193bfc70529dc54d622dfcff05ee9ca3321e37794d"
+      "sha256": "1f9d3fa52e3f327c8013280be9cc0d55ac2ff074ecdb6c9b35259d08c1d97a9e"
     },
     {
       "path": "screenshots/seven-inch/01-capoeira-conversation.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "deb9a72dc43f842cf5e7c60c4068552edd4ab0d21a08c4610a6e20daec3f43d8"
+      "sha256": "23350a735c69fbd629fca6c798af6a93618cdbc9674bf73d10657f473bdb927f"
     },
     {
       "path": "screenshots/seven-inch/02-hebrew-support.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "56b4eeb230d53e493c5837d8957f51be8f2dc9096adb490565cc2af69eab4aad"
+      "sha256": "77fa15577dbb900326a4c60559db4c03a26c04952ec50041b9691ecc93bac5da"
     },
     {
       "path": "screenshots/seven-inch/03-practice-at-your-level.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "ba160a4eea43e196b0c88ec961964047776a2d02d0bc5f2dbddac4f3273c217a"
+      "sha256": "2fec3b85ff78574bccf7f81817d90262e47301ae4508833c0b0cbcf6a9ae992a"
     },
     {
       "path": "screenshots/seven-inch/04-unlock-partners.jpg",
       "width": 1080,
       "height": 1920,
-      "sha256": "d5a574fb7d9ff6eb90d4fcfeeaabf337ae3a78c55476c65c2f4ec5ad7fa8f805"
+      "sha256": "0eb2ac68a7c1870f11cc255550178cfdc45bc93aec44a6f408c568142810c054"
     },
     {
       "path": "screenshots/seven-inch/05-words-to-keep.jpg",
@@ -78,19 +78,19 @@
       "path": "screenshots/ten-inch/01-capoeira-conversation.jpg",
       "width": 1920,
       "height": 1080,
-      "sha256": "126577efa1d016928384931375f07a9289a3f55065803c3ba4b97ad511855011"
+      "sha256": "8f08d36efefbd79d6eb7f4c0eee8559d1c2ce128e0db88a178de77650e494a77"
     },
     {
       "path": "screenshots/ten-inch/02-hebrew-support.jpg",
       "width": 1920,
       "height": 1080,
-      "sha256": "1f4dc733932d6f392e80e88fe95daf6e106f85f80aa3c4d0a5d54c353dee8043"
+      "sha256": "19eff15044128c18ee5730036f59a7b30d8a7a76608629fe4a691554554922bd"
     },
     {
       "path": "screenshots/ten-inch/03-practice-at-your-level.jpg",
       "width": 1920,
       "height": 1080,
-      "sha256": "d2765ac6a9188d2f93d5442e75fcf9a91d0afbb13168526ea57952ad79939c7a"
+      "sha256": "20371c4785cac1f92ea005d008e56484248928dc2ce9b3b96e6d7a87b316447f"
     },
     {
       "path": "screenshots/ten-inch/04-unlock-partners.jpg",
@@ -102,7 +102,7 @@
       "path": "screenshots/ten-inch/05-words-to-keep.jpg",
       "width": 1920,
       "height": 1080,
-      "sha256": "6d82d270febcc9a6dc881804de08f99d7470a3b4e609425ac8ac926f6159e25e"
+      "sha256": "1e74faa917a93ddc8f259b8ba08e7039e7a2a527ad0f5a0ccfc8e34ba041d5b6"
     }
   ]
 }
