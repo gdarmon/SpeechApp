@@ -168,7 +168,12 @@ export function createHandler(dependencies: Dependencies) {
       }
       return respond({ detail: "Endpoint or method not found." }, 404);
     } catch (error) {
-      if (error instanceof AppError) return respond({ detail: error.message }, error.status);
+      if (error instanceof AppError) {
+        const response = respond({ detail: error.message, ...(error.code ? { code: error.code } : {}),
+          ...(error.retryAfterSeconds ? { retry_after_seconds: error.retryAfterSeconds } : {}) }, error.status);
+        if (error.retryAfterSeconds) response.headers.set("Retry-After", String(error.retryAfterSeconds));
+        return response;
+      }
       if (error instanceof z.ZodError) return respond({ detail: "Check the request fields, text length, language, and request ID." }, 422);
       const code = (error as { code?: string })?.code;
       if (code === "42P01" || code === "3F000") return respond({ detail: "Fala is being updated. Please try again shortly." }, 503);

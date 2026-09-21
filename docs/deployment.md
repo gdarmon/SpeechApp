@@ -81,7 +81,7 @@ Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connec
 
 **If you later obtain region selection, benchmark Frankfurt functions + Frankfurt Supabase.** This is a reasonable candidate for lower latency from Israel, not a measured guarantee. Netlify uses `fra`; Supabase uses `eu-central-1`. Move both together. A Supabase region change requires a new project and data migration, so plan that before moving an existing database. [Supabase regions](https://supabase.com/docs/guides/platform/regions).
 
-The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, and short replies. Reasoning effort is low for the supported OpenAI models and medium for Groq GPT-OSS. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
+The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, and short replies. Reasoning effort is low for the supported OpenAI models and Groq GPT-OSS. Conversation instructions are compact, with capoeira guidance included only for capoeira contexts. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
 
 To measure your Haifa connection, use Node 22 on a computer on the same network. In a local ignored `.env`, set `FALA_URL=https://YOUR-SITE.netlify.app` and `FALA_TOKEN`, then run:
 
@@ -103,9 +103,10 @@ Netlify Personal covers hosting allowances, not AI inference. Check actual usage
 | “Run the Fala SQL migration” | Run the entire SQL file in the project used by `DATABASE_URL` |
 | Database unavailable | Project running; transaction pooler host/username/password correct; password URL-encoded; port 6543 |
 | Missing AI key | Key in function environment matches the provider endpoint |
+| AI usage limit | Groq limits are shared across the account. Brief limits retry automatically within the AI deadline; longer limits return HTTP 429 with a provider-specific wait time. Keep the same reply and tap Retry after that delay. Higher capacity requires changing the provider plan, not Netlify or Supabase. |
 | AI rejected/incomplete response | Provider quota, model availability and compatible JSON output; tap Retry |
 | Processing conflict | Wait briefly and retry; avoid competing sessions |
 | No Brazilian speech | Install pt-BR in Android voice settings |
 | APK update refused | Different debug signing keys; use the original key or reinstall then sign in again |
 
-`/health`, `/auth/config`, and the rate-limited Google sign-in endpoints are public. Learning/account routes require a user session. `/diagnostics` needs the optional operator token and reports no credentials or transcripts. Application errors avoid raw SQL/provider logs. Database backups and upstream retention remain separate from in-app deletion.
+`/health`, `/auth/config`, and the rate-limited Google sign-in endpoints are public. Learning/account routes require a user session. `/diagnostics` needs the optional operator token and reports no credentials or transcripts. Application errors avoid raw SQL/provider logs. Rate-limit diagnostics record only the provider host, model and retry delay, never API keys, transcripts or provider error bodies. Database backups and upstream retention remain separate from in-app deletion.

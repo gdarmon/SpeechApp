@@ -33,12 +33,8 @@ class SessionApi(private val settings: ConnectionSettings) {
             client.newCall(request).execute().use { response ->
                 val raw = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    val detail = runCatching { JSONObject(raw).optString("detail") }.getOrDefault("")
-                    val message = when {
-                        response.code >= 500 -> "Fala is temporarily unavailable. Please try again shortly."
-                        response.code == 404 && path.startsWith("/auth/") -> "Fala sign-in is being updated. Please try again shortly."
-                        else -> detail.ifBlank { "Fala could not complete this request. Please retry." }.take(350)
-                    }
+                    val error = runCatching { JSONObject(raw) }.getOrNull()
+                    val message = serverErrorMessage(response.code, path, error?.optString("detail").orEmpty(), error?.optString("code").orEmpty())
                     throw ServerFailure(response.code, message)
                 }
                 raw

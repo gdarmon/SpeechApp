@@ -79,5 +79,5 @@ export type LearnerContext = { assessment: Assessment | null; memory: Memory[]; 
   lessons?: LessonHistory[]; recent_openings?: string[] };
 
 export class AppError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string, public retryAfterSeconds?: number) { super(message); }
 }

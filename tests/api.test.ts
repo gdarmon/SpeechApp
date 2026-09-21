@@ -2,7 +2,7 @@ import {config as netlifyRoutes} from "../netlify/functions/api.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
-import { beforeAll, afterAll, beforeEach, describe, it, expect } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { createHandler } from "../src/api.js";
 import { settingsFromEnv } from "../src/config.js";
 import { connectDatabase, type Database, type Executor, type Parameter } from "../src/database.js";
@@ -305,6 +305,20 @@ describe("Netlify API against PostgreSQL", () => {
     coach.fail = false;
     expect((await turn(session.id)).status).toBe(200);
   });
+  it("preserves the answer and provider wait time when a token limit interrupts a turn", async () => {
+    const session = (await start()).data;
+    const input = { request_id: randomUUID(), text: "Quero praticar a ginga." };
+    vi.spyOn(coach, "reply").mockRejectedValueOnce(new AppError(429, "Wait 31 seconds, then tap Retry.", "ai_rate_limited", 31));
+    const limited = await call(`/sessions/${session.id}/turns`, "POST", input);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("31");
+    expect(limited.data).toMatchObject({ code: "ai_rate_limited", retry_after_seconds: 31 });
+    expect((await call(`/sessions/${session.id}`)).data.turns).toHaveLength(0);
+    const sent = await call(`/sessions/${session.id}/turns`, "POST", input);
+    expect(sent.status).toBe(200);
+    expect((await call(`/sessions/${session.id}/turns`, "POST", input)).data).toEqual(sent.data);
+    expect((await call(`/sessions/${session.id}`)).data.turns).toHaveLength(1);
+  });
   it("stores evidenced feedback once, remembers distinct conversations and cascades deletion", async () => {
     const ids: string[] = [];
     for (let i = 0; i < 2; i++) {
@@ -407,7 +421,7 @@ describe("Netlify API against PostgreSQL", () => {
 });
 
 describe("provider contract and configuration", () => {
-  it("retries a brief provider throttle once without changing the prompt or retrying long quota limits", async () => {
+  it("retries a brief provider throttle without changing the prompt and returns long quota limits as 429", async () => {
     const reply = replySchema.parse({ text: "Oi! Tudo bem?", translation: "Hi! How are you?", pace: "slow",
       suggested_replies: [{ text: "Tudo bem.", translation: "I'm well." }, { text: "Mais ou menos.", translation: "So-so." }] });
     for (const retryAfter of ["0", "120", null]) {
@@ -422,7 +436,7 @@ describe("provider contract and configuration", () => {
         expect(bodies).toHaveLength(2);
         expect(bodies[0]).toBe(bodies[1]);
       } else {
-        await expect(ai.reply({ action: "start" })).rejects.toMatchObject({ status: 503 });
+        await expect(ai.reply({ action: "start" })).rejects.toMatchObject({ status: 429, code: "ai_rate_limited" });
         expect(bodies).toHaveLength(1);
       }
     }
@@ -480,7 +494,7 @@ describe("provider contract and configuration", () => {
     ] });
     const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
       const sent = JSON.parse(init!.body as string);
-      expect(sent.reasoning_effort).toBe("medium"); expect(init!.redirect).toBe("error");
+      expect(sent.reasoning_effort).toBe("low"); expect(init!.redirect).toBe("error");
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
     });
     expect(await ai.reply({})).toEqual(reply);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Settings } from "./config.js";
 import { AppError, feedbackSchema, replySchema, turnFeedbackSchema, type Feedback, type Reply } from "./models.js";
-import { PARTNER, FEEDBACK } from "./prompts.js";
+import { partnerPrompt, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
 import { coachingReplySchema } from "./coaching.js";
 import { coachingLimits } from "./learning.js";
@@ -39,25 +39,29 @@ export class CompatibleProvider implements AIProvider {
       model: this.settings.model,
       messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify(context) }],
       response_format: { type: "json_object" }, max_completion_tokens: feedback
-        ? (Array.isArray(context.vocabulary_words) && context.vocabulary_words.length > 80 ? 8192 : 4096) : 2048,
+        ? (context.kind === "assessment" ? 4096 : 2048)
+        : (coachingLimits(context).level >= 3 ? 2048 : 1536),
     };
     const host = new URL(this.settings.baseUrl).hostname;
     if (host === "api.openai.com") body.store = false;
     const groqStructured = host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(this.settings.model);
     const openaiStructured = host === "api.openai.com" && ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"].includes(this.settings.model);
     if (groqStructured || openaiStructured) {
-      body.reasoning_effort = openaiStructured ? "low" : "medium";
+      body.reasoning_effort = "low";
       body.response_format = { type: "json_schema", json_schema: { name: feedback ? "practice_summary" : "practice_reply",
         strict: true, schema: generationSchema(context, feedback) } };
     }
     return this.timing.measure("ai", async () => {
       const deadline = performance.now() + this.settings.aiTimeoutMs;
       let repairHint = "";
-      for (let attempt = 0; attempt < 2; attempt++) {
+      let generations = 0, throttleRetries = 0;
+      // A throttle is not a failed generation. Keep its retry allowance separate
+      // from output repair, with one shared deadline for every call and wait.
+      for (let attempt = 0; attempt < 4; attempt++) {
         try {
           const remaining = Math.floor(deadline - performance.now());
           if (remaining < 1) throw new Error("AI deadline reached");
-          if (attempt === 1 && repairHint) body.messages = [
+          if (repairHint) body.messages = [
             { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese. " + repairHint },
             { role: "user", content: JSON.stringify(context) },
           ];
@@ -67,39 +71,46 @@ export class CompatibleProvider implements AIProvider {
           });
           if (!response.ok) {
             await response.body?.cancel();
-            const retryAfter = response.headers.get("Retry-After");
-            const delay = retryAfter === null ? NaN : Number(retryAfter) * 1000;
-            // A brief provider throttle can clear within this request. Never loop on
-            // quota exhaustion or wait beyond the original function/AI deadline.
-            if (response.status === 429 && attempt === 0 && Number.isFinite(delay) && delay >= 0 && delay <= 5000
-              && deadline - performance.now() > delay + 1000) {
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
+            if (response.status === 429) {
+              const header = response.headers.get("Retry-After")?.trim();
+              const seconds = header ? (/^\d+(?:\.\d+)?$/.test(header) ? Number(header) : (Date.parse(header) - Date.now()) / 1000) : NaN;
+              const valid = Number.isFinite(seconds) && seconds >= 0;
+              const waitMs = valid ? Math.ceil(seconds * 1000) + 250 : Infinity;
+              console.warn(JSON.stringify({ event: "ai_rate_limit", provider: host, model: this.settings.model,
+                retry_after_seconds: valid ? Math.ceil(seconds) : null }));
+              if (throttleRetries < 2 && attempt < 3 && waitMs <= 18250 && deadline - performance.now() > waitMs + 5000) {
+                throttleRetries++;
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                continue;
+              }
+              const retry = valid ? Math.min(86400, Math.max(1, Math.ceil(seconds))) : 60;
+              const wait = retry < 60 ? `${retry} seconds` : `${Math.ceil(retry / 60)} minute${retry > 60 ? "s" : ""}`;
+              throw new AppError(429, `Fala's AI provider has reached its usage limit. Wait ${wait}, then tap Retry. Your conversation is safe.`, "ai_rate_limited", retry);
             }
-            throw new AppError(503, response.status === 429 ? "The AI service is busy or its quota is exhausted. Retry shortly."
-              : response.status >= 500 ? "The AI service is temporarily unavailable. Please retry shortly."
-                : "The AI service rejected the request. Check the server's provider configuration.");
+            throw new AppError(503, response.status >= 500 ? "The AI service is temporarily unavailable. Please retry shortly."
+              : "The AI service rejected the request. Check the server's provider configuration.", "ai_unavailable");
           }
+          generations++;
           const result = await response.json();
           const choice = result?.choices?.[0];
-          if (choice?.finish_reason === "length" && attempt === 0 && deadline - performance.now() > 1000) {
+          if (choice?.finish_reason === "length" && generations < 2 && attempt < 3 && deadline - performance.now() > 1000) {
             repairHint = "The previous response was too long. Keep the response concise.";
             continue;
           }
-          if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.");
+          if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.", "ai_invalid_reply");
           return schema.parse(JSON.parse(choice.message.content));
         } catch (error) {
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
             repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
             // Retry malformed model output once, within the original time budget.
-            if (attempt === 0 && deadline - performance.now() > 1000) continue;
-            throw new AppError(503, "The AI returned an invalid response. Please retry.");
+            if (generations < 2 && attempt < 3 && deadline - performance.now() > 1000) continue;
+            throw new AppError(503, "The AI returned an invalid response. Please retry.", "ai_invalid_reply");
           }
-          throw new AppError(503, "The AI connection timed out or was interrupted. Your saved conversation is safe; retry.");
+          throw new AppError(503, "The AI connection timed out or was interrupted. Your saved conversation is safe; retry.", "ai_timeout");
         }
       }
-      throw new AppError(503, "The AI returned an invalid response. Please retry.");
+      throw new AppError(503, "The AI returned an invalid response. Please retry.", "ai_invalid_reply");
     });
   }
   reply(context: Record<string, unknown>) {
@@ -112,7 +123,7 @@ export class CompatibleProvider implements AIProvider {
       + (action === "CONTINUE" ? "turn_feedback MUST be an object with kind, message, said and natural; NEVER null. " : "turn_feedback MUST be null. ")
       + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
         : `Give two translated answer ideas that model this level's target answer length. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Keep the conversation going with one relevant question at this level; it is not time for a farewell.`);
-    return this.complete(PARTNER + instruction, context, coachingReplySchema(context));
+    return this.complete(partnerPrompt(context) + instruction, context, coachingReplySchema(context));
   }
   feedback(context: Record<string, unknown>) {
     const words = Array.isArray(context.vocabulary_words) ? context.vocabulary_words as string[] : null;
