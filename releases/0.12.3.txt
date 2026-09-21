@@ -1,1 +1,1 @@
-Fewer interrupted conversations: lighter AI requests and automatic recovery from brief provider limits. Longer limits now show a wait time while keeping your conversation safe. Android also explains reply timeouts and generation problems more clearly.
+Fewer interrupted conversations: lighter AI requests, more reliable reply repair, and automatic recovery from brief provider limits. Longer limits now show a wait time while keeping your conversation safe. Android also explains reply timeouts and generation problems more clearly.

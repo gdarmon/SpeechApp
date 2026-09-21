@@ -22,8 +22,12 @@ function generationSchema(context: Record<string, unknown>, feedback: boolean) {
   ]);
   const schema = feedback ? feedbackSchema.extend({ vocabulary: feedbackSchema.shape.vocabulary.unwrap().max(5) }) : replySchema.extend({
     turn_feedback: context.action === "continue" ? answerFeedback : z.null(),
-    suggested_replies: replySchema.shape.suggested_replies.unwrap().length(context.last_turn === true ? 0 : 2),
+    suggested_replies: z.array(replySchema.shape.suggested_replies.unwrap().element.extend({
+      text: z.string().min(1).max(limits.idea_chars),
+    })).length(context.last_turn === true ? 0 : 2),
     text: z.string().min(1).max(limits.text_chars),
+    translation: z.string().min(1).max(2400),
+    pace: context.action === "start" ? z.literal("slow") : replySchema.shape.pace,
   });
   return JSON.parse(JSON.stringify(z.toJSONSchema(schema), (key, value) =>
     key === "default" || key === "$schema" ? undefined : value));
@@ -54,6 +58,7 @@ export class CompatibleProvider implements AIProvider {
     return this.timing.measure("ai", async () => {
       const deadline = performance.now() + this.settings.aiTimeoutMs;
       let repairHint = "";
+      let rejectedContent = "";
       let generations = 0, throttleRetries = 0;
       // A throttle is not a failed generation. Keep its retry allowance separate
       // from output repair, with one shared deadline for every call and wait.
@@ -61,10 +66,15 @@ export class CompatibleProvider implements AIProvider {
         try {
           const remaining = Math.floor(deadline - performance.now());
           if (remaining < 1) throw new Error("AI deadline reached");
-          if (repairHint) body.messages = [
-            { role: "system", content: prompt + "\nThe previous generation could not be used. Return complete, concise JSON with exactly the required fields. Keep Portuguese and translated text in their specified fields; never mix Hebrew letters into Portuguese. " + repairHint },
-            { role: "user", content: JSON.stringify(context) },
-          ];
+          if (repairHint) {
+            body.messages = [
+              { role: "system", content: prompt },
+              { role: "user", content: JSON.stringify(context) },
+              ...(rejectedContent ? [{ role: "assistant", content: rejectedContent }] : []),
+              { role: "user", content: "Repair the previous response. Keep its valid parts and fix these rules: " + repairHint
+                + " Return the complete required JSON, without commentary. Do not change the learner's answer or invent a correction." },
+            ];
+          }
           const response = await this.request(this.settings.baseUrl.replace(/\/$/, "") + "/chat/completions", {
             method: "POST", headers: { Authorization: `Bearer ${this.settings.apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify(body), signal: AbortSignal.timeout(remaining), redirect: "error",
@@ -93,6 +103,8 @@ export class CompatibleProvider implements AIProvider {
           generations++;
           const result = await response.json();
           const choice = result?.choices?.[0];
+          // Keep this only in memory for the single repair; never log conversation text.
+          rejectedContent = typeof choice?.message?.content === "string" ? choice.message.content.slice(0, 16000) : "";
           if (choice?.finish_reason === "length" && generations < 2 && attempt < 3 && deadline - performance.now() > 1000) {
             repairHint = "The previous response was too long. Keep the response concise.";
             continue;
@@ -103,6 +115,9 @@ export class CompatibleProvider implements AIProvider {
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
             repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
+            console.warn(JSON.stringify({ event: "ai_reply_validation", provider: host, model: this.settings.model,
+              generation: generations, issues: error instanceof z.ZodError ? error.issues.map(issue => ({ code: issue.code,
+                path: issue.path, ...(issue.code === "custom" ? { rule: issue.message } : {}) })) : [{ code: "invalid_json" }] }));
             // Retry malformed model output once, within the original time budget.
             if (generations < 2 && attempt < 3 && deadline - performance.now() > 1000) continue;
             throw new AppError(503, "The AI returned an invalid response. Please retry.", "ai_invalid_reply");

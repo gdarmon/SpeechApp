@@ -13,6 +13,36 @@ const throttle = (seconds: string) => new Response('private provider details', {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('provider throttling recovery', () => {
+  it('repairs the actual rejected reply without logging the learner or generated text', async () => {
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const invalid = { ...reply, turn_feedback: { kind: 'correction' as const, message: 'Use this phrase.', said: 'invented private answer', natural: 'Tudo certo.' } };
+    const repaired = { ...reply, turn_feedback: { kind: 'guided' as const, message: 'That answer fits the question.', said: '', natural: '' } };
+    const context = { action: 'continue', input: { text: 'Tudo bem.' }, support_language: 'en-US' };
+    const bodies: Record<string, any>[] = [];
+    const request = vi.fn(async (_url: unknown, init: RequestInit | undefined) => {
+      bodies.push(JSON.parse(init!.body as string));
+      return ok(bodies.length === 1 ? invalid : repaired);
+    });
+    expect(await new CompatibleProvider(settings, new Timing(), request).reply(context)).toEqual(repaired);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1].messages[1]).toEqual(bodies[0].messages[1]);
+    expect(bodies[1].messages[2]).toEqual({ role: 'assistant', content: JSON.stringify(invalid) });
+    expect(bodies[1].messages[3].content).toContain('Quote only the current learner answer.');
+    expect(log.mock.calls.flat().join(' ')).not.toContain('invented private answer');
+    expect(log.mock.calls.flat().join(' ')).not.toContain('Tudo bem.');
+  });
+
+  it('constrains generated ideas to the learner level and starts with slow playback', async () => {
+    let body: any;
+    const request = vi.fn(async (_url: unknown, init: RequestInit | undefined) => { body = JSON.parse(init!.body as string); return ok(); });
+    await new CompatibleProvider({ ...settings, baseUrl: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' }, new Timing(), request)
+      .reply({ action: 'start', practice: { level: 1 } });
+    const properties = body.response_format.json_schema.schema.properties;
+    expect(properties.suggested_replies.items.properties.text.maxLength).toBe(60);
+    expect(properties.pace.const).toBe('slow');
+    expect(properties.translation.minLength).toBe(1);
+  });
+
   it('waits for a normal token refill and repairs a malformed reply without dropping either retry', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
     const log = vi.spyOn(console, 'warn').mockImplementation(() => {});

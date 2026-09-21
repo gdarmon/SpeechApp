@@ -513,7 +513,11 @@ describe("provider contract and configuration", () => {
     const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
       calls++;
       expect(init?.signal).toBeDefined();
-      if (calls === 2) expect(JSON.parse(init!.body as string).messages[0].content).toContain("previous generation");
+      if (calls === 2) {
+        const messages = JSON.parse(init!.body as string).messages;
+        expect(messages[2].role).toBe("assistant");
+        expect(messages[3].content).toContain("Keep Hebrew out of Portuguese fields.");
+      }
       const reply = calls === 1 ? { ...valid, text: "Oi, שלום!" } : valid;
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
     });
