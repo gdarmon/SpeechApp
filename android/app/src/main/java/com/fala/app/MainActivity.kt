@@ -394,8 +394,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 ideas.forEach { idea ->
                     HorizontalDivider(Modifier.padding(top = 8.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        // Keep both LTR and RTL text inside the clickable row's rounded clipping boundary.
                         TextButton(onClick = { c.chooseSuggestion(idea.getString("text")) }, enabled = enabled,
-                            modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 0.dp)) {
+                            modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 10.dp, horizontal = 12.dp)) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(idea.getString("text"), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr))

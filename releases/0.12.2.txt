@@ -1,0 +1,1 @@
+Fixed cut-off letters in Android reply suggestions. Portuguese answers and Hebrew or English translations now have room inside their tap targets, including multi-line replies.

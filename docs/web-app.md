@@ -1,6 +1,6 @@
 # Fala on iPhone, Android and the web
 
-Share https://falachatapp.netlify.app/app/ . Web and native Android both display version 0.12.1; each is distributed separately. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
+Share https://falachatapp.netlify.app/app/ . Web and native Android both display version 0.12.2; each is distributed separately. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
 
 On iPhone, open Safari → Share → Add to Home Screen. Android Chrome offers Install app / Add to Home screen. HTTPS and microphone permission are required. Actual device permission, available voices and autoplay policies vary; the Listen button always offers explicit playback. Browser support was checked in desktop Chrome with a mobile viewport and synthetic microphone, not on a physical iPhone.
 

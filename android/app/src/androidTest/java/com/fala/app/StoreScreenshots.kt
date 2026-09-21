@@ -66,7 +66,7 @@ class StoreScreenshots {
         ConnectionSettings(instrumentation.targetContext).clearSession()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val rewards = JSONObject(instrumentation.context.assets.open("rewards.json").bufferedReader().readText())
-            val opening = JSONObject("""{"text":"Você conhece a ginga?","translation":"Do you know the ginga?","suggested_replies":[{"text":"Sim, conheço a ginga.","translation":"Yes, I know the ginga."},{"text":"Ainda estou aprendendo.","translation":"I'm still learning."}]}""")
+            val opening = JSONObject("""{"text":"Você conhece a ginga?","translation":"Do you know the ginga?","suggested_replies":[{"text":"Sim, conheço a ginga.","translation":"Yes, I know the ginga."},{"text":"Ainda estou aprendendo. Pode repetir mais devagar?","translation":"I am still learning. Can you repeat more slowly?"}]}""")
             val session = JSONObject().put("id","store-sample").put("topic","Capoeira class").put("kind","conversation").put("capoeira",true).put("support_language","en-US").put("target_turns",10).put("opening",opening).put("turns",JSONArray()).put("practice",JSONObject().put("level",1))
             scenario.onActivity { activity ->
                 val c = ViewModelProvider(activity)[SessionController::class.java]
@@ -81,8 +81,8 @@ class StoreScreenshots {
             capture("01-capoeira-conversation")
             scenario.onActivity { activity ->
                 val c=ViewModelProvider(activity)[SessionController::class.java]
-                val reply=JSONObject("""{"text":"Oi! Qual é o seu nome?","translation":"היי! איך קוראים לך?","suggested_replies":[{"text":"Meu nome é Dani.","translation":"קוראים לי דני."},{"text":"Pode me chamar de Dani.","translation":"אפשר לקרוא לי דני."}]}""")
-                state(c,"session",JSONObject(session.toString()).put("support_language","he-IL").put("topic","First conversation").put("capoeira",false).put("opening",reply));state(c,"reply",reply)
+                val reply=JSONObject("""{"text":"Qual movimento da aula você prefere?","translation":"איזו תנועה מהשיעור אתה מעדיף?","suggested_replies":[{"text":"Rasteira","translation":"רסטיירה"},{"text":"Banda","translation":"באנדה"}]}""")
+                state(c,"session",JSONObject(session.toString()).put("support_language","he-IL").put("topic","Capoeira class").put("capoeira",false).put("opening",reply));state(c,"reply",reply)
             }
             capture("02-hebrew-support")
             scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java],"screen","home") }
