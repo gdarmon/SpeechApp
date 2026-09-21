@@ -1,5 +1,14 @@
 # Validation
 
+## 0.12.3 — conversation reliability, 21 September 2026
+
+- Reproduced Groq's shared 8,000-token/minute limit and the generic Android error it previously caused. Compact, conditional coaching instructions reduced the sampled opening input from 3,278 to 1,725 tokens. Low reasoning and bounded output budgets reduce additional token use; these sample counts are not a guarantee for every lesson.
+- Provider throttles receive bounded retries within a shared deadline. Android and web can wait once more for a short provider limit while retaining the exact request ID and draft. Longer limits keep an explicit wait time and manual Retry. No paid-provider fallback was enabled.
+- Malformed replies get one targeted repair using their rejected output and validation rules. Structured output constrains opening pace, translations and level-specific suggestion lengths. Diagnostics record fixed rule failures, never generated or learner text.
+- 117 automated tests, clean npm 10.9.7 installation, build/function packaging, browser suites, Android unit tests, builds and lint passed. [Final checks](https://github.com/gdarmon/SpeechApp/actions/runs/35593925952).
+- The deployed API at commit `94234de` completed ten Hebrew-supported capoeira exchanges, an identical-request retry, and a five-word summary. The stored conversation contained exactly ten turns. Short quota pauses recovered automatically, including a 21-second client wait on turn nine and a 19-second wait before the summary. Temporary test data was deleted.
+- Live end-to-end response times varied: most early replies took about 2–4 seconds, while a heavily throttled turn took about 39 seconds including recovery. This verifies recovery, not unlimited free capacity or performance under many simultaneous learners. Higher Groq limits require a provider-plan change. Physical microphone/voice behavior was unchanged and was not re-tested on a phone.
+
 ## 0.8.0 — 20 September 2026
 
 - Web conversation uses a viewport-sized layout with an independently scrolling reading area and a persistent reply composer. Native Android uses a compact fixed header and composer; both show question/ideas side by side on wider screens. Portuguese, Hebrew/English translations and audio controls stay together.
