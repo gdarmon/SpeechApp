@@ -16,7 +16,7 @@ MAKE PRACTICE YOURS
 Earn practice points, follow your streak and unlock themes and capoeira character skins. Join an invite-only circle to compare weekly points with friends. Choose optional reminders at a time that suits you. Character skins change the look of your partner; they share Fala's voice and coaching.
 
 YOUR ACCOUNT, YOUR PROGRESS
-Sign in with Google to keep your learning progress together across Android and the Fala website. Manage conversation history and delete your Fala account in the app or on the web.
+Sign in with Google to keep your learning progress together across Android and the Fala website. Manage conversation history, report an AI reply or review, and delete your Fala account in the app or on the web.
 
 Fala is for adults and teenagers aged 13 and over, with parent or guardian permission under 18. An internet connection and Google account are required. Android speech recognition and playback depend on your device and installed Brazilian Portuguese voice. AI and transcription can make mistakes; feedback is not a pronunciation score. Fala is an independent language-learning app and is not an official ABADA-Capoeira product.
 

@@ -17,7 +17,7 @@
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   </defs></svg>
   <main>
-    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.12.0</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
+    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.12.1</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
     <div id="messages">
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <p id="error" class="error" role="alert" hidden></p>
@@ -103,10 +103,12 @@
       <p class="fine">Speak or write in your help language first. Fala will help you find the Portuguese words.</p>
       <audio id="recording" controls hidden aria-label="Replay your recording"></audio>
       <p id="voice-disclosure" class="fine"></p>
+      <button id="report-reply" class="text-button">Report this AI reply</button>
       <button id="finish" class="secondary">Finish and review</button>
     </dialog>
+    <dialog id="report-dialog" aria-labelledby="report-title"><h2 id="report-title">Report AI content</h2><form id="report-form"><p class="fine">The selected AI content and your note will be sent to Fala for review. Please leave out personal details.</p><label for="report-category">What is the concern?</label><select id="report-category"><option value="inappropriate">Inappropriate or offensive</option><option value="unsafe">Unsafe advice</option><option value="inaccurate">Incorrect teaching</option><option value="other">Other concern</option></select><label for="report-note">Optional details</label><textarea id="report-note" maxlength="1000" rows="3"></textarea><button id="report-submit" class="primary">Send report</button></form><p id="report-result" role="status" hidden></p><button id="report-close" class="text-button">Cancel</button></dialog>
     <dialog id="partner-preview" aria-labelledby="partner-preview-title"><div class="row"><h2 id="partner-preview-title"></h2><button id="partner-preview-close" class="text-button">Close</button></div><div id="partner-preview-art"></div><p id="partner-preview-note"></p><button id="partner-preview-use">Use partner</button></dialog>
-    <section id="review" class="screen" hidden><div id="reward-celebration" class="reward-celebration" role="status" hidden></div><p class="eyebrow">A LITTLE MORE CONFIDENCE</p><h1>Keep these words.</h1><p id="summary"></p><div id="pointers"></div><div id="words" class="words"></div><button id="again" class="primary">Another conversation</button></section>
+    <section id="review" class="screen" hidden><div id="reward-celebration" class="reward-celebration" role="status" hidden></div><p class="eyebrow">A LITTLE MORE CONFIDENCE</p><h1>Keep these words.</h1><p id="summary"></p><div id="pointers"></div><div id="words" class="words"></div><button id="report-summary" class="text-button">Report this AI review</button><button id="again" class="primary">Another conversation</button></section>
     <aside class="install"><details><summary>Add Fala to your home screen</summary><p><strong>iPhone:</strong> open this link in Safari, tap Share, then “Add to Home Screen”.<br><strong>Android:</strong> open Chrome's menu and choose “Install app” or “Add to Home screen”.</p><p>AI conversations need an internet connection. Microphone access needs your permission.</p><button id="install" class="secondary" hidden>Install Fala</button></details></aside>
     <footer><a href="/privacy.html">Privacy</a> · <a href="mailto:gdarmon@gmail.com">Help</a><p>Uma conversa de cada vez.</p></footer>
   </main>

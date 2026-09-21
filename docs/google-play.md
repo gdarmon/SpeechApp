@@ -2,7 +2,7 @@
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 
-Prepared application: **Fala**, package **com.fala.app**, version **0.12.0** (local version code 13; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
+Prepared application: **Fala**, package **com.fala.app**, version **0.12.1** (local version code 14; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
 ## Files
 
@@ -51,30 +51,20 @@ On 20 September 2026, the owner enabled the Play Developer API, granted `fala-gi
 3. Upload `fala-release.aab` to **Internal testing**, add testers, and use Play's opt-in/install link. Run sign-in and the speaking checklist from that installation before moving to a broader track.
 4. Complete the app listing, content rating, target audience, app access instructions, and Data safety declarations based on the actual production configuration. Use **gdarmon@gmail.com** as the support email.
 5. Privacy URL: `https://falachatapp.netlify.app/privacy.html`. Account deletion URL: `https://falachatapp.netlify.app/delete-account.html`. Deploy and test both before submitting.
-6. Provide real phone screenshots and Play listing graphics. The in-app Fala logo is included; store-size icon and feature-graphic exports and actual device screenshots still need to be supplied. Do not substitute fabricated screenshots of an untested sign-in flow.
+6. Use the prepared assets in `store/google-play/`: 512px icon, 1024×500 feature graphic, and native Android screenshots for phones, 7-inch tablets and 10-inch tablets. Screens show the real UI with fictional examples; they do not document a live sign-in test.
 7. Complete any account-specific testing or verification requirements displayed by Play Console before requesting production access. New personal developer accounts may require at least 12 opted-in closed testers for 14 continuous days; this depends on the account, not just the app.
 
 [Play app signing](https://developer.android.com/studio/publish/app-signing), [testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465), [target SDK requirements](https://support.google.com/googleplay/android-developer/answer/11926878).
 
-## Listing copy
+## Store listing package
 
-**App name:** Fala
+The current English listing is in `store/google-play/en-US/`: title, short description and full description. Use these files as the source of truth. `store/google-play/app-access.txt` contains reviewer instructions, and `store/google-play/console-answers.md` contains grounded drafts for the remaining Console forms and the closed-testing requirement.
 
-**Short description:** Speak Brazilian Portuguese with natural conversations and useful feedback.
+**Prepare Google Play store** is a manual workflow. Its default `capture` mode audits the existing listing without committing changes and captures actual Compose UI on an emulator in three display sizes. The synthetic account exists only in the instrumentation test, not in the shipped app.
 
-**Full description:**
+Its `upload` mode publishes the checked-in listing and images, sets the support contact, and fills an empty closed-testing draft with the matching completed internal build. It never changes production or enrolls testers, and fails rather than canceling an existing review or replacing unfamiliar store images. The service account needs **Manage store presence** for Fala in addition to its existing testing permissions. Native screenshots must be checked into `store/google-play/screenshots/` first.
 
-Make room for speaking Brazilian Portuguese. Fala gives you a conversation partner for everyday situations, travel, work, hobbies, and the topics you want to explore.
-
-Sign in with Google, tap Talk, and start speaking. Your partner replies in Brazilian Portuguese and helps you keep the conversation going. When you're stuck, ask for help in English or Hebrew, practice the Portuguese phrase, and continue.
-
-After a conversation, review a few useful corrections and phrases from what you actually said. Fala remembers recurring patterns and brings them into future conversations. Your own account keeps your history and learning progress together.
-
-Replay replies, slow the voice, pause, or show the transcript when useful. Delete individual conversations, clear your learning data, or delete your account in Settings.
-
-Earn practice points, unlock themes, and practise with friends in private circles.
-
-An internet connection and Google account are required. Speech recognition and voice quality depend on your phone and installed Brazilian Portuguese voice. AI and speech recognition can make mistakes. Assessments are approximate and do not measure pronunciation from audio.
+The owner confirmed that production access is blocked for this account. At least 12 testers must opt into **closed testing** for 14 continuous days before applying; the existing internal track does not meet that requirement. Complete all Console setup tasks and collect genuine tester feedback. Production access still requires Google's approval.
 
 ## Data safety preparation
 
@@ -86,4 +76,4 @@ Account deletion is available in-app and on the web and cascades through account
 
 [Google's Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469), [account deletion requirement](https://support.google.com/googleplay/android-developer/answer/13327111).
 
-This preparation does not upload to Play or deploy Netlify. After the one-time connection, the workflow uploads internal-testing releases on successful main updates.
+The main publishing workflow uploads internal-testing releases after successful checks. Store metadata changes use the separate manual workflow above. Neither workflow releases to production.

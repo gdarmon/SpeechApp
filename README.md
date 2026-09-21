@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Web and Android 0.12.0 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Web and Android 0.12.1 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
@@ -78,3 +78,5 @@ Speech is turn-based, with hold-to-speak and explicit sending; streaming speech-
 Fala creates no audio recordings. Android's recognition/TTS provider may process audio remotely. The text AI provider receives conversation text. The configured PostgreSQL host retains transcripts and derived memory until deletion. App deletion cannot erase provider logs or database backups. `.env`, local tools, databases, and build outputs are excluded from Git.
 
 Practice rewards, friend circles, notification setup and migration details: [Gamification](docs/gamification.md).
+
+Google Play listing assets, native screenshot capture and closed-test preparation: [publishing guide](docs/google-play.md). AI-content reports: [operator review guide](docs/content-reports.md).

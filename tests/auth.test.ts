@@ -41,7 +41,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 beforeAll(async () => {
   pg = new PGlite();
   await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
+  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql", "202609210002_content_reports.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
   db = { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))), close: () => pg.close() };
 }, 30000);
@@ -332,4 +332,27 @@ it('protects reward APIs, rejects forged points and locked looks, and retains in
   expect((await call('/friends','GET',bob)).data.circle).toBe(null);
   expect(await db.query('SELECT * FROM fala.reward_events')).toEqual([]);
   expect(await db.query('SELECT * FROM fala.friend_circles')).toEqual([]);
+});
+
+it('accepts owned AI reports without duplicating them and deletes them with their conversation',async()=>{
+  const alice=await login('report-alice'),bob=await login('report-bob');
+  const session=(await start(alice)).data;
+  const input={session_id:session.id,target:'opening',category:'inaccurate',note:'Please review the translation.'};
+  expect((await call('/content-reports','POST',bob,input)).status).toBe(404);
+  const first=await call('/content-reports','POST',alice,input);expect(first.status).toBe(200);expect(first.data.received).toBe(true);
+  expect((await call('/content-reports','POST',alice,input)).data.id).toBe(first.data.id);
+  expect((await call('/content-reports','POST',alice,{...input,content:{text:'forged'}})).status).toBe(422);
+  expect((await call('/content-reports','POST',alice,{...input,note:'x'.repeat(1001)})).status).toBe(422);
+  expect((await call('/content-reports','POST',alice,{...input,target:'reply',turn_id:999})).status).toBe(404);
+  expect((await call('/content-reports','POST',alice,{...input,target:'summary'})).status).toBe(404);
+  const rows=await db.query<{content:{text:string}}>('SELECT content FROM fala.content_reports WHERE id=$1::uuid',[first.data.id]);
+  expect(rows[0].content.text).toBe(session.opening.text);
+  await call(`/sessions/${session.id}/turns`,'POST',alice,{request_id:randomUUID(),text:'Sim.'});
+  const saved=(await call('/sessions/'+session.id,'GET',alice)).data;
+  const reply=await call('/content-reports','POST',alice,{...input,target:'reply',turn_id:saved.turns[0].id});
+  expect(reply.status).toBe(200);
+  await call(`/sessions/${session.id}/finish`,'POST',alice,{});
+  expect((await call('/content-reports','POST',alice,{...input,target:'summary'})).status).toBe(200);
+  await call('/sessions/'+session.id,'DELETE',alice);
+  expect((await db.query('SELECT id FROM fala.content_reports WHERE id=$1::uuid',[first.data.id])).length).toBe(0);
 });

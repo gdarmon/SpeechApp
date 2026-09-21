@@ -1,0 +1,14 @@
+Fala uses Google sign-in. There is no separate Fala password, paid subscription, invitation requirement or country restriction in the app code.
+
+1. Open Fala and read the consent information. Online practice is for ages 13 and over; under-18 users need parent or guardian permission.
+2. Select Continue with Google and use an eligible Google account on the Android device.
+3. Choose English or Hebrew for translations and reply suggestions.
+4. Tap Talk. The AI asks a short question in Brazilian Portuguese.
+5. Listen to the question or a reply suggestion. Hold to speak, release, review the recognized text and send. Alternatively type a reply; microphone permission is optional when typing.
+6. Complete ten replies to see feedback and up to five vocabulary items. Choose Everyday life or ABADA capoeira from the home screen; all five practice levels can be selected.
+7. Rewards contains themes and character skins. Bananera is available immediately. Bateba unlocks at 200 XP and Vesoura at 500 XP; these appearances do not restrict lessons.
+8. Friends supports private circles and points; it does not provide a person-to-person messaging service.
+9. To report an AI reply, open conversation options and select Report this AI reply. To report a summary, use Report this AI review on the review screen.
+10. Settings contains learning-data deletion and Fala account deletion. A web deletion route is https://falachatapp.netlify.app/delete-account.html.
+
+No app-owned credentials are needed if the reviewer can use their Google account. Confirm the Google OAuth audience and reviewer access before submission. If Google requires a dedicated review account, the owner must provide reusable access privately in Play Console, not in this repository or chat.

@@ -24,7 +24,8 @@ const secondMigration = await readFile(new URL("../supabase/migrations/202609180
 const repairMigration = await readFile(new URL("../supabase/migrations/202609190001_repair_serialized_json.sql", import.meta.url), "utf8");
 const rewardsMigration = await readFile(new URL("../supabase/migrations/202609200001_rewards.sql", import.meta.url), "utf8");
 const instructorMigration = await readFile(new URL("../supabase/migrations/202609210001_instructors.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration;
+const reportMigration = await readFile(new URL("../supabase/migrations/202609210002_content_reports.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;
@@ -77,7 +78,7 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
-  await pg.exec("TRUNCATE fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits, fala.reward_events, fala.reward_profiles, fala.reminder_deliveries RESTART IDENTITY;");
+  await pg.exec("TRUNCATE fala.content_reports, fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits, fala.reward_events, fala.reward_profiles, fala.reminder_deliveries RESTART IDENTITY;");
   coach = new Coach(); handler = instance();
 });
 

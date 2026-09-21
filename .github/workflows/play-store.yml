@@ -1,6 +1,12 @@
 name: Prepare Google Play store
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Capture screenshots and audit, or upload the reviewed store package
+        type: choice
+        options: [capture, upload]
+        default: capture
 permissions:
   contents: read
 concurrency:
@@ -16,15 +22,20 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: node scripts/play-store.mjs
+      - name: Audit or upload the reviewed listing
         env:
+          STORE_MODE: ${{ inputs.mode }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-      - uses: actions/upload-artifact@v4
+        run: |
+          if [ "$STORE_MODE" = "upload" ]; then node scripts/play-store.mjs upload; else node scripts/play-store.mjs; fi
+      - name: Keep store preparation receipt
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: play-store-audit
-          path: artifacts/play-store/audit.json
-          if-no-files-found: error
+          name: play-store-receipt
+          path: artifacts/play-store/*.json
   screenshots:
+    if: inputs.mode != 'upload'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

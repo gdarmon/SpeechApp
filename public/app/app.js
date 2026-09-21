@@ -91,6 +91,7 @@ function discardRecording() {
   if (recordingUrl) URL.revokeObjectURL(recordingUrl); recordingUrl = null; recorded = null; speechMs = 0;
 }
 function leave() {
+  $("report-dialog").close();
   ++epoch; recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache.clear();
   setBusy(false); clearError(); show('notice', false); $('draft').value = ''; $('draft').lang = 'pt-BR'; $('help').checked = false;
 }
@@ -298,3 +299,29 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/app/sw.js')
 // Session credentials are HttpOnly cookies. Browser storage holds preferences only.
 try { user = await api('/auth/me'); if (!$('welcome').hidden) await home(); }
 catch { /* Keep the sign-in screen available when there is no active session. */ }
+
+// Reports use saved server-owned AI content; no arbitrary transcript is accepted.
+let reportInput = null;
+function openReport(summary) {
+  if (busy || !session) return;
+  recorder.cancel(); voice.stop(); $('conversation-options').close();
+  const last = session.turns.at(-1);
+  reportInput = { session_id: session.id, target: summary ? 'summary' : last ? 'reply' : 'opening', turn_id: summary ? null : last?.id ?? null };
+  $('report-form').hidden = false; $('report-note').value = ''; $('report-category').value = 'inappropriate';
+  $('report-result').hidden = true; $('report-close').textContent = 'Cancel'; $('report-dialog').showModal();
+}
+$('report-reply').onclick = () => openReport(false);
+$('report-summary').onclick = () => openReport(true);
+$('report-close').onclick = () => { if (!busy) $('report-dialog').close(); };
+$('report-dialog').addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+$('report-form').onsubmit = event => {
+  event.preventDefault(); if (!reportInput) return;
+  void task(async () => {
+    $('report-submit').disabled = true; $('report-close').disabled = true;
+    try {
+      await post('/content-reports', {...reportInput, category: $('report-category').value, note: $('report-note').value});
+      $('report-form').hidden = true; text('report-result', 'Thank you. Your report has been sent to Fala for review.'); $('report-close').textContent = 'Done';
+    } catch (error) { text('report-result', error.message); }
+    finally { show('report-result'); $('report-submit').disabled = false; $('report-close').disabled = false; }
+  });
+};

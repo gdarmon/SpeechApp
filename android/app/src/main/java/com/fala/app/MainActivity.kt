@@ -429,6 +429,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 Text("Network speech recognition", Modifier.padding(start = 8.dp).weight(1f))
             }
             Text("Your phone’s online speech service may receive your audio when this is on.", style = MaterialTheme.typography.bodySmall)
+            ReportContentAction(c)
             TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
             OutlinedButton(onClick = finish, enabled = !c.busy && !c.recording) { Text("Finish and review") }
         }
@@ -644,5 +645,6 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             Text("Partner: ${turn.getJSONObject("reply").getString("text")}")
         }
     }
+    ReportContentAction(c, summary = true)
     Button(onClick = { c.start(false) }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Another short conversation") }
 }

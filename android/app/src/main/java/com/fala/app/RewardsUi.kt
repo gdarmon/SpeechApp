@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import android.app.Activity
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +44,13 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
     }
     val colors = if(dark) darkColorScheme(primary=pair.second,onPrimary=Color(0xFF172A21),background=Color(0xFF14211D),surface=Color(0xFF20332B),secondaryContainer=Color(0xFF294237),onSecondaryContainer=Color(0xFFEFF5ED))
         else lightColorScheme(primary=pair.first,onPrimary=Color.White,background=Color(0xFFFFFCF5),surface=Color(0xFFFFFCF5),secondaryContainer=Color(0xFFE3EEE6),onSecondaryContainer=Color(0xFF164734))
+    val view=LocalView.current
+    SideEffect {
+        (view.context as? Activity)?.window?.let { window ->
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !dark
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !dark
+        }
+    }
     MaterialTheme(colorScheme=colors,content=content)
 }
 

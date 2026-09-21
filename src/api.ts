@@ -1,3 +1,4 @@
+import {contentReportSchema,reportContent} from "./content-reports.js";
 import { Auth, googleLoginSchema, sameOrigin, webCookie, type VerifyGoogle } from "./auth.js";
 import { z } from "zod";
 import type { Settings } from "./config.js";
@@ -68,6 +69,10 @@ export function createHandler(dependencies: Dependencies) {
       if (path === "/auth/logout" && request.method === "POST") { await auth.signOut(request); const response = respond({ signed_out: true }); response.headers.set("Set-Cookie", webCookie()); return response; }
       const store = new Store(database, timing, user.id, settings.dailyUserLimit, settings.dailyAppLimit);
       const rewards = new Rewards(store, user.id);
+      if (path === '/content-reports' && request.method === 'POST') {
+        const input=contentReportSchema.parse(await body(request));
+        return respond(await store.mutate(tx=>reportContent(tx,user.id,input)));
+      }
       if (path === '/rewards/push' && request.method === 'POST') {
         const input=subscriptionSchema.parse(await body(request));
         return respond(await store.mutate(tx=>saveSubscription(tx,user.id,input)));

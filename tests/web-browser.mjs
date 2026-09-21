@@ -44,7 +44,7 @@ try {
   // Exercise the online UI with a deterministic API and audio fixture, without a Google account.
   const rewards = rewardFixture();
   rewards.profile.instructor = "bateba"; rewards.xp = 480; rewards.instructors[1].unlocked = true; rewards.profile.reduce_motion = true;
-  let saved, dropGet = false, postCount = 0; const speechRequests = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
+  let saved, dropGet = false, postCount = 0; const speechRequests = [], reports = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
   const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
   const wav = Buffer.alloc(44 + 16000); wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40);
   await page.route('**/*', async route => {
@@ -52,6 +52,7 @@ try {
     const send = data => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     if (path === '/auth/me') return send({ email: 'browser-fixture@fala.invalid' });
     if (path === '/dashboard') return send({ status: { speech: { transcription: 'groq', voice: 'openai' } }, progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [], rewards });
+    if (path === '/content-reports') { reports.push(request.postDataJSON()); return reports.length === 1 ? route.abort() : send({received:true}); }
     if (path === '/rewards') return send(rewards);
     if (path === '/sessions') { saved = { id: 'session-fixture', topic: request.postDataJSON().topic, capoeira: request.postDataJSON().topic === 'capoeira class', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
     if (path.endsWith('/speech')) { speechRequests.push(request.postDataJSON()); return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }); }
@@ -128,6 +129,13 @@ try {
   await page.locator('#listen').click(); await page.waitForTimeout(100);
   assert.equal(speechRequests.length, 3, 'Repeating or slowing a saved clip must not request it again');
   assert.equal(await page.locator('#draft').inputValue(), ''); assert.equal(postCount, 0);
+  await page.locator('#options').click();await page.locator('#report-reply').click();
+  await page.locator('#report-category').selectOption('inaccurate');await page.locator('#report-note').fill('Please check this translation.');
+  await page.locator('#report-submit').click();await page.locator('#report-result').waitFor({state:'visible'});
+  assert.equal(await page.locator('#report-form').isVisible(),true,'A failed submission must stay retryable');
+  await page.locator('#report-submit').click();await page.getByText('Thank you. Your report has been sent to Fala for review.',{exact:true}).waitFor();
+  assert.deepEqual(reports[1],{session_id:'session-fixture',target:'opening',turn_id:null,category:'inaccurate',note:'Please check this translation.'});
+  assert.equal(postCount,0,'Reporting must not submit a conversational reply');await page.locator('#report-close').click();
   await mic.scrollIntoViewIfNeeded(); const box = await mic.boundingBox();
   await page.mouse.move(box.x + 50, box.y + 40); await page.mouse.down();
   await page.waitForFunction(() => document.getElementById('microphone').dataset.recording === 'true');
@@ -155,6 +163,7 @@ try {
   assert.equal(await page.locator('.partner-finish .partner-art').evaluate(el=>getComputedStyle(el).animationName),'none');
   assert.equal(rewards.profile.instructor,'bateba','Unlocking must not change the saved selection');
   await page.locator('#reward-celebration').screenshot({path:'artifacts/fala-0.12.0-unlock.png'});
+  await page.locator('#report-summary').click();await page.locator('#report-submit').click();await page.getByText('Thank you. Your report has been sent to Fala for review.',{exact:true}).waitFor();assert.equal(reports.at(-1).target,'summary');await page.locator('#report-close').click();
   await page.locator('#again').click(); await page.locator('#home').waitFor({state:'visible'});
   await page.locator('#topic').selectOption('everyday life'); await page.locator('#start').click();
   await page.locator('#conversation').waitFor({state:'visible'}); assert.equal(await page.locator('#partner-identity img').count(),0);

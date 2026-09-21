@@ -119,6 +119,14 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun retry() { retryAction?.let { execute(action = it) } }
+    fun submitContentReport(summary: Boolean, category: String, note: String, sent: () -> Unit) = execute(retryable = false) {
+        val turns = session.optJSONArray("turns")
+        val turn = if (turns != null && turns.length() > 0) turns.getJSONObject(turns.length() - 1) else null
+        val target = if (summary) "summary" else if (turn == null) "opening" else "reply"
+        api.post("/content-reports", JSONObject().put("session_id", session.getString("id")).put("target", target)
+            .put("turn_id", if (target == "reply") turn!!.getInt("id") else JSONObject.NULL).put("category", category).put("note", note))
+        sent()
+    }
     fun report(message: String) { error = message }
 
     fun chooseSupportLanguage(language: String) {
