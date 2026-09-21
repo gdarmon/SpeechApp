@@ -1,5 +1,6 @@
 import { Recorder, Voice } from './voice.js';
 import { createRewards } from './rewards.js';
+import { apiRequest } from './api.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, visible = true) => { $(id).hidden = !visible; };
@@ -21,15 +22,10 @@ const recorder = new Recorder(state => {
 }, recording => { void recordedAnswer(recording); }, error => failure(error));
 
 async function api(path, options = {}) {
-  let response;
-  try {
-    response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(55000), ...options });
-  } catch { throw new Error('The connection was interrupted. Your answer is still here. Try again when you’re online.'); }
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    const failure = new Error(error.detail || 'Fala is unavailable. Please try again.'); failure.status = response.status; throw failure;
-  }
-  return options.audio ? response.arrayBuffer() : response.json();
+  return apiRequest(path, options, seconds => {
+    text('notice', seconds ? `The conversation service is busy. Retrying in ${seconds} second${seconds === 1 ? '' : 's'}…` : 'Preparing your reply…');
+    show('notice');
+  });
 }
 const post = (path, body = {}, options = {}) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), ...options });
 const rewards = createRewards({api,post,task,screen,home});

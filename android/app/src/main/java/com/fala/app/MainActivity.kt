@@ -110,7 +110,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 }
                 if (c.screen !in listOf("home", "welcome", "language") && c.settings.signedIn) TextButton(onClick = { c.navigate("home") }, enabled = !c.busy) { Text("Back to home") }
                 if (c.demo) Notice("Connection test mode · scripted replies, no AI teaching or assessment.")
-                if (c.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("One moment…", style = MaterialTheme.typography.labelMedium) }
+                if (c.busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(c.connectionNotice.ifBlank { "One moment…" }, style = MaterialTheme.typography.labelMedium) }
                 if (c.error.isNotBlank()) {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                         Column(Modifier.padding(16.dp)) {
@@ -474,7 +474,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 c.holding -> "Listening · keep holding while you speak."
                 c.phase == "Recognizing" -> "Finishing your words…"
                 c.practiceComplete -> "Practice complete · preparing your summary…"
-                c.busy -> "Fala is preparing a reply…"
+                c.busy -> c.connectionNotice.ifBlank { "Fala is preparing a reply…" }
                 c.helpMode -> "Say it in your language. Fala will help with Portuguese."
                 else -> "Hold, speak, release. Check your words, then send."
             }, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

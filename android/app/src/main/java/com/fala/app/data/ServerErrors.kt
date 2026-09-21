@@ -1,5 +1,13 @@
 package com.fala.app.data
 
+internal fun providerRetryDelaySeconds(status: Int, code: String, seconds: Int, attempt: Int, elapsedMs: Long,
+                                      path: String, method: String, hasRequestId: Boolean): Int? {
+    val replaySafe = method == "POST" && ((hasRequestId && (path == "/sessions" || Regex("/sessions/[^/]+/turns").matches(path)))
+        || Regex("/sessions/[^/]+/finish").matches(path))
+    return seconds.takeIf { replaySafe && status == 429 && code == "ai_rate_limited" && attempt == 0
+        && it in 1..30 && elapsedMs + it * 1000L < 60000 }
+}
+
 internal fun serverErrorMessage(status: Int, path: String, detail: String, code: String): String = when {
     status >= 500 -> when (code) {
         "ai_timeout" -> "The reply took too long. Tap Retry to continue your conversation."

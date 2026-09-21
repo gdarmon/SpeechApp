@@ -103,7 +103,7 @@ Netlify Personal covers hosting allowances, not AI inference. Check actual usage
 | “Run the Fala SQL migration” | Run the entire SQL file in the project used by `DATABASE_URL` |
 | Database unavailable | Project running; transaction pooler host/username/password correct; password URL-encoded; port 6543 |
 | Missing AI key | Key in function environment matches the provider endpoint |
-| AI usage limit | Groq limits are shared across the account. Brief limits retry automatically within the AI deadline; longer limits return HTTP 429 with a provider-specific wait time. Keep the same reply and tap Retry after that delay. Higher capacity requires changing the provider plan, not Netlify or Supabase. |
+| AI usage limit | Groq limits are shared across the account. Brief limits retry automatically within the AI deadline. Android and web can then retry one short provider limit (up to 30 seconds) with the same request ID and a visible waiting message; the overall client budget is 90 seconds. Longer or repeated limits return HTTP 429 with a provider-specific wait time. Keep the same reply and tap Retry after that delay. Higher capacity requires changing the provider plan, not Netlify or Supabase. |
 | AI rejected/incomplete response | Provider quota, model availability and compatible JSON output; tap Retry |
 | Processing conflict | Wait briefly and retry; avoid competing sessions |
 | No Brazilian speech | Install pt-BR in Android voice settings |

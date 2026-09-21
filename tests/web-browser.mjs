@@ -59,6 +59,7 @@ try {
     if (path === '/speech/transcribe') { assert.ok(request.postDataBuffer().length > 128); return send({ text: 'Sim, conheço.' }); }
     if (path.endsWith('/turns')) {
       const input = request.postDataJSON(); ids.push(input.request_id); postCount++;
+      if (postCount === 3) return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'ai_rate_limited', retry_after_seconds: 1, detail: 'Wait one second.' }) });
       if (!saved.turns.some(turn => turn.request_id === input.request_id)) saved.turns.push({ ...input, id: saved.turns.length + 1, reply: { ...reply, text: 'Você gosta do martelo?', translation: 'אוהבים את המרטלו?', suggested_replies: [{ text: 'Sim, gosto.', translation: 'כן, אני אוהב.' }], turn_feedback: { kind: 'ok', message: 'יופי!' } } });
       if (postCount === 1) dropGet = true;
       return send(saved.turns.at(-1).reply);
@@ -154,7 +155,13 @@ try {
   await page.screenshot({ path: `${root}/artifacts/fala-web-conversation.png`, fullPage: true });
   for (let i = 1; i < 10; i++) {
     await page.locator('#draft').fill('Sim, gosto da ginga.'); await page.locator('#send').click();
+    if (i === 1) {
+      await page.getByText('The conversation service is busy. Retrying in 1 second…', { exact: true }).waitFor();
+      assert.equal(await page.locator('#draft').inputValue(), 'Sim, gosto da ginga.');
+      assert.equal(await page.locator('#retry').isVisible(), false);
+    }
     await page.waitForFunction(() => !document.getElementById('microphone').disabled);
+    if (i === 1) { assert.equal(ids[2], ids[3]); assert.equal(saved.turns.length, 2); }
   }
   assert.equal(saved.turns.length, 10); assert.equal(await page.locator('#microphone').isVisible(), false);
   await page.locator('#complete').click(); await page.locator('#review').waitFor({ state: 'visible' });

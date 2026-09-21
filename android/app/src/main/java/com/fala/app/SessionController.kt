@@ -25,7 +25,9 @@ import java.util.UUID
 
 class SessionController(application: Application) : AndroidViewModel(application) {
     val settings = ConnectionSettings(application)
-    private val api = SessionApi(settings)
+    private val api = SessionApi(settings) { seconds ->
+        connectionNotice = if (seconds > 0) "The conversation service is busy. Retrying in $seconds second${if (seconds == 1) "" else "s"}…" else ""
+    }
     private val input: SpeechInput = AndroidSpeechInput(application)
     private val output: SpeechOutput = AndroidSpeechOutput(application)
     var screen by mutableStateOf(if (settings.consent && settings.signedIn) {
@@ -37,6 +39,8 @@ class SessionController(application: Application) : AndroidViewModel(application
     var phase by mutableStateOf("Ready")
         private set
     var error by mutableStateOf("")
+        private set
+    var connectionNotice by mutableStateOf("")
         private set
     var heard by mutableStateOf("")
         private set
@@ -114,7 +118,7 @@ class SessionController(application: Application) : AndroidViewModel(application
                 error = if (failure is org.json.JSONException) "Fala could not read this reply. Please retry."
                     else failure.message?.take(350) ?: "Something interrupted the conversation. Please retry."
                 phase = "Paused"; retryAvailable = retryable && screen != "welcome"
-            } finally { busy = false }
+            } finally { busy = false; connectionNotice = "" }
         }
     }
 
