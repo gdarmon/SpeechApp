@@ -1,0 +1,1 @@
+Clearer data controls: a dedicated page explains how to delete learning history while keeping your Fala account, including an email request option and in-app steps. Privacy and account-deletion pages now link to these instructions.

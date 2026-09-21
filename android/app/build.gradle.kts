@@ -13,12 +13,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 36
         val releaseCode = providers.environmentVariable("FALA_VERSION_CODE").orNull
-        versionCode = if (releaseCode == null) 16 else {
+        versionCode = if (releaseCode == null) 17 else {
             requireNotNull(releaseCode.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
                 "FALA_VERSION_CODE must be an integer between 1 and 2100000000"
             }
         }
-        versionName = "0.12.3"
+        versionName = "0.12.4"
         buildConfigField("String", "API_BASE_URL", "\"https://falachatapp.netlify.app\"")
     }
     signingConfigs {

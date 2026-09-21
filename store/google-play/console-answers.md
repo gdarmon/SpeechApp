@@ -13,6 +13,7 @@ The owner reports that production access is unavailable. The initial API audit f
 - Website: https://falachatapp.netlify.app/
 - Privacy: https://falachatapp.netlify.app/privacy.html
 - Account deletion: https://falachatapp.netlify.app/delete-account.html
+- Data deletion while keeping the account: https://falachatapp.netlify.app/delete-data.html
 - Ads: No. The app includes no advertising SDK or advertisements.
 - App access: Some or all functionality is restricted; Google sign-in is required. Use the instructions in app-access.txt.
 - Intended audience: 13–15, 16–17, and 18+. Current online service is not enabled for under-13 use. This audience setting is separate from the IARC content rating.

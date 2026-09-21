@@ -3,3 +3,4 @@
 button{font:inherit;padding:12px 18px;border:1px solid #12664f;border-radius:12px;background:#12664f;color:#fff;cursor:pointer}button:disabled{opacity:.5;cursor:default}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #b56b00;outline-offset:4px}label{line-height:1.6}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}section h2{font-size:28px;letter-spacing:-.02em}body:has(#status) h1{font-size:clamp(32px,7vw,48px)}
 
 .launch{display:inline-block;padding:16px 30px;background:#12664f;color:#fff;border-radius:16px;text-decoration:none;font-weight:700}
+.data-deletion h1{font-size:clamp(32px,7vw,48px)}.data-deletion li{line-height:1.6;margin:12px 0}
