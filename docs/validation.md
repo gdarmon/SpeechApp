@@ -94,3 +94,11 @@ The initial GitHub install found optional Netlify peer dependencies pruned by lo
 - Live synthetic Groq GPT-OSS 120B opening and continuation checks passed with Hebrew translations and answer ideas. Provider processing was roughly 2 seconds in that small sample. Rapid generation/repair also hit the account's 8,000-token-per-minute limit; quotas remain a real constraint, with retryable errors rather than paid OpenAI fallback. This is not a comprehensive language-quality or load test.
 - One synthetic Portuguese clip was generated with the existing OpenAI voice and correctly transcribed by Groq Whisper large v3 turbo in about 3.1 seconds combined. No learner recording was used. Native Android continues to use its existing device speech services.
 - No database migration is needed. The provider selectors were saved in Netlify; the new deployment activates them. Browser sign-in and notification permissions must be established on the new origin. Google console changes were reported complete by the owner; actual Google sign-in and physical phone behavior are not established by these tests.
+
+
+## 0.12.0 — capoeira practice partners
+
+- Clean npm 10.9.7 install, 93 backend tests and release build pass. Tests cover default/free selection, server-enforced unlocks at 200 and 500 earned XP, account isolation, migration reruns, older-client updates, conversation deletion and learning reset.
+- Chromium checks pass at 320/360/390-pixel phone widths, desktop size and a 400-pixel keyboard viewport. Partner previews never select locked art; choices survive reload; everyday conversations omit portraits. Tests also cover opt-out, newly earned rewards without automatic selection, reduced-motion celebrations, sign-out cleanup and caching only public artwork.
+- Android debug build, existing JVM tests and lint pass with the native collection, compact portrait and reward celebration. Physical-device visual checks and cross-device Google Play installation remain a device check.
+- Source art is copied unchanged from the user’s CapoeiraMath Git history; provenance is in `assets/branding/instructors.md`. No extra AI calls or provider settings are introduced.

@@ -13,7 +13,7 @@ beforeAll(async()=>{
   pg=new PGlite();const wrap=(client:Pick<PGlite,'query'>):Executor=>({query:async<T>(sql:string,values:Parameter[]=[]) => (await client.query<T>(sql,values)).rows});
   db={...wrap(pg),transaction:fn=>pg.transaction(tx=>fn(wrap(tx))),close:()=>pg.close()};
   await pg.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
-  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
 },30000);
 afterAll(async()=>{await db.close();});
 beforeEach(async()=>{
@@ -95,4 +95,42 @@ it('delivers to the most recently connected browser only and removes expired sub
 it('rejects push endpoints that could access internal services or arbitrary hosts',()=>{
   for(const url of ['http://fcm.googleapis.com/','https://127.0.0.1/','https://evil.test/','https://fcm.googleapis.com.evil.test/','https://user@fcm.googleapis.com/','https://fcm.googleapis.com:8443/'])expect(allowedPushEndpoint(url)).toBe(false);
   expect(allowedPushEndpoint('https://web.push.apple.com/abc')).toBe(true);
+});
+
+it('starts with a free partner, synchronizes choices, and rejects unearned or invented skins',async()=>{
+  const rewards=new Rewards(db,a,now);
+  expect(await rewards.snapshot()).toMatchObject({xp:0,profile:{instructor:'bananera'},instructors:[
+    {id:'bananera',unlocked:true},{id:'bateba',unlocked:false},{id:'vesoura',unlocked:false}
+  ]});
+  for(const instructor of ['bateba','vesoura'] as const)await expect(rewards.settings({instructor})).rejects.toMatchObject({status:403});
+  expect(rewardSettingsSchema.safeParse({instructor:'invented'}).success).toBe(false);
+  expect(rewardSettingsSchema.safeParse({instructor:'vesoura',xp:500}).success).toBe(false);
+  await rewards.settings({instructor:'none'});
+  // An older Android client updating other preferences must preserve the chosen partner.
+  await new Rewards(db,a,now).settings({nickname:'Gilad',theme:'classic'});
+  expect((await new Rewards(db,a,now).snapshot()).profile.instructor).toBe('none');
+  expect((await new Rewards(db,b,now).snapshot()).profile.instructor).toBe('bananera');
+  await rewards.reset();expect((await rewards.snapshot()).profile.instructor).toBe('none');
+});
+it('unlocks partners at earned XP boundaries and preserves rewards through migration and session deletion',async()=>{
+  const rewards=new Rewards(db,a,now);
+  // Three 50-XP conversations on separate days, then all but the tenth reply of day four.
+  for(let day=0;day<3;day++)await conversation(a,'kicks-v1',new Date(now.getTime()+day*86400000));
+  const day4=new Date(now.getTime()+3*86400000),id=await session();
+  for(let i=0;i<9;i++)await reply(id,a,false,day4);
+  expect((await rewards.snapshot()).xp).toBe(178);
+  await expect(rewards.settings({instructor:'bateba'})).rejects.toMatchObject({status:403});
+  await reply(id,a,false,day4);
+  expect((await rewards.snapshot()).xp).toBe(200);
+  await rewards.settings({instructor:'bateba'});
+  await pg.exec(await readFile(new URL('../supabase/migrations/202609210001_instructors.sql',import.meta.url),'utf8'));
+  await db.query('DELETE FROM fala.sessions WHERE id=$1::uuid',[id]);
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:200,profile:{instructor:'bateba'}});
+  for(let day=4;day<9;day++)await conversation(a,'kicks-v1',new Date(now.getTime()+day*86400000));
+  await expect(rewards.settings({instructor:'vesoura'})).rejects.toMatchObject({status:403});
+  await conversation(a,'kicks-v1',new Date(now.getTime()+9*86400000));
+  expect((await rewards.snapshot()).xp).toBe(500);
+  await rewards.settings({instructor:'vesoura'});
+  expect((await new Rewards(db,a,now).snapshot()).profile.instructor).toBe('vesoura');
+  await rewards.reset();expect(await rewards.snapshot()).toMatchObject({xp:0,profile:{instructor:'bananera'}});
 });

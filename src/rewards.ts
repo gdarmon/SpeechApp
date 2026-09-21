@@ -14,6 +14,11 @@ export const SKINS = [
   { id: 'wave', name: 'Ocean wave', xp: 150 },
   { id: 'rhythm', name: 'Roda rhythm', xp: 600 },
 ] as const;
+export const INSTRUCTORS = [
+  { id: 'bananera', name: 'Bananera', xp: 0, color: 'Green & gold' },
+  { id: 'bateba', name: 'Bateba', xp: 200, color: 'Blue & copper' },
+  { id: 'vesoura', name: 'Vesoura', xp: 500, color: 'Red & gold' },
+] as const;
 export const zoneSchema = z.string().max(80).refine(value => {
   try { new Intl.DateTimeFormat('en', { timeZone: value }); return /^[A-Za-z0-9_+\-/]+$/.test(value); } catch { return false; }
 }, 'Choose a valid time zone.');
@@ -22,11 +27,12 @@ export const rewardSettingsSchema = z.strictObject({
   timezone: zoneSchema.optional(),
   theme: z.enum(['classic','beach','roda','sunset']).optional(),
   skin: z.enum(['classic','wave','rhythm']).optional(),
+  instructor: z.enum(['none','bananera','bateba','vesoura']).optional(),
   appearance: z.enum(['system','light','dark']).optional(),
   reduce_motion: z.boolean().optional(), reminder_enabled: z.boolean().optional(),
   reminder_minute: z.number().int().min(0).max(1439).multipleOf(15).optional(),
 });
-type Profile = { nickname: string; timezone: string; timezone_confirmed: boolean; theme: string; skin: string;
+type Profile = { nickname: string; timezone: string; timezone_confirmed: boolean; theme: string; skin: string; instructor: string;
   appearance: string; reduce_motion: boolean; reminder_enabled: boolean; reminder_minute: number; zone_changed_at: string | null };
 const dateKey = (date: Date) => date.toISOString().slice(0,10);
 export const dayOffset = (date: string, days: number) => dateKey(new Date(Date.parse(date+'T12:00:00Z')+days*86400000));
@@ -60,7 +66,7 @@ export class Rewards {
   constructor(private db: Executor, private user: string, private now = new Date()) {}
   async profile(): Promise<Profile> {
     await this.db.query('INSERT INTO fala.reward_profiles(user_id) VALUES($1::uuid) ON CONFLICT DO NOTHING',[this.user]);
-    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
+    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,instructor,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
     return profile;
   }
   async snapshot() {
@@ -77,6 +83,7 @@ export class Rewards {
     return { ...totals, profile, today:day, daily_target:3, daily_complete:totals.today_replies>=3,
       streak:streakFor(days.map(row=>row.day),day),
       themes:THEMES.map(t=>({...t,unlocked:totals.xp>=t.xp})), skins:SKINS.map(s=>({...s,unlocked:totals.xp>=s.xp})),
+      instructors:INSTRUCTORS.map(i=>({...i,unlocked:totals.xp>=i.xp})),
       badges:[{name:'First conversation',earned:totals.completed>=1},{name:'Ten conversations',earned:totals.completed>=10},
         {name:'100 spoken replies',earned:totals.spoken>=100},{name:'Three class scenarios this week',earned:totals.weekly_scenarios>=3}],
       weekly_mission:{title:'Practise three different class scenarios',progress:Math.min(3,totals.weekly_scenarios),target:3,xp:10},
@@ -113,13 +120,14 @@ export class Rewards {
   }
   async settings(input:z.infer<typeof rewardSettingsSchema>) {
     const state=await this.snapshot(), profile=state.profile;
+    if(input.instructor && input.instructor !== 'none' && !state.instructors.some(i=>i.id===input.instructor&&i.unlocked)) throw new AppError(403,'Keep practising to unlock this partner.');
     if(input.theme && !state.themes.some(t=>t.id===input.theme&&t.unlocked) || input.skin && !state.skins.some(s=>s.id===input.skin&&s.unlocked)) throw new AppError(403,'Keep practising to unlock this reward.');
     if(input.timezone && input.timezone!==profile.timezone && profile.zone_changed_at && this.now.getTime()-Date.parse(profile.zone_changed_at)<20*3600000) throw new AppError(409,'You can change your time zone again tomorrow.');
     const next={...profile,...input};
     await this.db.query(`UPDATE fala.reward_profiles SET nickname=$2,timezone=$3,theme=$4,skin=$5,appearance=$6,reduce_motion=$7,
       reminder_enabled=$8,reminder_minute=$9,timezone_confirmed=timezone_confirmed OR $10,
-      zone_changed_at=CASE WHEN $10 AND timezone_confirmed AND timezone<>$3 THEN $11::timestamptz ELSE zone_changed_at END WHERE user_id=$1::uuid`,
-      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString()]);
+      zone_changed_at=CASE WHEN $10 AND timezone_confirmed AND timezone<>$3 THEN $11::timestamptz ELSE zone_changed_at END,instructor=$12 WHERE user_id=$1::uuid`,
+      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString(),next.instructor]);
     return this.snapshot();
   }
   async social() {
@@ -181,6 +189,6 @@ export class Rewards {
   }
   async reset() {
     await this.db.query('DELETE FROM fala.reward_events WHERE user_id=$1::uuid',[this.user]);
-    await this.db.query("UPDATE fala.reward_profiles SET theme='classic',skin='classic' WHERE user_id=$1::uuid",[this.user]);
+    await this.db.query("UPDATE fala.reward_profiles SET theme='classic',skin='classic',instructor=CASE WHEN instructor='none' THEN 'none' ELSE 'bananera' END WHERE user_id=$1::uuid",[this.user]);
   }
 }

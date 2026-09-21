@@ -23,7 +23,8 @@ const firstMigration = await readFile(new URL("../supabase/migrations/2026091800
 const secondMigration = await readFile(new URL("../supabase/migrations/202609180002_google_sign_in.sql", import.meta.url), "utf8");
 const repairMigration = await readFile(new URL("../supabase/migrations/202609190001_repair_serialized_json.sql", import.meta.url), "utf8");
 const rewardsMigration = await readFile(new URL("../supabase/migrations/202609200001_rewards.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration + repairMigration + rewardsMigration;
+const instructorMigration = await readFile(new URL("../supabase/migrations/202609210001_instructors.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;
@@ -98,6 +99,7 @@ describe("Netlify API against PostgreSQL", () => {
     const input = { topic: "capoeira class", support_language: "he-IL", request_id: randomUUID() };
     const first = (await start(input)).data;
     expect(first.topic).toContain("Kicks in class");
+    expect(first.capoeira).toBe(true);
     expect(first.request).toBeUndefined();
     expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "martelo" } });
     const calls = coach.calls.length;

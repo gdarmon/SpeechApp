@@ -190,6 +190,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(20.dp)) {
         Text("Talk", style = MaterialTheme.typography.headlineSmall)
     }
+    InstructorHome(c)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Practice level $level · ${practiceLevels[level - 1].first}", fontWeight = FontWeight.Bold)
@@ -345,7 +346,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     val language = c.conversationLanguage
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (c.phase == "Speaking") "FALA · SPEAKING" else "YOUR CONVERSATION PARTNER", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            InstructorIdentity(c)
             if (c.replySupport.textVisible || c.practiceComplete) {
                 Text(c.reply.optString("text"), style = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr), fontWeight = FontWeight.SemiBold)
                 if (c.reply.optString("translation").isNotBlank()) TranslatedText(c.reply.optString("translation"), language)

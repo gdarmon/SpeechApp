@@ -155,6 +155,7 @@ $('start').onclick = () => {
   }, 'Fala is starting a conversation…');
 };
 function renderSession() {
+  rewards.conversation(session);
   const last = session.turns.at(-1); reply = last?.reply || session.opening;
   const count = session.turns.filter(turn => !turn.help).length;
   $('conversation-progress').value = Math.min(count, 10);

@@ -78,6 +78,7 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
         Column(Modifier.fillMaxWidth().padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text(if(c.rewards.optBoolean("daily_complete")) "Daily goal complete!" else "A little more practice.",style=MaterialTheme.typography.titleLarge)
             Text(c.celebration,color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)
+            InstructorCelebration(c)
         }
     }
 }
@@ -86,6 +87,7 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
     Text("Make Fala yours.",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.SemiBold)
     Text("${c.rewards.optInt("xp")} lifetime XP · ${c.rewards.optInt("today_xp")} today")
     Text("Themes and skins unlock permanently. Your speaking level follows your independent answers.")
+    InstructorCollection(c)
     var preview by remember { mutableStateOf<JSONObject?>(null) }
     listOf("themes" to "theme", "skins" to "skin").forEach { (list,field) ->
         Text(if(field=="theme") "Themes" else "Microphone skins",style=MaterialTheme.typography.titleLarge)

@@ -54,6 +54,8 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var celebration by mutableStateOf("")
         private set
+    var unlockedInstructors by mutableStateOf(emptyList<String>())
+        private set
     var feedback by mutableStateOf(JSONObject())
         private set
     var demo by mutableStateOf(false)
@@ -167,7 +169,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
         selectedLevel = 0
-        rewards = JSONObject(); friends = JSONObject(); celebration = ""
+        rewards = JSONObject(); friends = JSONObject(); celebration = ""; unlockedInstructors = emptyList()
     }
 
     fun signOut(clearGoogle: suspend () -> Unit) = execute(retryable = false) {
@@ -208,7 +210,9 @@ class SessionController(application: Application) : AndroidViewModel(application
         friends = api.post("/friends", body)
     }
     private suspend fun celebratePractice() {
+        val prior = rewards
         loadProgress()
+        unlockedInstructors = newlyUnlockedInstructors(prior, rewards)
         celebration = "${rewards.optInt("today_xp")} XP today · ${rewards.optInt("xp")} XP total"
     }
 
@@ -226,7 +230,7 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     fun start(assessment: Boolean, topic: String = practiceTopic) {
         if (busy) return
-        celebration = ""
+        celebration = ""; unlockedInstructors = emptyList()
         audioEnabled = true
         val request = JSONObject().put("request_id", UUID.randomUUID().toString())
             .put("kind", if (assessment) "assessment" else "conversation").put("topic", topic)
@@ -243,7 +247,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun resume(id: String = settings.activeSession) = execute {
-        celebration = ""
+        celebration = ""; unlockedInstructors = emptyList()
         pause()
         session = api.get("/sessions/$id")
         if (!session.isNull("feedback")) {

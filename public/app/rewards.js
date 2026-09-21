@@ -1,3 +1,4 @@
+import { createPartners } from './partners.js';
 const $=id=>document.getElementById(id);
 const node=(tag,text,className='')=>{const el=document.createElement(tag);el.textContent=text;el.className=className;return el;};
 const button=(label,action,className='secondary')=>{const b=node('button',label,className);b.type='button';b.onclick=action;return b;};
@@ -6,6 +7,7 @@ function meter(value,max,label){const p=document.createElement('progress');p.max
 
 export function createRewards({api,post,task,screen,home}) {
   let state=null, generation=0, previewTheme=null;
+  const partners=createPartners({choose:instructor=>save({instructor}),openCollection:()=>navigate('rewards-screen')});
   let pendingInvite='';
   const match=location.hash.match(/^#join=([A-Za-z0-9_-]{24})$/);
   if(match){pendingInvite=match[1];history.replaceState(null,'',location.pathname);}
@@ -18,7 +20,7 @@ export function createRewards({api,post,task,screen,home}) {
   }
   function render(data){
     if(!data)return;
-    state=data;apply();
+    state=data;apply();partners.render(data);
     const box=$('reward-home');box.hidden=false;box.replaceChildren();
     const card=node('article','','reward-overview'), row=node('div','','row');
     row.append(node('h2',`${data.streak.days}-day streak`),node('span',`${data.xp} XP`,'badge'));card.append(row);
@@ -90,12 +92,12 @@ export function createRewards({api,post,task,screen,home}) {
   });};
   async function disconnect(){if(!('serviceWorker' in navigator))return;const registration=await navigator.serviceWorker.getRegistration('/app/');const subscription=await registration?.pushManager?.getSubscription();if(subscription){try{await post('/rewards/push/remove',{endpoint:subscription.endpoint});}finally{await subscription.unsubscribe();}}}
   $('disconnect-push').onclick=()=>{void task(async()=>{await disconnect();$('push-state').textContent='This browser is disconnected. Other connected devices keep their settings.';});};
-  return {render,disconnect,reset(){generation++;state=null;previewTheme=null;apply();$('reward-home').hidden=true;$('reward-celebration').hidden=true;},
+  return {render,disconnect,conversation:partners.conversation,reset(){generation++;state=null;previewTheme=null;partners.reset();apply();$('reward-home').hidden=true;$('reward-celebration').hidden=true;},
     async initialize(data){if(!data)return;render(data);if(!data.profile.timezone_confirmed){const own=generation;try{const next=await post('/rewards/settings',{timezone:Intl.DateTimeFormat().resolvedOptions().timeZone});if(own===generation)render(next);}catch{/* Keep the explicit timezone control available. */}}
       if(pendingInvite)$('reward-home').append(button('Open your circle invitation',()=>navigate('friends-screen')));
     },
     async celebrate(){const own=generation,prior=state;try{const next=await refresh();if(own!==generation)return;const el=$('reward-celebration');el.replaceChildren(node('strong',next.daily_complete?'Daily goal complete!':'A little more practice.'),node('p',`${next.today_xp} XP today · ${next.xp} XP total`));
-      const unlocked=next.themes.filter(t=>t.unlocked&&t.xp>0&&!prior?.themes.some(old=>old.id===t.id&&old.unlocked));for(const reward of unlocked)el.append(node('p',`${reward.name} unlocked!`));el.hidden=false;el.classList.remove('celebrate');void el.offsetWidth;el.classList.add('celebrate');
+      const unlocked=next.themes.filter(t=>t.unlocked&&t.xp>0&&!prior?.themes.some(old=>old.id===t.id&&old.unlocked));for(const reward of unlocked)el.append(node('p',`${reward.name} unlocked!`));partners.celebrate(el,prior,next);el.hidden=false;el.classList.remove('celebrate');void el.offsetWidth;el.classList.add('celebrate');
     }catch{/* A delayed rewards refresh must not hide the conversation summary. */}},
   };
 }

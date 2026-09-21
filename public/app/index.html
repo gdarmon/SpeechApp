@@ -17,7 +17,7 @@
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   </defs></svg>
   <main>
-    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.11.0</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
+    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.12.0</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
     <div id="messages">
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <p id="error" class="error" role="alert" hidden></p>
@@ -41,6 +41,7 @@
       <h1>A little more confident.</h1>
       <div id="reward-home" hidden></div>
       <button id="start" class="primary">Talk</button>
+      <div id="partner-home" class="partner-home" hidden></div>
       <label for="topic">Today, let's talk about</label><select id="topic"><option value="capoeira class">ABADÁ capoeira</option><option value="everyday life">Everyday life</option></select>
       <label for="level">Speaking level</label><select id="level"><option value="0">Use my recommended level</option><option value="1">1 · First phrases</option><option value="2">2 · Full sentences</option><option value="3">3 · Connected answers</option><option value="4">4 · Explain and clarify</option><option value="5">5 · Flexible conversations</option></select>
       <p id="progress" class="hint"></p>
@@ -48,7 +49,7 @@
       <label for="home-language">Help language</label><select id="home-language"><option value="he-IL">עברית — Hebrew</option><option value="en-US">English</option></select>
       <p><a href="/delete-account.html">Delete your account</a> · <a href="/privacy.html">Privacy</a></p>
     </section>
-    <section id="rewards-screen" class="screen" hidden><p class="eyebrow">MAKE FALA YOURS</p><h1>Earn your next look.</h1><p id="reward-total"></p><div id="theme-list" class="reward-grid"></div><h2>Microphone skins</h2><div id="skin-list" class="reward-grid"></div><h2>Your milestones</h2><div id="reward-badges"></div><details><summary>How points work</summary><p>2 XP per Portuguese reply, up to 20 replies a day. 20 XP for each of your first two ten-answer conversations. 10 XP when you reach three replies today. Mistakes and using answer ideas still count. Three different capoeira scenarios in a week earn another 10 XP.</p><p>Practice points unlock permanent looks. Your speaking level follows your independent answers. One missed day per week can protect a streak, and is marked ◇. Protected days earn no points.</p></details></section>
+    <section id="rewards-screen" class="screen" hidden><p class="eyebrow">MAKE FALA YOURS</p><h1>Earn your next look.</h1><p id="reward-total"></p><section id="instructor-collection" hidden><p class="eyebrow">A PLACE IN YOUR RODA</p><h2>Choose your capoeira partner.</h2><p class="fine">A familiar face for every conversation. Unlock new character skins through practice, at any speaking level.</p><div id="instructor-list" class="instructor-grid"></div><button id="partner-none" class="text-button">Use Fala without a character</button><p class="fine">Character skins share Fala’s voice and coaching. Your speaking level and lessons stay yours.</p></section><h2>Themes</h2><div id="theme-list" class="reward-grid"></div><h2>Microphone skins</h2><div id="skin-list" class="reward-grid"></div><h2>Your milestones</h2><div id="reward-badges"></div><details><summary>How points work</summary><p>2 XP per Portuguese reply, up to 20 replies a day. 20 XP for each of your first two ten-answer conversations. 10 XP when you reach three replies today. Mistakes and using answer ideas still count. Three different capoeira scenarios in a week earn another 10 XP.</p><p>Practice points unlock permanent looks. Your speaking level follows your independent answers. One missed day per week can protect a streak, and is marked ◇. Protected days earn no points.</p></details></section>
     <section id="friends-screen" class="screen" hidden><p class="eyebrow">YOUR CIRCLE</p><h1>Practise together.</h1><p class="fine">Join an invite-only circle of up to 12 learners. Only your nickname and practice totals are shared.</p><div id="circle-content"></div></section>
     <section id="reminders-screen" class="screen" hidden><h1>Your Fala.</h1>
       <form id="reward-settings"><label for="nickname">Nickname shown to your circle</label><input id="nickname" maxlength="30" required autocomplete="nickname">
@@ -73,7 +74,7 @@
         <div class="conversation-grid">
           <div class="partner-column">
             <article class="partner">
-              <div class="row"><p class="eyebrow">YOUR CONVERSATION PARTNER</p><span class="language-tag">PT–BR</span></div>
+              <div class="row"><div id="partner-identity" class="partner-identity"><p class="eyebrow">YOUR CONVERSATION PARTNER</p></div><span class="language-tag">PT–BR</span></div>
               <p id="partner-text" lang="pt-BR" class="portuguese"></p><p id="partner-translation" class="translation"></p>
               <div class="playback"><button id="listen" class="secondary"><svg class="icon"><use href="#i-play"/></svg> Listen</button><button id="slow" class="text-button">0.8× Slower</button><button id="stop-audio" class="text-button">Stop</button></div>
             </article>
@@ -104,6 +105,7 @@
       <p id="voice-disclosure" class="fine"></p>
       <button id="finish" class="secondary">Finish and review</button>
     </dialog>
+    <dialog id="partner-preview" aria-labelledby="partner-preview-title"><div class="row"><h2 id="partner-preview-title"></h2><button id="partner-preview-close" class="text-button">Close</button></div><div id="partner-preview-art"></div><p id="partner-preview-note"></p><button id="partner-preview-use">Use partner</button></dialog>
     <section id="review" class="screen" hidden><div id="reward-celebration" class="reward-celebration" role="status" hidden></div><p class="eyebrow">A LITTLE MORE CONFIDENCE</p><h1>Keep these words.</h1><p id="summary"></p><div id="pointers"></div><div id="words" class="words"></div><button id="again" class="primary">Another conversation</button></section>
     <aside class="install"><details><summary>Add Fala to your home screen</summary><p><strong>iPhone:</strong> open this link in Safari, tap Share, then “Add to Home Screen”.<br><strong>Android:</strong> open Chrome's menu and choose “Install app” or “Add to Home screen”.</p><p>AI conversations need an internet connection. Microphone access needs your permission.</p><button id="install" class="secondary" hidden>Install Fala</button></details></aside>
     <footer><a href="/privacy.html">Privacy</a> · <a href="mailto:gdarmon@gmail.com">Help</a><p>Uma conversa de cada vez.</p></footer>

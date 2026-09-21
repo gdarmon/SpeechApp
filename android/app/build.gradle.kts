@@ -12,12 +12,12 @@ android {
         minSdk = 26
         targetSdk = 36
         val releaseCode = providers.environmentVariable("FALA_VERSION_CODE").orNull
-        versionCode = if (releaseCode == null) 12 else {
+        versionCode = if (releaseCode == null) 13 else {
             requireNotNull(releaseCode.toIntOrNull()?.takeIf { it in 1..2100000000 }) {
                 "FALA_VERSION_CODE must be an integer between 1 and 2100000000"
             }
         }
-        versionName = "0.11.0"
+        versionName = "0.12.0"
         buildConfigField("String", "API_BASE_URL", "\"https://falachatapp.netlify.app\"")
     }
     signingConfigs {

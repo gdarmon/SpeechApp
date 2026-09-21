@@ -51,3 +51,11 @@ Release readiness also requires deployment/authentication hardening, retention/b
 - On Android and iPhone Safari, read a long question and scroll the ideas; the microphone and Send must stay reachable. Open the keyboard, edit a reply, then dismiss it and rotate the device. Repeat with a larger system font. No control should overlap the keyboard or system navigation.
 - Listen to a suggested reply, use its text, edit it and send. Selecting/listening alone must never submit. Hold and release the microphone, cancel a hold, and retry after a connection interruption.
 - Use the top-right options to switch help language input, replay a web recording or finish early. Complete ten answers and open the review. Confirm version 0.8.0 under the Fala logo.
+
+
+## Capoeira partners (0.12.0)
+
+- Open Rewards on a Play-installed build; preview each full character, select an unlocked one, then confirm the same choice on the web after refresh. Locked previews must never select a character.
+- Choose Fala without a character, refresh on the other device, and verify that capoeira conversations omit the portrait. Everyday life should always omit it.
+- Check the collection and conversation at large system font size, in light/dark themes and with TalkBack. The microphone stays within reach.
+- Complete a session crossing 200 or 500 lifetime XP. Check the unlock message and that the previous selection stays active until explicitly changed. Reduce motion should remove the entrance animation.

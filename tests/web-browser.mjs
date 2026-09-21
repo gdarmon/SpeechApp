@@ -1,3 +1,4 @@
+import { rewardFixture } from './fixtures/rewards.mjs';
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
 import { mkdir, readFile } from 'node:fs/promises';
@@ -41,6 +42,8 @@ try {
   assert.equal(await page.getByText(/family practice/i).count(), 0);
   const mic = page.locator('#microphone');
   // Exercise the online UI with a deterministic API and audio fixture, without a Google account.
+  const rewards = rewardFixture();
+  rewards.profile.instructor = "bateba"; rewards.xp = 480; rewards.instructors[1].unlocked = true; rewards.profile.reduce_motion = true;
   let saved, dropGet = false, postCount = 0; const speechRequests = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
   const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
   const wav = Buffer.alloc(44 + 16000); wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40);
@@ -48,8 +51,9 @@ try {
     const request = route.request(), path = new URL(request.url()).pathname;
     const send = data => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
     if (path === '/auth/me') return send({ email: 'browser-fixture@fala.invalid' });
-    if (path === '/dashboard') return send({ status: { speech: { transcription: 'groq', voice: 'openai' } }, progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [] });
-    if (path === '/sessions') { saved = { id: 'session-fixture', topic: 'Capoeira', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
+    if (path === '/dashboard') return send({ status: { speech: { transcription: 'groq', voice: 'openai' } }, progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [], rewards });
+    if (path === '/rewards') return send(rewards);
+    if (path === '/sessions') { saved = { id: 'session-fixture', topic: request.postDataJSON().topic, capoeira: request.postDataJSON().topic === 'capoeira class', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
     if (path.endsWith('/speech')) { speechRequests.push(request.postDataJSON()); return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }); }
     if (path === '/speech/transcribe') { assert.ok(request.postDataBuffer().length > 128); return send({ text: 'Sim, conheço.' }); }
     if (path.endsWith('/turns')) {
@@ -58,7 +62,7 @@ try {
       if (postCount === 1) dropGet = true;
       return send(saved.turns.at(-1).reply);
     }
-    if (path.endsWith('/finish')) return send({ summary: 'כל הכבוד!', vocabulary: words, pointers: ['נסו בלי ההצעה.'] });
+    if (path.endsWith('/finish')) { rewards.xp = 530; rewards.instructors[2].unlocked = true; return send({ summary: 'כל הכבוד!', vocabulary: words, pointers: ['נסו בלי ההצעה.'] }); }
     if (path === '/sessions/session-fixture') { if (dropGet) { dropGet = false; return route.abort(); } return send(saved); }
     return route.continue();
   });
@@ -66,6 +70,8 @@ try {
   await page.locator('#start').click(); await page.locator('#conversation').waitFor({ state: 'visible' });
   await page.locator('#send').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
+  assert.match(await page.locator('#partner-identity').textContent(), /Bateba/);
+  assert.equal(await page.locator('#partner-identity img').count(), 1);
   await page.waitForFunction(() => !document.getElementById('microphone').disabled);
   // Reply controls must remain visible and clickable at small sizes, including keyboard-sized viewports.
   async function assertComposerVisible() {
@@ -98,10 +104,10 @@ try {
   await page.locator('#partner-text').evaluate(element => { element.textContent = element.dataset.original; });
   await page.locator('#draft').fill('');
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.screenshot({ path: `${root}/artifacts/fala-web-0.8.0-desktop.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/fala-web-0.12.0-desktop.png`, fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#conversation-content').evaluate(element => { element.scrollTop = 0; });
-  await page.screenshot({ path: `${root}/artifacts/fala-web-0.8.0-mobile.png`, fullPage: true });
+  await page.screenshot({ path: `${root}/artifacts/fala-web-0.12.0-mobile.png`, fullPage: true });
   await page.locator('.idea-text').first().click();
   assert.equal(await page.locator('#draft').inputValue(), 'Sim, conheço.');
   assert.equal(postCount, 0, 'Selecting an idea must not send an answer');
@@ -144,7 +150,15 @@ try {
   }
   assert.equal(saved.turns.length, 10); assert.equal(await page.locator('#microphone').isVisible(), false);
   await page.locator('#complete').click(); await page.locator('#review').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('.word').count(), 1); assert.deepEqual(errors, []);
+  assert.equal(await page.locator('.word').count(), 1);
+  await page.getByText('Vesoura unlocked',{exact:true}).waitFor();
+  assert.equal(await page.locator('.partner-finish .partner-art').evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.equal(rewards.profile.instructor,'bateba','Unlocking must not change the saved selection');
+  await page.locator('#reward-celebration').screenshot({path:'artifacts/fala-0.12.0-unlock.png'});
+  await page.locator('#again').click(); await page.locator('#home').waitFor({state:'visible'});
+  await page.locator('#topic').selectOption('everyday life'); await page.locator('#start').click();
+  await page.locator('#conversation').waitFor({state:'visible'}); assert.equal(await page.locator('#partner-identity img').count(),0);
+  assert.deepEqual(errors, []);
   await context.close();
   // Offline installation cache contains public assets, not API or recordings.
   const offline = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -154,7 +168,7 @@ try {
   await offlinePage.reload(); await offlinePage.locator('#login-begin').waitFor({ state: 'visible' });
   assert.equal(await offlinePage.getByText(/family practice/i).count(), 0);
   const cached = await offlinePage.evaluate(async () => { const keys = await caches.keys(); return (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat(); });
-  assert.ok(cached.length >= 7); assert.ok(!cached.includes('/app/family.js')); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
+  assert.ok(cached.includes('/app/partners.js')); assert.ok(cached.includes('/app/instructors/vesoura.png')); assert.ok(cached.length >= 7); assert.ok(!cached.includes('/app/family.js')); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
   await offline.close();
-  console.log('PASS: persistent reply controls at phone/desktop/keyboard sizes with long text; suggestion selection never sends; conversation options; legacy links open normal sign-in; suggested answer playback, per-turn audio caching and slow playback; Hebrew RTL; recording/transcription and 10 turns; idempotent retry after lost response; review; offline public-only app shell; no browser exceptions.');
+  console.log('PASS: capoeira-only portraits and XP unlock celebrations with reduced motion; persistent reply controls at phone/desktop/keyboard sizes with long text; suggestion selection never sends; conversation options; legacy links open normal sign-in; suggested answer playback, per-turn audio caching and slow playback; Hebrew RTL; recording/transcription and 10 turns; idempotent retry after lost response; review; offline public-only app shell; no browser exceptions.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

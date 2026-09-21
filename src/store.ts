@@ -218,6 +218,7 @@ export function publicSession(session: Session) {
   const { request: _request, user_id: _user, ...rest } = session as Session & { user_id?: string };
   const level = practiceLevel(session.request.resolved_level);
   return { ...rest, feedback: session.feedback ? compactFeedback(session.feedback, session) : null,
+    capoeira: Boolean(session.request.resolved_lesson) || /capoeira/i.test(session.request.topic),
     practice: { level: level.level, title: level.title, goal: level.goal, answer_goal: level.answer_goal },
     support_language: session.request.support_language ?? "en-US", target_turns: PRACTICE_TURNS, demo: Number(session.demo), turns: session.turns.map(t => {
     const { request: _request, ...turn } = t as Turn & { request?: TurnInput };

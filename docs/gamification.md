@@ -1,4 +1,4 @@
-# Practice rewards in Fala 0.10.0
+# Practice rewards in Fala
 
 Web and native Android share account-owned rewards. New practice after this update earns points; older conversations are not retroactively scored. Cosmetic rewards do not change the learner's speaking level or capoeira curriculum.
 
@@ -16,6 +16,14 @@ A first complete conversation earns 50 XP. The daily base maximum is 90 XP, plus
 Themes: Classic (free), Copacabana (100 XP), Roda (300), Salvador sunset (1,000). Microphone skins: Classic (free), Ocean wave (150), Roda rhythm (600). Previews do not equip locked rewards. All choices support device/light/dark appearance. Celebration animation respects system and in-app reduced motion.
 
 A learner can join one private circle, with up to 12 members. Invitations are random, replaceable bearer links. Members see nicknames, weekly points and a shared goal of 12 conversations. The circle's creation time zone defines Monday resets. Only conversations earning a completion bonus count toward the shared goal. Points earned earlier in the same week are included on joining. Nothing posts to a public leaderboard. The creator can close the group; all learners keep personal rewards. Deleting a single conversation retains aggregate rewards; clearing learning data resets rewards; account deletion cascades through every reward table.
+
+## Capoeira partners (0.12.0)
+
+The original CapoeiraMath instructor art is available as optional character skins: Bananera (free, selected initially), Bateba (200 lifetime XP), and Vesoura (500). Full-character previews live in Rewards. A compact portrait appears in capoeira lessons only; everyday conversations keep the simple Fala label. A brief end-of-conversation celebration announces newly earned partners without automatically changing the selection. Fala only removes the character, including from future lesson cards. Unlock announcements may still appear when a new reward is earned.
+
+Selections belong to the signed-in account and sync on refresh between web and Android. These are cosmetic skins sharing Fala’s existing voice, prompts, difficulty and feedback, without impersonating an instructor. The server validates XP before saving a selection; older clients updating unrelated settings preserve it. Learning reset clears earned unlocks and restores Bananera, or keeps Fala only if already selected. Conversation deletion retains rewards.
+
+Apply `supabase/migrations/202609210001_instructors.sql` in a transaction before deploying 0.12.0. It adds one defaulted column to the existing reward profile and can be rerun. No AI-provider configuration or additional AI calls are needed for skins.
 
 ## Deployment and notifications
 
