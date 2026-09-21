@@ -1,0 +1,134 @@
+{
+  "xp": 250,
+  "today_xp": 50,
+  "today_replies": 10,
+  "daily_complete": true,
+  "profile": {
+    "nickname": "Learner",
+    "timezone": "Asia/Jerusalem",
+    "timezone_confirmed": true,
+    "theme": "classic",
+    "skin": "classic",
+    "instructor": "bateba",
+    "appearance": "light",
+    "reduce_motion": true,
+    "reminder_enabled": false,
+    "reminder_minute": 1020
+  },
+  "streak": {
+    "days": 1,
+    "protected_days": [],
+    "calendar": [
+      {
+        "day": "2026-09-14",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-15",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-16",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-17",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-18",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-19",
+        "status": "empty"
+      },
+      {
+        "day": "2026-09-20",
+        "status": "practised"
+      }
+    ]
+  },
+  "themes": [
+    {
+      "id": "classic",
+      "name": "Fala Classic",
+      "xp": 0,
+      "unlocked": true
+    },
+    {
+      "id": "beach",
+      "name": "Copacabana",
+      "xp": 100,
+      "unlocked": true
+    },
+    {
+      "id": "roda",
+      "name": "Roda",
+      "xp": 300,
+      "unlocked": false
+    },
+    {
+      "id": "sunset",
+      "name": "Salvador sunset",
+      "xp": 1000,
+      "unlocked": false
+    }
+  ],
+  "skins": [
+    {
+      "id": "classic",
+      "name": "Classic",
+      "xp": 0,
+      "unlocked": true
+    },
+    {
+      "id": "wave",
+      "name": "Ocean wave",
+      "xp": 150,
+      "unlocked": false
+    },
+    {
+      "id": "rhythm",
+      "name": "Roda rhythm",
+      "xp": 600,
+      "unlocked": false
+    }
+  ],
+  "instructors": [
+    {
+      "id": "bananera",
+      "name": "Bananera",
+      "color": "Green & gold",
+      "xp": 0,
+      "unlocked": true
+    },
+    {
+      "id": "bateba",
+      "name": "Bateba",
+      "color": "Blue & copper",
+      "xp": 200,
+      "unlocked": true
+    },
+    {
+      "id": "vesoura",
+      "name": "Vesoura",
+      "color": "Red & gold",
+      "xp": 500,
+      "unlocked": false
+    }
+  ],
+  "badges": [
+    {
+      "name": "First conversation",
+      "earned": true
+    }
+  ],
+  "weekly_mission": {
+    "title": "Practise three different class scenarios",
+    "progress": 1,
+    "target": 3,
+    "xp": 10
+  },
+  "web_push_key": null
+}
