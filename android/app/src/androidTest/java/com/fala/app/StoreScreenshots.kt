@@ -32,12 +32,28 @@ class StoreScreenshots {
         File(directory, "$name.jpg").outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
         bitmap.recycle()
     }
-    private fun scrollDown() {
-        instrumentation.waitForIdleSync(); Thread.sleep(400)
-        val bitmap=requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val x=bitmap.width/2; val start=(bitmap.height*.76).toInt();val end=(bitmap.height*.28).toInt();bitmap.recycle()
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input swipe $x $start $x $end 450")).use { it.readBytes() }
-        Thread.sleep(800)
+    private fun scrollToHeading(label: String) {
+        fun find(node: android.view.accessibility.AccessibilityNodeInfo?): android.graphics.Rect? {
+            if (node == null) return null
+            if (node.text?.toString() == label) return android.graphics.Rect().also { node.getBoundsInScreen(it) }
+            for (i in 0 until node.childCount) find(node.getChild(i))?.let { return it }
+            return null
+        }
+        var found=false
+        repeat(6) {
+            instrumentation.waitForIdleSync(); Thread.sleep(300)
+            val bitmap=requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            val width=bitmap.width;val height=bitmap.height;bitmap.recycle()
+            val heading=find(instrumentation.uiAutomation.rootInActiveWindow)
+            found = found || heading != null
+            val delta=heading?.let { it.top-(height*.10).toInt() } ?: (height*.38).toInt()
+            if (kotlin.math.abs(delta)<35) return
+            val start=(height*.78).toInt()
+            val end=(start-delta).coerceIn((height*.12).toInt(),(height*.88).toInt())
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input swipe ${width/2} $start ${width/2} $end 1400")).use { it.readBytes() }
+            Thread.sleep(300)
+        }
+        check(found) { "Could not frame store screenshot heading: $label" }
     }
     @Test fun captureNativeScreens() {
         ConnectionSettings(instrumentation.targetContext).clearSession()
@@ -65,7 +81,7 @@ class StoreScreenshots {
             scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java],"screen","home") }
             capture("03-practice-at-your-level")
             scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java],"screen","rewards") }
-            scrollDown()
+            scrollToHeading("Choose your capoeira partner.")
             capture("04-unlock-partners")
             scenario.onActivity { activity ->
                 val c=ViewModelProvider(activity)[SessionController::class.java]
@@ -73,7 +89,7 @@ class StoreScreenshots {
                 state(c,"feedback",JSONObject("""{"summary":"You asked about the ginga and followed a simple class instruction.","pointers":["Next time, try one answer without reading the suggestion."],"corrections":[],"vocabulary":[{"word":"ginga","translation":"capoeira's basic movement","occurrences":3},{"word":"devagar","translation":"slowly","occurrences":2},{"word":"aprender","translation":"to learn","occurrences":1},{"word":"de novo","translation":"again","occurrences":2}]}"""))
                 state(c,"screen","feedback")
             }
-            scrollDown()
+            scrollToHeading("4 words to keep")
             capture("05-words-to-keep")
             File(instrumentation.targetContext.getExternalFilesDir(null), "store-screenshots/capture.json").writeText(JSONObject()
                 .put("version",BuildConfig.VERSION_NAME).put("source","Native Android Compose UI on emulator")

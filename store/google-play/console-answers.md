@@ -4,7 +4,7 @@ Prepared for Fala 0.12.1, 21 September 2026. These are answers grounded in the c
 
 ## Confirmed account state
 
-The owner reports that production access is unavailable. The API audit found only a title in the English listing, no graphics, an empty alpha/closed-testing draft and a completed internal release. Internal testing does not satisfy Google's required closed test. Complete the app setup, recruit at least 12 eligible testers, keep them opted in to closed testing for 14 continuous days, then apply from Dashboard. Approval is not automatic after 14 days.
+The owner reports that production access is unavailable. The initial API audit found only a title in the English listing, no graphics, an empty alpha/closed-testing draft and a completed internal release. That initial audit is not a statement about subsequent store uploads; consult the latest workflow receipt. Internal testing does not satisfy Google's required closed test. Complete the app setup, recruit at least 12 eligible testers, keep them opted in to closed testing for 14 continuous days, then apply from Dashboard. Approval is not automatic after 14 days.
 
 ## Store settings
 
@@ -51,8 +51,8 @@ AI replies: Conversation options → Report this AI reply. End-of-session review
 
 1. Complete/confirm App content forms: privacy, ads, app access, target audience, content rating and Data safety. Clear any additional Console tasks shown for this account.
 2. Verify Google OAuth Audience allows the intended testers, not only the owner. Follow the app-access instructions and test sign-in using a different account.
-3. Choose closed-test countries and add the tester list in Console. Use the closed-track opt-in URL supplied by Console. Internal testers must also opt into the closed track.
+3. Choose closed-test countries and add the tester list in Console. Use the closed-track opt-in URL supplied by Console. Existing internal testers must first opt out of internal testing, then opt into the closed track using the same Google account as the Play Store. Adding an email to a list alone is not opting in.
 4. Review and roll out the closed-testing draft after required forms are accepted. Share the opt-in link with at least 12 testers aged 13+, and gather genuine feedback. No invitations have been sent by this preparation.
 5. After the continuous testing requirement is met, apply for production access with truthful answers about tester engagement, feedback, fixes and readiness. Then create/review the production release.
 
-Sources: [store assets](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), [closed testing](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en), [app access](https://support.google.com/googleplay/android-developer/answer/15748846?hl=en-GB), [Data safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en), [AI reporting](https://support.google.com/googleplay/android-developer/answer/13985936?hl=en-GB), [UGC](https://support.google.com/googleplay/android-developer/answer/9876937?hl=en), [AI asset declaration](https://support.google.com/googleplay/android-developer/answer/17262077?hl=en).
+Sources: [store assets](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), [closed testing](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en), [switching test tracks](https://support.google.com/googleplay/android-developer/answer/9845334?hl=en-GB), [app access](https://support.google.com/googleplay/android-developer/answer/15748846?hl=en-GB), [Data safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en), [AI reporting](https://support.google.com/googleplay/android-developer/answer/13985936?hl=en-GB), [UGC](https://support.google.com/googleplay/android-developer/answer/9876937?hl=en), [AI asset declaration](https://support.google.com/googleplay/android-developer/answer/17262077?hl=en).
