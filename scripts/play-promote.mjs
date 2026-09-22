@@ -6,11 +6,13 @@ import { checkRelease, releaseMetadata } from './release.mjs';
 const root = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.fala.app/edits';
 
 // Manual, explicitly authorized promotion of one existing bundle. Automatic publishing stays internal.
-export async function promoteClosedTest({ token, expectedVersion, release, request = fetch }) {
+export async function promoteClosedTest({ token, expectedVersion, release, replacePendingReview = false, request = fetch }) {
   const metadata = releaseMetadata(release?.version, release?.notes?.[0]?.text);
   if (!token || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1 || expectedVersion > 2100000000) {
     throw Error('Specify the exact existing Play version code to promote.');
   }
+  if (typeof replacePendingReview !== 'boolean') throw Error('Review replacement must be an explicit boolean.');
+  const reviewBehavior = replacePendingReview ? 'CANCEL_IN_REVIEW_AND_SUBMIT' : 'ERROR_IF_IN_REVIEW';
   const code = String(expectedVersion);
   const name = `Fala ${metadata.version} (${code})`;
   const call = async (path = '', method = 'GET', body) => {
@@ -57,7 +59,9 @@ export async function promoteClosedTest({ token, expectedVersion, release, reque
         ...(source.inAppUpdatePriority === undefined ? {} : { inAppUpdatePriority: source.inAppUpdatePriority }) };
       await call(`/${editId}/tracks/alpha`, 'PUT', { track: 'alpha', releases: [promoted] });
       await call(`/${editId}:validate`, 'POST');
-      await call(`/${editId}:commit?changesInReviewBehavior=ERROR_IF_IN_REVIEW`, 'POST');
+      // An explicit manual replacement resubmits all pending changes with the new Alpha
+      // bundle. Ordinary promotions preserve any review already in progress.
+      await call(`/${editId}:commit?changesInReviewBehavior=${reviewBehavior}`, 'POST');
       committed = true;
     }
     // Verify using a fresh edit, rather than mistaking an uncommitted response for a published track.
@@ -68,7 +72,7 @@ export async function promoteClosedTest({ token, expectedVersion, release, reque
       throw Error('The committed Alpha release could not be verified. Check Play Console before retrying.');
     }
     return { package: 'com.fala.app', version: metadata.version, versionCode: expectedVersion,
-      track: 'alpha', status: 'completed', verified: true, alreadyPromoted,
+      track: 'alpha', status: 'completed', verified: true, alreadyPromoted, reviewBehavior,
       before, after, verifiedAt: new Date().toISOString(),
       availability: 'The API confirms the track release; Play review or managed publishing may still delay tester availability.' };
   } finally {
@@ -82,8 +86,23 @@ async function main() {
   const release = await checkRelease();
   const expectedVersion = Number(process.env.FALA_CLOSED_VERSION_CODE);
   if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw Error('Provide FALA_CLOSED_VERSION_CODE.');
+  const replacement = process.env.FALA_REPLACE_PENDING_REVIEW || 'false';
+  if (!['true', 'false'].includes(replacement)) throw Error('FALA_REPLACE_PENDING_REVIEW must be true or false.');
   const token = await googleAccessToken(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || '');
-  const receipt = await promoteClosedTest({ token, expectedVersion, release });
+  const receipt = await promoteClosedTest({ token, expectedVersion, release, replacePendingReview: replacement === 'true' });
+  // Track status alone is not proof of availability. Read Google's separate review state.
+  try {
+    const response = await fetch(root.replace('/edits', '/tracks/alpha/releases'), {
+      headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(30000),
+    });
+    if (response.ok) {
+      const body = await response.json();
+      receipt.releaseLifecycles = (body.releases || []).map(item => ({
+        releaseName: item.releaseName, track: item.track, state: item.releaseLifecycleState,
+        versionCodes: (item.activeArtifacts || []).map(artifact => artifact.versionCode),
+      }));
+    } else receipt.lifecycleReadStatus = response.status;
+  } catch { receipt.lifecycleReadStatus = 'unavailable'; }
   await mkdir('artifacts/play-store', { recursive: true });
   await writeFile('artifacts/play-store/promotion-alpha.json', JSON.stringify(receipt, null, 2) + '\n');
   const summary = `Fala ${receipt.version} (build ${receipt.versionCode}) promoted to closed testing (alpha, completed); verified in a fresh Play edit.\n${receipt.availability}\n`;

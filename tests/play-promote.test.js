@@ -21,7 +21,7 @@ function play({ internal = source, alpha = [{ name: '0.12.4', versionCodes: ['10
     }
     if (url.pathname.endsWith(':validate')) return Response.json({ id: 'edit1' });
     if (url.pathname.endsWith(':commit')) {
-      if (rejectCommit) return Response.json({ error: { message: 'secret-access-token', details: [{ reason: 'CHANGES_ALREADY_IN_REVIEW' }] } }, { status: 400 });
+      if (rejectCommit && url.searchParams.get('changesInReviewBehavior') === 'ERROR_IF_IN_REVIEW') return Response.json({ error: { message: 'secret-access-token', details: [{ reason: 'CHANGES_ALREADY_IN_REVIEW' }] } }, { status: 400 });
       committed = true; return Response.json({ id: 'edit1' });
     }
     throw Error(`Unexpected call: ${options.method} ${url.pathname}`);
@@ -73,6 +73,26 @@ describe('explicit closed-test promotion', () => {
     await expect(promote(mock)).rejects.toThrow('did not cancel');
     expect(mock.calls.filter(c => c.url.pathname.endsWith(':commit'))).toHaveLength(1);
     expect(mock.calls.at(-1).method).toBe('DELETE');
+  });
+  it('resubmits a pending review only when explicitly requested, reusing the same bundle', async () => {
+    const mock = play({ rejectCommit: true });
+    const result = await promote(mock, { replacePendingReview: true });
+    expect(result).toMatchObject({ verified: true, versionCode: 103201, reviewBehavior: 'CANCEL_IN_REVIEW_AND_SUBMIT' });
+    const commit = mock.calls.find(c => c.url.pathname.endsWith(':commit'));
+    expect(commit.url.searchParams.get('changesInReviewBehavior')).toBe('CANCEL_IN_REVIEW_AND_SUBMIT');
+    expect(mock.calls.filter(c => c.method === 'PUT').map(c => c.url.pathname)).toEqual([
+      '/androidpublisher/v3/applications/com.fala.app/edits/edit1/tracks/alpha',
+    ]);
+    expect(result.before.filter(t => t.track !== 'alpha')).toEqual(result.after.filter(t => t.track !== 'alpha'));
+  });
+  it('rejects ambiguous review replacement input and still preserves unrelated Alpha drafts', async () => {
+    for (const replacePendingReview of ['true', 'false', 1, null]) {
+      const mock = play(); await expect(promote(mock, { replacePendingReview })).rejects.toThrow('explicit boolean');
+      expect(mock.calls).toHaveLength(0);
+    }
+    const mock = play({ alpha: [{ name: 'draft', versionCodes: ['103101'], status: 'draft' }] });
+    await expect(promote(mock, { replacePendingReview: true })).rejects.toThrow('another draft');
+    expect(mock.calls.some(c => c.method === 'PUT')).toBe(false);
   });
   it('does not report success when a fresh edit fails to show the promoted version', async () => {
     await expect(promote(play({ verificationMismatch: true }))).rejects.toThrow('could not be verified');

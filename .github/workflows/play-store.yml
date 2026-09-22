@@ -11,6 +11,10 @@ on:
         description: Exact existing internal Play version code (required only for promote-alpha)
         type: string
         required: false
+      replace_pending_review:
+        description: Explicitly replace a pending Play review and resubmit all pending changes with this Alpha build
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -30,6 +34,7 @@ jobs:
         env:
           STORE_MODE: ${{ inputs.mode }}
           FALA_CLOSED_VERSION_CODE: ${{ inputs.version_code }}
+          FALA_REPLACE_PENDING_REVIEW: ${{ inputs.replace_pending_review }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           case "$STORE_MODE" in
