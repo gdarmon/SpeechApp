@@ -45,6 +45,10 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity() {
     private val google by lazy { GoogleSignIn(this) }
     private lateinit var controller: SessionController
+    private lateinit var updates: AppUpdates
+    private val updateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (::updates.isInitialized) updates.onResult(result.resultCode)
+    }
     private var permissionAction: (() -> Unit)? = null
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) permissionAction?.invoke()
@@ -59,9 +63,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
         controller = ViewModelProvider(this)[SessionController::class.java]
+        updates = AppUpdates(this, controller.settings, updateLauncher) {
+            controller.screen in listOf("home", "settings") && !controller.busy
+        }
         setContent {
             FalaTheme(controller) {
-                FalaApp(controller, ::withMicrophone, google,
+                FalaApp(controller, ::withMicrophone, google, updates,
                     appSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
                     voiceSettings = { runCatching { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                         .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } })
@@ -69,6 +76,9 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun onStart() { super.onStart(); if (::controller.isInitialized) controller.setForeground(true) }
+    override fun onResume() { super.onResume(); if (::updates.isInitialized) updates.resume() }
+    override fun onPause() { if (::updates.isInitialized) updates.pause(); super.onPause() }
+    override fun onDestroy() { if (::updates.isInitialized) updates.close(); super.onDestroy() }
     override fun onStop() { controller.setForeground(false); super.onStop() }
 }
 
@@ -76,7 +86,7 @@ private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { get
 private fun JSONArray.strings(): List<String> = (0 until length()).map { getString(it) }
 
 @Composable
-private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: GoogleSignIn, appSettings: () -> Unit, voiceSettings: () -> Unit) {
+private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: GoogleSignIn, updates: AppUpdates, appSettings: () -> Unit, voiceSettings: () -> Unit) {
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var finishDialog by remember { mutableStateOf(false) }
     var conversationOptions by remember { mutableStateOf(false) }
@@ -122,6 +132,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                     }
                 }
             }
+            if (updates.visible(c.screen, c.busy)) UpdateCard(updates, c.supportLanguage == "he-IL")
             when (c.screen) {
                 "welcome" -> Welcome(c, google)
                 "settings" -> AccountSettings(c, google, appSettings, voiceSettings, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })

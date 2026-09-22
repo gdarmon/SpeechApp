@@ -55,6 +55,7 @@ dependencies {
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")
+    implementation("com.google.android.play:app-update:2.1.0")
     implementation(platform("androidx.compose:compose-bom:2025.08.01"))
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")

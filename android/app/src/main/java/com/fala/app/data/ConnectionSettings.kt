@@ -45,6 +45,12 @@ class ConnectionSettings(context: Context) {
     var walkthroughSeen: Boolean
         get() = prefs.getBoolean(walkthroughKey, false)
         set(value) { prefs.edit().putBoolean(walkthroughKey, value).apply() }
+    // An app update belongs to this installation, not to a particular learner.
+    val dismissedUpdateVersion: Int get() = prefs.getInt("dismissedUpdateVersion", 0)
+    val updateReminderAfter: Long get() = prefs.getLong("updateReminderAfter", 0)
+    fun postponeUpdate(version: Int, until: Long) {
+        prefs.edit().putInt("dismissedUpdateVersion", version).putLong("updateReminderAfter", until).apply()
+    }
     var rewardProfile: String
         get() = prefs.getString("rewardProfile", "{}").orEmpty()
         set(value) { prefs.edit().putString("rewardProfile", value).apply() }
