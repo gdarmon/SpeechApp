@@ -1,0 +1,1 @@
+Clearer reply text in dark mode. Each suggested answer now has separate normal and slower playback buttons. Improved first-use microphone guidance and steps to fix permission or speech-service problems. New Microphone help lets you choose network recognition and share a diagnostic report with support, without recordings, conversations or sign-in details.

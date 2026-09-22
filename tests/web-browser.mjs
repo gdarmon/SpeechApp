@@ -177,8 +177,22 @@ try {
     await page.locator('.idea-actions .secondary').nth(index).click(); await response;
   }
   assert.deepEqual(speechRequests, [{ turn_id: null, suggestion_index: null }, { turn_id: null, suggestion_index: 0 }, { turn_id: null, suggestion_index: 1 }]);
+  assert.equal(await page.locator('.idea-actions .secondary').first().innerText(), 'רגיל');
+  assert.equal(await page.locator('.idea-actions .text-button').first().innerText(), 'איטי');
+  await page.evaluate(() => {
+    window.phrasePlaybackRates = [];
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      window.phrasePlaybackRates.push(this.playbackRate.value);
+      return start.apply(this, args);
+    };
+  });
   await page.locator('.idea-actions .text-button').first().click();
+  await page.waitForFunction(() => window.phrasePlaybackRates.length === 1);
+  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[0]) - 0.8) < 0.001);
   await page.locator('.idea-actions .secondary').first().click();
+  await page.waitForFunction(() => window.phrasePlaybackRates.length === 2);
+  assert.equal(await page.evaluate(() => window.phrasePlaybackRates[1]), 1, 'Normal must restore normal speed after Slow');
   await page.locator('#listen').click(); await page.waitForTimeout(100);
   assert.equal(speechRequests.length, 3, 'Repeating or slowing a saved clip must not request it again');
   assert.equal(await page.locator('#draft').inputValue(), ''); assert.equal(postCount, 0);

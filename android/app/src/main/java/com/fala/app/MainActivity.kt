@@ -1,6 +1,8 @@
 package com.fala.app
 
 import com.fala.app.data.GoogleSignIn
+import com.fala.app.voice.VoiceEvent
+import com.fala.app.voice.VoiceOperation
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -50,14 +52,22 @@ class MainActivity : ComponentActivity() {
         if (::updates.isInitialized) updates.onResult(result.resultCode)
     }
     private var permissionAction: (() -> Unit)? = null
+    private var microphoneDenied by mutableStateOf(false)
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) permissionAction?.invoke()
-        else controller.report("Microphone access is needed for speaking practice. You can enable it in Android app settings.")
+        controller.microphonePermissionResult(granted)
+        val action = permissionAction
         permissionAction = null
+        if (granted) action?.invoke() else microphoneDenied = true
     }
     private fun withMicrophone(action: () -> Unit) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) action()
-        else { permissionAction = action; microphone.launch(Manifest.permission.RECORD_AUDIO) }
+        else {
+            controller.diagnostics.events.record(VoiceEvent.MICROPHONE_PERMISSION_REQUEST, operation = VoiceOperation.REQUEST_PERMISSION)
+            permissionAction = action; microphone.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    private fun openAppSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,9 +79,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             FalaTheme(controller) {
                 FalaApp(controller, ::withMicrophone, google, updates,
-                    appSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) },
+                    appSettings = ::openAppSettings,
                     voiceSettings = { runCatching { startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                         .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) } })
+                if (microphoneDenied) {
+                    val he = controller.conversationLanguage == "he-IL"
+                    AlertDialog(onDismissRequest = { microphoneDenied = false },
+                        title = { Text(if (he) "צריך לאפשר גישה למיקרופון" else "Allow microphone access") },
+                        text = { Text(if (he) "בהגדרות Fala במכשיר, פתחו הרשאות ← מיקרופון ובחרו לאפשר בזמן השימוש באפליקציה. חזרו ל־Fala והחזיקו שוב את כפתור המיקרופון. אפשר גם להמשיך בהקלדה."
+                            else "In Fala’s app settings, open Permissions → Microphone and allow access while using the app. Return to Fala and hold the microphone again. You can also keep typing.") },
+                        confirmButton = { TextButton(onClick = { microphoneDenied = false; openAppSettings() }) { Text(if (he) "פתיחת הגדרות" else "Open settings") } },
+                        dismissButton = { TextButton(onClick = { microphoneDenied = false }) { Text(if (he) "להמשיך בהקלדה" else "Keep typing") } })
+                }
             }
         }
     }
@@ -90,6 +109,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var finishDialog by remember { mutableStateOf(false) }
     var conversationOptions by remember { mutableStateOf(false) }
+    var microphoneHelp by remember { mutableStateOf(false) }
+    val openMicrophoneHelp: () -> Unit = { c.pause(); microphoneHelp = true }
     BackHandler(c.screen !in listOf("home", "welcome", "language")) { if (!c.busy) c.navigate("home") }
     val scroll = rememberScrollState()
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
@@ -98,7 +119,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
         topBar = { if (c.screen == "talk") ConversationHeader(c) { conversationOptions = true } },
         bottomBar = {
-            if (c.screen == "talk") ConversationComposer(c, mic)
+            if (c.screen == "talk") ConversationComposer(c, mic, openMicrophoneHelp)
             else if (c.settings.signedIn && c.screen in listOf("home", "rewards", "friends", "settings")) Surface(color=MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(6.dp),horizontalArrangement=Arrangement.SpaceEvenly) {
                     listOf("home" to "Practise", "friends" to "Friends", "rewards" to "Rewards", "settings" to "Settings").forEach { (destination,label) ->
@@ -135,7 +156,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             if (updates.visible(c.screen, c.busy)) UpdateCard(updates, c.supportLanguage == "he-IL")
             when (c.screen) {
                 "welcome" -> Welcome(c, google)
-                "settings" -> AccountSettings(c, google, appSettings, voiceSettings, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })
+                "settings" -> AccountSettings(c, google, openMicrophoneHelp, voiceSettings, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })
                 "language" -> {
                     Title("A little help, in your language.", "Choose translations once. You can change this in Settings.")
                     SupportLanguageChoice(c)
@@ -168,8 +189,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         }
     }
     }
-    if (c.screen == "talk") Walkthrough(c, walkthroughTargets)
+    if (c.screen == "talk" && !microphoneHelp) Walkthrough(c, walkthroughTargets, openMicrophoneHelp)
+    if (microphoneHelp) MicrophoneHelp(c, mic, appSettings, voiceSettings) { microphoneHelp = false }
     if (conversationOptions && c.screen == "talk") ConversationOptions(c, voiceSettings,
+        microphoneHelp = { conversationOptions = false; openMicrophoneHelp() },
         close = { conversationOptions = false }, finish = { conversationOptions = false; c.pause(); finishDialog = true })
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
         text = { Text(if (deleteTarget == "account") "This permanently deletes your Fala account, conversations, and learning progress and signs out all your devices. It does not delete your Google account."
@@ -422,8 +445,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                                 TranslatedText(idea.optString("translation"), c.conversationLanguage)
                             }
                         }
-                        IconButton(onClick = { c.listenTo(idea.getString("text")) }, enabled = enabled) {
-                            Icon(painterResource(R.drawable.ic_play), "Listen to ${idea.getString("text")}", Modifier.size(20.dp))
+                        PhrasePlaybackControls(idea.getString("text"), c.conversationLanguage, enabled) { slower ->
+                            c.listenTo(idea.getString("text"), slower)
                         }
                     }
                 }
@@ -436,8 +459,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     }
 }
 
-@Composable private fun ConversationOptions(c: SessionController, voiceSettings: () -> Unit, close: () -> Unit, finish: () -> Unit) {
-    var network by remember { mutableStateOf(c.settings.networkRecognition) }
+@Composable private fun ConversationOptions(c: SessionController, voiceSettings: () -> Unit, microphoneHelp: () -> Unit, close: () -> Unit, finish: () -> Unit) {
     AlertDialog(onDismissRequest = close, title = { Text("Conversation options") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { c.toggleHelp(); close() }, enabled = !c.busy && !c.retryAvailable && !c.practiceComplete) {
@@ -445,10 +467,11 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             }
             c.session.optJSONObject("practice")?.optString("answer_goal")?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(network, { network = it; c.settings.networkRecognition = it })
+                Switch(c.networkRecognition, c::chooseNetworkRecognition)
                 Text("Network speech recognition", Modifier.padding(start = 8.dp).weight(1f))
             }
             Text("Your phone’s online speech service may receive your audio when this is on.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = microphoneHelp) { Text(if (c.conversationLanguage == "he-IL") "עזרת מיקרופון ושיתוף דוח תקלה" else "Microphone help & share a report") }
             TextButton(onClick = { close(); c.openWalkthrough(true) }, enabled = !c.busy && !c.recording && !c.practiceComplete) {
                 Text(if (c.conversationLanguage == "he-IL") "הצגת הדרכת השיחה" else "Show conversation guide")
             }
@@ -459,21 +482,24 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     }, confirmButton = { TextButton(onClick = close) { Text("Done") } })
 }
 
-@Composable private fun ConversationComposer(c: SessionController, mic: (() -> Unit) -> Unit) {
+@Composable private fun ConversationComposer(c: SessionController, mic: (() -> Unit) -> Unit, microphoneHelp: () -> Unit) {
     val language = c.conversationLanguage
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val enabled = !c.busy && !c.recording && !c.retryAvailable && !c.practiceComplete
-    Surface(shadowElevation = 8.dp, color = Color.White) {
+    Surface(shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (c.error.isNotBlank()) {
                 Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.error, Modifier.weight(1f).heightIn(max = 72.dp).verticalScroll(rememberScrollState()).padding(vertical = 10.dp), style = MaterialTheme.typography.bodySmall)
+                    Text(c.error, Modifier.weight(1f).heightIn(max = 72.dp).verticalScroll(rememberScrollState()).padding(vertical = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                     if (c.retryAvailable) TextButton(onClick = c::retry, enabled = !c.busy) { Text("Retry") }
                 }
             }
             if (c.voiceNotice.isNotBlank()) Text(c.voiceNotice, Modifier.heightIn(max = 64.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
+            if (c.voiceTrouble && c.voiceNotice.isNotBlank()) TextButton(onClick = microphoneHelp, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text(if (language == "he-IL") "עזרת מיקרופון" else "Microphone help")
+            }
             if (c.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp))
             if (c.holding) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
             if (!c.practiceComplete) {
@@ -482,6 +508,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                         onValueChange = c::editDraft, placeholder = { Text(if (c.helpMode) "Say it in ${if (language == "he-IL") "Hebrew" else "English"} first…" else "Your reply… speak or type", style = MaterialTheme.typography.bodyMedium) },
                         modifier = Modifier.weight(1f).semantics { contentDescription = "Your answer — check before sending" }, enabled = enabled,
                         minLines = 1, maxLines = 2, shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant),
                         textStyle = LocalTextStyle.current.copy(textDirection = if (c.helpMode && language == "he-IL") TextDirection.Rtl else TextDirection.Ltr))
                     FilledIconButton(onClick = { keyboard?.hide(); focus.clearFocus(); c.sendDraft() }, enabled = c.draft.text.isNotBlank() && enabled,
                         modifier = Modifier.size(52.dp), shape = RoundedCornerShape(14.dp)) {
@@ -545,9 +573,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     }
 }
 
-@Composable private fun AccountSettings(c: SessionController, google: GoogleSignIn, appSettings: () -> Unit,
+@Composable private fun AccountSettings(c: SessionController, google: GoogleSignIn, microphoneHelp: () -> Unit,
     voiceSettings: () -> Unit, onDelete: () -> Unit, onDeleteAccount: () -> Unit) {
-    var network by remember { mutableStateOf(c.settings.networkRecognition) }
     Title("Your Fala", c.settings.email)
     OutlinedButton(onClick = c::requestWalkthrough, enabled = !c.busy) {
         Text(if (c.supportLanguage == "he-IL") "הצגת הדרכת השיחה שוב" else "Show the conversation guide again")
@@ -556,11 +583,11 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     SupportLanguageChoice(c)
     Text("This choice applies to new conversations.", style = MaterialTheme.typography.bodySmall)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(network, { network = it; c.settings.networkRecognition = it }, enabled = !c.busy)
+        Switch(c.networkRecognition, c::chooseNetworkRecognition, enabled = !c.busy)
         Text("Use network speech recognition", Modifier.padding(start = 12.dp))
     }
     Text("Network recognition may send audio to your phone's speech provider. Voice playback may also use a network voice if no local voice is installed.")
-    TextButton(onClick = appSettings) { Text("Microphone permissions") }
+    TextButton(onClick = microphoneHelp) { Text(if (c.supportLanguage == "he-IL") "עזרת מיקרופון ושיתוף דוח תקלה" else "Microphone help & share a report") }
     TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
     PrivacyLink()
     OutlinedButton(onClick = { c.signOut(google::clear) }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }

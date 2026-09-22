@@ -1,4 +1,4 @@
-const CACHE = 'fala-web-0.13.0';
+const CACHE = 'fala-web-0.13.1';
 const SHELL = ['/app/', '/app/index.html', '/app/app.css', '/app/app.js', '/app/api.js', '/app/voice.js', '/app/walkthrough.js', '/app/rewards.js', '/app/partners.js', '/app/instructors/bananera.png', '/app/instructors/bateba.png', '/app/instructors/vesoura.png', '/app/manifest.webmanifest', '/logo.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('fala-web-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));

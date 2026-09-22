@@ -195,7 +195,14 @@ function renderReply(round, topic, complete = false) {
     const controls = document.createElement('div'); controls.className = 'idea-actions';
     for (const slow of [false, true]) {
       const button = document.createElement('button'); button.type = 'button'; button.className = slow ? 'text-button' : 'secondary';
-      button.textContent = slow ? '0.8×' : '▶';
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', slow ? 'M3 6 11 12 3 18ZM13 6 21 12 13 18Z' : 'M8 5 19 12 8 19Z');
+      icon.append(path);
+      const label = document.createElement('span');
+      label.textContent = slow ? (language === 'he-IL' ? 'איטי' : 'Slow') : (language === 'he-IL' ? 'רגיל' : 'Normal');
+      button.append(icon, label);
       button.title = slow ? 'Listen slowly' : 'Listen to this answer';
       button.setAttribute('aria-label', `${slow ? 'Slowly listen' : 'Listen'} to suggested answer ${index + 1}: ${idea.text}`);
       button.onclick = () => { voice.unlock(); listen(slow, index); };

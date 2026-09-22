@@ -15,6 +15,9 @@ import com.fala.app.voice.AndroidSpeechOutput
 import com.fala.app.voice.SpeechInput
 import com.fala.app.voice.SpeechOutput
 import com.fala.app.voice.ReplyDraft
+import com.fala.app.voice.VoiceEvent
+import com.fala.app.voice.VoiceOperation
+import com.fala.app.voice.SpeechFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,11 +28,19 @@ import java.util.UUID
 
 class SessionController(application: Application) : AndroidViewModel(application) {
     val settings = ConnectionSettings(application)
+    val diagnostics = SupportDiagnostics(application)
+    var networkRecognition by mutableStateOf(settings.networkRecognition)
+        private set
+    fun chooseNetworkRecognition(enabled: Boolean) {
+        pause()
+        settings.networkRecognition = enabled; networkRecognition = enabled
+        diagnostics.events.record(VoiceEvent.NETWORK_CHOICE, network = enabled)
+    }
     private val api = SessionApi(settings) { seconds ->
         connectionNotice = if (seconds > 0) "The conversation service is busy. Retrying in $seconds second${if (seconds == 1) "" else "s"}…" else ""
     }
-    private val input: SpeechInput = AndroidSpeechInput(application)
-    private val output: SpeechOutput = AndroidSpeechOutput(application)
+    private val input: SpeechInput = AndroidSpeechInput(application, diagnostics.events)
+    private val output: SpeechOutput = AndroidSpeechOutput(application, diagnostics.events)
     var screen by mutableStateOf(if (settings.consent && settings.signedIn) {
         if (settings.supportLanguage.isBlank()) "language" else "home"
     } else "welcome")
@@ -101,6 +112,22 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var voiceNotice by mutableStateOf("")
         private set
+    var voiceTrouble by mutableStateOf(false)
+        private set
+    private var permissionMissing = false
+    private fun refreshMicrophonePermission() {
+        if (permissionMissing && diagnostics.microphoneAllowed()) {
+            permissionMissing = false; voiceTrouble = false; voiceNotice = ""
+        }
+    }
+    fun microphonePermissionResult(granted: Boolean) {
+        diagnostics.events.record(VoiceEvent.MICROPHONE_PERMISSION, if (granted) 1 else 0, operation = VoiceOperation.REQUEST_PERMISSION)
+        if (!granted) {
+            permissionMissing = true
+            voiceTrouble = true
+            voiceNotice = SpeechFailure(9).message(conversationLanguage == "he-IL", networkRecognition)
+        } else refreshMicrophonePermission()
+    }
     var voiceLevel by mutableStateOf(0f)
         private set
     var holding by mutableStateOf(false)
@@ -134,6 +161,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             catch (cancel: CancellationException) { throw cancel }
             catch (_: SignInCancelled) { retryAction = null }
             catch (failure: Exception) {
+                diagnostics.events.record(VoiceEvent.API_ERROR, (failure as? ServerFailure)?.status)
                 if (failure is ServerFailure && failure.status == 401) clearAccount()
                 error = if (failure is org.json.JSONException) "Fala could not read this reply. Please retry."
                     else failure.message?.take(350) ?: "Something interrupted the conversation. Please retry."
@@ -188,7 +216,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             val idToken = credential(challenge.getString("google_client_id"), challenge.getString("nonce"))
             val result = api.post("/auth/google", JSONObject().put("challenge_id", challenge.getString("challenge_id")).put("id_token", idToken))
             settings.saveSession(result)
-            settings.networkRecognition = network; settings.consent = true
+            settings.networkRecognition = network; networkRecognition = network; settings.consent = true
             screen = "home"
             loadProgress()
         }
@@ -198,6 +226,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         closeWalkthrough()
         ReminderScheduler.cancel(getApplication())
         pause(); settings.clearSession()
+        diagnostics.clear(); voiceTrouble = false; permissionMissing = false
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
         feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
@@ -306,7 +335,11 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     fun pause() { audioEnabled = false; stopVoice(); phase = "Your turn"; showSummaryWhenReady() }
-    fun setForeground(value: Boolean) { foreground = value; if (!value) pause() }
+    fun setForeground(value: Boolean) {
+        diagnostics.events.record(if (value) VoiceEvent.APP_FOREGROUND else VoiceEvent.APP_BACKGROUND)
+        if (value) refreshMicrophonePermission()
+        foreground = value; if (!value) pause()
+    }
 
     fun play() {
         if (busy || retryAvailable) return
@@ -320,10 +353,11 @@ class SessionController(application: Application) : AndroidViewModel(application
         speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()))
     }
 
-    fun listenTo(text: String) {
+    fun listenTo(text: String, slowPlayback: Boolean = false) {
         if (busy || recording || retryAvailable) return
         audioEnabled = true; voiceNotice = ""
-        speakPortuguese(text)
+        // A phrase button selects its own speed, independently of the partner's Slow setting.
+        speakPortuguese(text, slowPlayback)
     }
 
     private fun showSummaryWhenReady() {
@@ -337,16 +371,17 @@ class SessionController(application: Application) : AndroidViewModel(application
         celebratePractice()
     }
 
-    private fun speakPortuguese(text: String) {
+    private fun speakPortuguese(text: String, slowPlayback: Boolean = slow || reply.optString("pace") == "slow") {
         stopVoice()
+        voiceTrouble = false
         if (!audioEnabled || !foreground) { phase = "Your turn"; return }
         if (text.isBlank()) { phase = "Your turn"; return }
         phase = "Speaking"
         val generation = voiceGeneration
-        output.speak(text, slow || reply.optString("pace") == "slow", done = {
+        output.speak(text, slowPlayback, done = {
             if (generation == voiceGeneration) { phase = "Your turn"; showSummaryWhenReady() }
         }, error = { message ->
-            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message; showSummaryWhenReady() }
+            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message; voiceTrouble = true; showSummaryWhenReady() }
         })
     }
 
@@ -369,6 +404,8 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     fun beginHolding() {
         if (busy || retryAvailable || recording || practiceComplete || !foreground || screen != "talk") return
+        diagnostics.events.record(VoiceEvent.HOLD_START)
+        voiceTrouble = false
         stopVoice(); audioEnabled = true; holding = true; voiceNotice = ""
         draft = ReplyDraft(assisted = draft.assisted)
         val generation = voiceGeneration
@@ -381,6 +418,7 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     fun finishHolding() {
         if (!holding) return
+        diagnostics.events.record(VoiceEvent.HOLD_RELEASE)
         holding = false; voiceLevel = 0f; timeout?.cancel()
         if (phase == "Listening") {
             phase = "Recognizing"
@@ -388,10 +426,13 @@ class SessionController(application: Application) : AndroidViewModel(application
             timeout = viewModelScope.launch {
                 delay(8000)
                 if (generation == voiceGeneration) {
+                    diagnostics.events.record(VoiceEvent.RECOGNITION_ERROR, -5, operation = VoiceOperation.AWAIT_RESULT)
                     val partial = partialWords
                     stopVoice()
                     if (partial.isNotBlank()) draft = draft.edited(listOf(draft.text, partial).filter { it.isNotBlank() }.joinToString(" "))
-                    phase = "Your turn"; voiceNotice = "Check the words below, or hold to try again."
+                    phase = "Your turn"; voiceTrouble = true
+                    voiceNotice = if (conversationLanguage == "he-IL") "שירות הדיבור לא החזיר תשובה בזמן. בדקו את המילים שנשמרו או נסו שוב. אם זה חוזר, פתחו את עזרת המיקרופון."
+                        else "The speech service did not return a result in time. Check the words below or try again. If it repeats, open Microphone help."
                 }
             }
             input.finish()
@@ -404,6 +445,7 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     fun cancelHolding() {
         if (!recording) return
+        diagnostics.events.record(VoiceEvent.HOLD_CANCEL)
         stopVoice(); draft = ReplyDraft(); phase = "Your turn"; voiceNotice = "Recording cancelled."
     }
 
@@ -429,7 +471,9 @@ class SessionController(application: Application) : AndroidViewModel(application
                     val partial = partialWords
                     stopVoice()
                     if (partial.isNotBlank()) draft = draft.edited(listOf(draft.text, partial).filter { it.isNotBlank() }.joinToString(" "))
-                    phase = "Your turn"; voiceNotice = message
+                    phase = "Your turn"; voiceTrouble = true
+                    permissionMissing = message.code == 9
+                    voiceNotice = message.message(conversationLanguage == "he-IL", networkRecognition)
                 }
             })
     }

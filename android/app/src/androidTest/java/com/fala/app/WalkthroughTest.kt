@@ -73,6 +73,18 @@ class WalkthroughTest {
                 capture("en-step-${step + 1}")
                 waitForLabel("${step + 1} / 5")
                 if (step == 1) { click("Back"); waitForLabel("1 / 5"); click("Next") }
+                if (step == 2) {
+                    click("Microphone help & settings")
+                    waitForLabel("Microphone help")
+                    capture("en-microphone-help")
+                    scenario.onActivity { activity ->
+                        val c = ViewModelProvider(activity)[SessionController::class.java]
+                        assertFalse(c.recording) // Opening help must never open the microphone.
+                        assertEquals(2, c.walkthroughStep)
+                    }
+                    click("Back")
+                    waitForLabel("3 / 5")
+                }
                 click(if (step == 4) "Let’s try it" else "Next")
             }
             scenario.recreate()

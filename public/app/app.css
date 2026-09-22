@@ -99,7 +99,8 @@ article.partner { margin: 0; padding: 18px; background: var(--pale); border: 0; 
 .idea-text .pt { display: block; font-size: 17px; line-height: 1.4; font-weight: 650; overflow-wrap: anywhere; }
 .idea-text .meaning { display: block; font-size: 14px; line-height: 1.4; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
 .idea-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-.idea-actions button { padding: 6px; min-width: 44px; font-size: 11px; }
+.idea-actions button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; min-width: 48px; min-height: 56px; font-size: 11px; }
+.idea-actions svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .idea-actions .secondary { background: var(--pale); border-color: transparent; }
 #composer { flex-shrink: 0; border-top: 1px solid var(--line); background: #fff; padding: 8px 16px max(10px, env(safe-area-inset-bottom)); box-shadow: 0 -4px 24px #20392e08; }
 #voice-state { font-size: 12px; line-height: 1.4; margin: 0 0 7px; max-height: 3.5em; overflow: auto; }

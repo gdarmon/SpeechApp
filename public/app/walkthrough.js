@@ -16,14 +16,14 @@ export function createWalkthrough({ preferences, account, language, stopAudio })
   const copy = {
     en: [
       ['Listen to the question', 'Tap Listen to hear the Portuguese. Slower gives you more time. The translation helps you understand.'],
-      ['Find your first words', 'Open Ideas for your reply when you need help. Tap an idea to copy it, or its play button to hear it. You can change the words.'],
+      ['Find your first words', 'Open Ideas for your reply when you need help. Tap an idea to copy it. Each idea has Normal and Slow playback buttons. Choose a comfortable pace, then make the words your own.'],
       ['Hold, speak, release', 'Hold the microphone, wait for Listening, then speak. Release when you finish. Prefer typing? That works too.'],
       ['Check, then send', 'Your words appear here first. Edit them if needed, then tap the send arrow. Recording never sends an answer automatically.'],
       ['One reply at a time', 'After 10 replies, review your feedback and useful words. Take your time. You can reopen this guide in Settings.'],
     ],
     he: [
       ['מתחילים בהקשבה', 'לחצו על Listen כדי לשמוע את השאלה בפורטוגזית. Slower משמיע לאט יותר, והתרגום עוזר להבין.'],
-      ['מוצאים מילים לתשובה', 'צריכים עזרה? פתחו את הרעיונות לתשובה. לחיצה על רעיון מעתיקה אותו לעריכה, וכפתור הניגון משמיע אותו.'],
+      ['מוצאים מילים לתשובה', 'צריכים עזרה? פתחו את הרעיונות לתשובה. לחיצה על רעיון מעתיקה אותו לעריכה. ליד כל רעיון יש השמעה רגילה והשמעה איטית — בחרו בקצב שנוח לכם.'],
       ['לוחצים, מדברים, משחררים', 'החזיקו את כפתור המיקרופון, חכו שיופיע Listening ודברו. סיימתם? שחררו. אפשר גם להקליד.'],
       ['בודקים ורק אז שולחים', 'המילים שלכם יופיעו כאן. אפשר לתקן אותן ואז ללחוץ על חץ השליחה. ההקלטה לא שולחת תשובה אוטומטית.'],
       ['תשובה אחת בכל פעם', 'אחרי 10 תשובות תקבלו משוב ומילים לחזרה. אין צורך למהר. אפשר לפתוח את ההדרכה שוב בהגדרות.'],

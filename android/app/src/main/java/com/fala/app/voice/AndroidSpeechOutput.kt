@@ -11,7 +11,7 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import java.util.UUID
 
-class AndroidSpeechOutput(context: Context) : SpeechOutput {
+class AndroidSpeechOutput(context: Context, private val log: VoiceLog) : SpeechOutput {
     private val handler = Handler(Looper.getMainLooper())
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
@@ -23,6 +23,7 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
     private var pending: (() -> Unit)? = null
     private var pendingError: ((String) -> Unit)? = null
     private val startupTimeout = Runnable {
+        log.record(VoiceEvent.PLAYBACK_ERROR, -4, operation = VoiceOperation.INITIALIZE_TTS)
         val fail = pendingError
         pending = null; pendingError = null
         fail?.invoke("The Brazilian voice is taking longer to load. Tap Listen to try again.")
@@ -35,11 +36,12 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
     init {
         engine = TextToSpeech(context.applicationContext) { status ->
             handler.post {
+                log.record(VoiceEvent.PLAYBACK_INIT, status, operation = VoiceOperation.INITIALIZE_TTS)
                 val tts = engine
                 if (status != TextToSpeech.SUCCESS || tts == null) {
                     problem = "Speech playback is unavailable. Enable a text-to-speech engine in Android settings."
                 } else {
-                    tts.setLanguage(Locale.forLanguageTag("pt-BR"))
+                    log.record(VoiceEvent.PLAYBACK_LANGUAGE, tts.setLanguage(Locale.forLanguageTag("pt-BR")), language = "pt-BR", operation = VoiceOperation.SET_TTS_LANGUAGE)
                     val voice = tts.voices?.filter { it.locale.language == "pt" && it.locale.country == "BR" }
                         ?.sortedBy { it.isNetworkConnectionRequired }?.firstOrNull()
                     if (voice == null || tts.setVoice(voice) != TextToSpeech.SUCCESS) {
@@ -52,7 +54,13 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
                         override fun onStart(utteranceId: String?) {}
                         override fun onDone(utteranceId: String?) { handler.post { complete(utteranceId, null) } }
                         @Deprecated("Required by Android")
-                        override fun onError(utteranceId: String?) { handler.post { complete(utteranceId, "Speech playback stopped. Tap Listen to try again.") } }
+                        override fun onError(utteranceId: String?) { onError(utteranceId, TextToSpeech.ERROR) }
+                        override fun onError(utteranceId: String?, errorCode: Int) {
+                            handler.post {
+                                if (utteranceId != null && utteranceId == active) log.record(VoiceEvent.PLAYBACK_ERROR, errorCode, operation = VoiceOperation.PLAYBACK_CALLBACK)
+                                complete(utteranceId, "Speech playback stopped. Tap Listen to try again.")
+                            }
+                        }
                     })
                 }
                 initializing = false
@@ -65,6 +73,7 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
 
     private fun complete(id: String?, error: String?) {
         if (id == null || id != active) return
+        if (error == null) log.record(VoiceEvent.PLAYBACK_DONE)
         val done = onDone
         val failed = onError
         active = null; onDone = null; onError = null
@@ -78,7 +87,10 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
             if (initializing) {
                 pending = { speak(text, slow, done, error) }; pendingError = error
                 handler.postDelayed(startupTimeout, 8000)
-            } else error(problem)
+            } else {
+                log.record(VoiceEvent.PLAYBACK_ERROR, -2, operation = VoiceOperation.INITIALIZE_TTS)
+                error(problem)
+            }
             return
         }
         val id = UUID.randomUUID().toString()
@@ -86,17 +98,23 @@ class AndroidSpeechOutput(context: Context) : SpeechOutput {
         val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
             .setAudioAttributes(attributes).setOnAudioFocusChangeListener { change ->
                 if (change < 0) {
+                    log.record(VoiceEvent.PLAYBACK_ERROR, change, operation = VoiceOperation.REQUEST_AUDIO_FOCUS)
                     val failed = onError
                     stop()
                     failed?.invoke("Playback paused by another app. Tap Listen when you're ready.")
                 }
             }.build()
         focus = request
-        if (audio.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        val focusResult = audio.requestAudioFocus(request)
+        if (focusResult != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            log.record(VoiceEvent.PLAYBACK_ERROR, focusResult, operation = VoiceOperation.REQUEST_AUDIO_FOCUS)
             complete(id, "Audio is busy. Tap Listen when you're ready."); return
         }
         engine?.setSpeechRate(if (slow) 0.78f else 0.93f)
-        if (engine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id) != TextToSpeech.SUCCESS) {
+        log.record(VoiceEvent.PLAYBACK_START, language = "pt-BR", operation = VoiceOperation.SPEAK)
+        val speakResult = engine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+        if (speakResult != TextToSpeech.SUCCESS) {
+            log.record(VoiceEvent.PLAYBACK_ERROR, speakResult, operation = VoiceOperation.SPEAK)
             complete(id, "Could not play the Brazilian voice. Check Android voice settings.")
         }
     }

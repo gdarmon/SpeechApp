@@ -85,6 +85,14 @@ class StoreScreenshots {
                 state(c,"session",JSONObject(session.toString()).put("support_language","he-IL").put("topic","Capoeira class").put("capoeira",false).put("opening",reply));state(c,"reply",reply)
             }
             capture("02-hebrew-support")
+            scenario.onActivity { activity ->
+                val c = ViewModelProvider(activity)[SessionController::class.java]
+                val dark = JSONObject(c.rewards.toString())
+                dark.getJSONObject("profile").put("appearance", "dark")
+                state(c, "rewards", dark)
+            }
+            capture("02b-dark-reply-and-playback")
+            scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java], "rewards", rewards) }
             scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java],"screen","home") }
             capture("03-practice-at-your-level")
             scenario.onActivity { activity -> state(ViewModelProvider(activity)[SessionController::class.java],"screen","rewards") }

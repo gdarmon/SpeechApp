@@ -4,6 +4,10 @@ cd android
 ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+mkdir -p ../artifacts/play-store/screenshots/validation
+adb shell pm clear com.fala.app
+adb shell am instrument -w -e class com.fala.app.SupportDiagnosticsTest,com.fala.app.PhrasePlaybackTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/support-and-playback-test.log
+if ! grep -q 'OK (3 tests)' ../artifacts/play-store/screenshots/validation/support-and-playback-test.log; then exit 1; fi
 adb shell settings put global sysui_demo_allowed 1
 adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1000
 adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
