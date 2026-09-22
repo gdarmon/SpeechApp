@@ -3,10 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Capture screenshots and audit, or upload the reviewed store package
+        description: Capture/audit, upload store assets, or explicitly promote an existing internal build to Alpha
         type: choice
-        options: [capture, upload]
+        options: [capture, upload, promote-alpha]
         default: capture
+      version_code:
+        description: Exact existing internal Play version code (required only for promote-alpha)
+        type: string
+        required: false
 permissions:
   contents: read
 concurrency:
@@ -22,12 +26,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Audit or upload the reviewed listing
+      - name: Audit, upload listing, or promote the specified closed-test build
         env:
           STORE_MODE: ${{ inputs.mode }}
+          FALA_CLOSED_VERSION_CODE: ${{ inputs.version_code }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          if [ "$STORE_MODE" = "upload" ]; then node scripts/play-store.mjs upload; else node scripts/play-store.mjs; fi
+          case "$STORE_MODE" in
+            capture) node scripts/play-store.mjs ;;
+            upload) node scripts/play-store.mjs upload ;;
+            promote-alpha) node scripts/play-promote.mjs ;;
+            *) exit 1 ;;
+          esac
       - name: Keep store preparation receipt
         uses: actions/upload-artifact@v4
         if: always()
@@ -35,7 +45,7 @@ jobs:
           name: play-store-receipt
           path: artifacts/play-store/*.json
   screenshots:
-    if: inputs.mode != 'upload'
+    if: inputs.mode == 'capture'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

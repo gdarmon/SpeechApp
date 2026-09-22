@@ -2,7 +2,7 @@
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 
-Prepared application: **Fala**, package **com.fala.app**, version **0.12.4** (local version code 17; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
+Prepared application: **Fala**, package **com.fala.app**, version **0.13.0** (local version code 18; CI assigns a higher code), Android 8.0+, target SDK 36. Confirm package availability when creating the app; a first upload fixes the package identity. Do not change it after publishing.
 
 ## Files
 
@@ -65,6 +65,8 @@ The current English listing is in `store/google-play/en-US/`: title, short descr
 **Prepare Google Play store** is a manual workflow. Its default `capture` mode audits the existing listing without committing changes and captures actual Compose UI on an emulator in three display sizes. The synthetic account exists only in the instrumentation test, not in the shipped app.
 
 Its `upload` mode publishes the checked-in listing and images, sets the support contact, and fills an empty closed-testing draft with the matching completed internal build. It never changes production or enrolls testers, and fails rather than canceling an existing review or replacing unfamiliar store images. The service account needs **Manage store presence** for Fala in addition to its existing testing permissions. Native screenshots must be checked into `store/google-play/screenshots/` first.
+
+Its `promote-alpha` mode is for an explicitly authorized closed-test release of an already published internal bundle. Supply `version_code` with the exact approved build, for example `103201` for 0.13.0. It requires a completed internal release matching the checkout's version and notes, then updates only Alpha using that existing bundle. No rebuild, screenshot capture, listing edit, tester change or production promotion occurs. Other pending drafts/rollouts and newer Alpha versions are preserved by refusing the operation. Existing reviews are never canceled. A fresh Play edit verifies the committed Alpha release and the workflow saves `promotion-alpha.json`; API `completed` status does not by itself establish immediate tester availability or review approval. Normal automatic publishing remains internal-only.
 
 The owner confirmed that production access is blocked for this account. At least 12 testers must opt into **closed testing** for 14 continuous days before applying; the existing internal track does not meet that requirement. Complete all Console setup tasks and collect genuine tester feedback. Production access still requires Google's approval.
 
