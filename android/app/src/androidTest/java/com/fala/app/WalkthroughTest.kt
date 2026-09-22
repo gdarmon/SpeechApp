@@ -82,6 +82,8 @@ class WalkthroughTest {
                 assertFalse(c.openWalkthrough())
                 assertEquals("", c.draft.text); assertEquals(0, c.completedTurns); assertFalse(c.recording)
                 state(c, "session", JSONObject(session.toString()).put("support_language", "he-IL"))
+                state(c, "reply", JSONObject(reply.toString()).put("translation", "מכירים את הג׳ינגה?")
+                    .put("suggested_replies", JSONArray("""[{"text":"Sim, conheço.","translation":"כן, אני מכיר."},{"text":"Ainda não.","translation":"עדיין לא."}]""")))
                 assertTrue(c.openWalkthrough(true))
             }
             for (step in 0..4) {

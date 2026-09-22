@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -96,7 +97,7 @@ internal fun Walkthrough(c: SessionController, targets: Map<Int, WalkthroughAnch
                         shape = RoundedCornerShape(22.dp), shadowElevation = 12.dp) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${step + 1} / ${copy.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                Text("${step + 1} / ${copy.size}", style = MaterialTheme.typography.labelLarge.copy(textDirection = TextDirection.Ltr), color = MaterialTheme.colorScheme.primary)
                                 TextButton(onClick = c::closeWalkthrough) { Text(if (hebrew) "דלגו על ההדרכה" else "Skip tour") }
                             }
                             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
