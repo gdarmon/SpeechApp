@@ -34,6 +34,26 @@ class SessionController(application: Application) : AndroidViewModel(application
         if (settings.supportLanguage.isBlank()) "language" else "home"
     } else "welcome")
         private set
+    var walkthroughStep by mutableStateOf<Int?>(null)
+        private set
+    fun openWalkthrough(force: Boolean = false): Boolean {
+        if (screen != "talk" || practiceComplete || (!force && settings.walkthroughSeen)) return false
+        pause()
+        settings.walkthroughSeen = true // Remember even if the app closes halfway through.
+        walkthroughStep = 0
+        return true
+    }
+    fun closeWalkthrough() { walkthroughStep = null }
+    fun nextWalkthroughStep() {
+        val step = walkthroughStep ?: return
+        walkthroughStep = if (step < 4) step + 1 else null
+    }
+    fun previousWalkthroughStep() { walkthroughStep = walkthroughStep?.let { (it - 1).coerceAtLeast(0) } }
+    fun requestWalkthrough() {
+        if (busy) return
+        settings.walkthroughSeen = false
+        navigate("home")
+    }
     var busy by mutableStateOf(false)
         private set
     var phase by mutableStateOf("Ready")
@@ -175,6 +195,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     private fun clearAccount() {
+        closeWalkthrough()
         ReminderScheduler.cancel(getApplication())
         pause(); settings.clearSession()
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
@@ -234,6 +255,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         if (busy || !settings.signedIn) return
         pause()
         error = ""; retryAction = null; retryAvailable = false
+        closeWalkthrough()
         screen = destination
         if (destination in listOf("home", "history", "progress")) refresh()
         if (destination == "rewards") execute { updateRewards(api.get("/rewards")) }
@@ -254,7 +276,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             reply = result.getJSONObject("opening"); heard = ""; feedback = JSONObject()
             screen = "talk"; helpMode = false; draft = ReplyDraft(); voiceNotice = ""
             resetReplySupport()
-            playReply()
+            if (!openWalkthrough()) playReply()
         }
     }
 
@@ -270,7 +292,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             reply = if (turns.length() > 0) turns.getJSONObject(turns.length() - 1).getJSONObject("reply") else session.getJSONObject("opening")
             screen = "talk"; phase = "Your turn"; heard = ""; helpMode = false; draft = ReplyDraft(); voiceNotice = ""; feedback = JSONObject()
             resetReplySupport(resuming = true)
-            if (practiceComplete) completePractice(id)
+            if (practiceComplete) completePractice(id) else openWalkthrough()
         }
     }
 
@@ -293,7 +315,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     private fun playReply() {
-        if (screen != "talk") return
+        if (screen != "talk" || walkthroughStep != null) return
         val feedback = reply.optJSONObject("turn_feedback")
         speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()))
     }

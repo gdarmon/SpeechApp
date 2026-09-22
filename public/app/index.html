@@ -17,7 +17,7 @@
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   </defs></svg>
   <main>
-    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.12.4</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
+    <header><a href="/app/" aria-label="Fala home"><img src="/logo.png" alt="Fala" width="84" height="84"><small>Web 0.13.0</small></a><span class="brand-title">Fala<span>Speak a little. Grow a little.</span></span><span class="brand-language">PORTUGUÊS BRASILEIRO</span></header>
     <div id="messages">
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <p id="error" class="error" role="alert" hidden></p>
@@ -40,6 +40,7 @@
       <div class="row"><p id="account-email" class="fine"></p><button id="signout" class="text-button">Sign out</button></div>
       <h1>A little more confident.</h1>
       <div id="reward-home" hidden></div>
+      <p id="walkthrough-hint" class="notice" hidden></p>
       <button id="start" class="primary">Talk</button>
       <div id="partner-home" class="partner-home" hidden></div>
       <label for="topic">Today, let's talk about</label><select id="topic"><option value="capoeira class">ABADÁ capoeira</option><option value="everyday life">Everyday life</option></select>
@@ -52,6 +53,7 @@
     <section id="rewards-screen" class="screen" hidden><p class="eyebrow">MAKE FALA YOURS</p><h1>Earn your next look.</h1><p id="reward-total"></p><section id="instructor-collection" hidden><p class="eyebrow">A PLACE IN YOUR RODA</p><h2>Choose your capoeira partner.</h2><p class="fine">A familiar face for every conversation. Unlock new character skins through practice, at any speaking level.</p><div id="instructor-list" class="instructor-grid"></div><button id="partner-none" class="text-button">Use Fala without a character</button><p class="fine">Character skins share Fala’s voice and coaching. Your speaking level and lessons stay yours.</p></section><h2>Themes</h2><div id="theme-list" class="reward-grid"></div><h2>Microphone skins</h2><div id="skin-list" class="reward-grid"></div><h2>Your milestones</h2><div id="reward-badges"></div><details><summary>How points work</summary><p>2 XP per Portuguese reply, up to 20 replies a day. 20 XP for each of your first two ten-answer conversations. 10 XP when you reach three replies today. Mistakes and using answer ideas still count. Three different capoeira scenarios in a week earn another 10 XP.</p><p>Practice points unlock permanent looks. Your speaking level follows your independent answers. One missed day per week can protect a streak, and is marked ◇. Protected days earn no points.</p></details></section>
     <section id="friends-screen" class="screen" hidden><p class="eyebrow">YOUR CIRCLE</p><h1>Practise together.</h1><p class="fine">Join an invite-only circle of up to 12 learners. Only your nickname and practice totals are shared.</p><div id="circle-content"></div></section>
     <section id="reminders-screen" class="screen" hidden><h1>Your Fala.</h1>
+      <button id="replay-walkthrough" class="secondary">Show the conversation guide again</button>
       <form id="reward-settings"><label for="nickname">Nickname shown to your circle</label><input id="nickname" maxlength="30" required autocomplete="nickname">
         <label for="appearance">Appearance</label><select id="appearance"><option value="system">Use device setting</option><option value="light">Light</option><option value="dark">Dark</option></select>
         <label class="check"><input id="reduce-motion" type="checkbox"> Reduce celebration animations</label>
@@ -103,8 +105,17 @@
       <p class="fine">Speak or write in your help language first. Fala will help you find the Portuguese words.</p>
       <audio id="recording" controls hidden aria-label="Replay your recording"></audio>
       <p id="voice-disclosure" class="fine"></p>
+      <button id="conversation-guide" class="text-button">Show conversation guide</button>
       <button id="report-reply" class="text-button">Report this AI reply</button>
       <button id="finish" class="secondary">Finish and review</button>
+    </dialog>
+    <dialog id="walkthrough" aria-labelledby="walkthrough-title" aria-describedby="walkthrough-body">
+      <div id="walkthrough-spot" aria-hidden="true"></div>
+      <div id="walkthrough-card">
+        <div class="row"><span id="walkthrough-count" class="badge" dir="ltr"></span><button id="walkthrough-skip" class="text-button"></button></div>
+        <h2 id="walkthrough-title" tabindex="-1"></h2><p id="walkthrough-body"></p>
+        <div class="walkthrough-actions"><button id="walkthrough-back" class="secondary"></button><button id="walkthrough-next"></button></div>
+      </div>
     </dialog>
     <dialog id="report-dialog" aria-labelledby="report-title"><h2 id="report-title">Report AI content</h2><form id="report-form"><p class="fine">The selected AI content and your note will be sent to Fala for review. Please leave out personal details.</p><label for="report-category">What is the concern?</label><select id="report-category"><option value="inappropriate">Inappropriate or offensive</option><option value="unsafe">Unsafe advice</option><option value="inaccurate">Incorrect teaching</option><option value="other">Other concern</option></select><label for="report-note">Optional details</label><textarea id="report-note" maxlength="1000" rows="3"></textarea><button id="report-submit" class="primary">Send report</button></form><p id="report-result" role="status" hidden></p><button id="report-close" class="text-button">Cancel</button></dialog>
     <dialog id="partner-preview" aria-labelledby="partner-preview-title"><div class="row"><h2 id="partner-preview-title"></h2><button id="partner-preview-close" class="text-button">Close</button></div><div id="partner-preview-art"></div><p id="partner-preview-note"></p><button id="partner-preview-use">Use partner</button></dialog>

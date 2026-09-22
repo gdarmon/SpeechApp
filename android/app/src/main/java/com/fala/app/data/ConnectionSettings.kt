@@ -39,6 +39,12 @@ class ConnectionSettings(context: Context) {
     fun clearSession() {
         prefs.edit().remove("token").remove("origin").remove("email").remove("expires").remove("active").remove("url").remove("rewardProfile").apply()
     }
+    // Kept across sign-out, scoped to the account on this device. Never synced as learning data.
+    private val walkthroughKey: String get() = "walkthroughSeen:" + java.security.MessageDigest.getInstance("SHA-256")
+        .digest(email.lowercase(java.util.Locale.ROOT).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    var walkthroughSeen: Boolean
+        get() = prefs.getBoolean(walkthroughKey, false)
+        set(value) { prefs.edit().putBoolean(walkthroughKey, value).apply() }
     var rewardProfile: String
         get() = prefs.getString("rewardProfile", "{}").orEmpty()
         set(value) { prefs.edit().putString("rewardProfile", value).apply() }

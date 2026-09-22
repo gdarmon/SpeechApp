@@ -83,6 +83,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     BackHandler(c.screen !in listOf("home", "welcome", "language")) { if (!c.busy) c.navigate("home") }
     val scroll = rememberScrollState()
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
+    val walkthroughTargets = remember { mutableStateMapOf<Int, WalkthroughAnchor>() }
+    CompositionLocalProvider(LocalWalkthroughTargets provides walkthroughTargets) {
     Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
         topBar = { if (c.screen == "talk") ConversationHeader(c) { conversationOptions = true } },
         bottomBar = {
@@ -154,6 +156,8 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             Spacer(Modifier.height(12.dp))
         }
     }
+    }
+    if (c.screen == "talk") Walkthrough(c, walkthroughTargets)
     if (conversationOptions && c.screen == "talk") ConversationOptions(c, voiceSettings,
         close = { conversationOptions = false }, finish = { conversationOptions = false; c.pause(); finishDialog = true })
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
@@ -190,6 +194,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(20.dp)) {
         Text("Talk", style = MaterialTheme.typography.headlineSmall)
     }
+    if (!c.settings.walkthroughSeen) TranslatedText(
+        if (c.supportLanguage == "he-IL") "לחצו על Talk כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה."
+        else "Tap Talk to start. A short guide will show you how to listen, speak and send your reply.", c.supportLanguage)
     InstructorHome(c)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -317,7 +324,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                     Text(c.session.optString("topic").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (c.demo) "Connection test · scripted replies" else "Level ${c.session.optJSONObject("practice")?.optInt("level", 1) ?: 1} · Speaking practice", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(20.dp)) {
+                Surface(modifier = Modifier.walkthroughTarget(4), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(20.dp)) {
                     Text("${(c.completedTurns + 1).coerceAtMost(c.targetTurns)} / ${c.targetTurns}", Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelMedium)
                 }
                 IconButton(onClick = { c.pause(); options() }, enabled = !c.recording) {
@@ -354,7 +361,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 Text("Listen, then try to answer. Replay whenever you need.")
                 OutlinedButton(onClick = c::revealText) { Text("Show the words and translation") }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.walkthroughTarget(0), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = c::play, enabled = !c.busy && !c.recording && !c.retryAvailable) {
                     Icon(painterResource(R.drawable.ic_play), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Listen")
                 }
@@ -386,7 +393,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     if (ideas.isNotEmpty() && c.replySupport.ideasVisible) {
         OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().walkthroughTarget(1), verticalAlignment = Alignment.CenterVertically) {
                     Text("Ideas for your reply", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     TextButton(onClick = c::hideIdeas, enabled = enabled) { Text("Hide", style = MaterialTheme.typography.labelMedium) }
                 }
@@ -412,9 +419,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             }
         }
     } else if (ideas.isNotEmpty()) {
-        OutlinedButton(onClick = c::revealIdeas, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("Show answer ideas") }
+        OutlinedButton(onClick = c::revealIdeas, enabled = enabled, modifier = Modifier.fillMaxWidth().walkthroughTarget(1)) { Text("Show answer ideas") }
     } else if (c.replySupport.textVisible && c.reply.optString("practice_phrase").isNotBlank()) {
-        OutlinedButton(onClick = { c.chooseSuggestion(c.reply.getString("practice_phrase")) }, enabled = enabled) { Text(c.reply.getString("practice_phrase")) }
+        OutlinedButton(onClick = { c.chooseSuggestion(c.reply.getString("practice_phrase")) }, enabled = enabled, modifier = Modifier.walkthroughTarget(1)) { Text(c.reply.getString("practice_phrase")) }
     }
 }
 
@@ -431,6 +438,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 Text("Network speech recognition", Modifier.padding(start = 8.dp).weight(1f))
             }
             Text("Your phone’s online speech service may receive your audio when this is on.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { close(); c.openWalkthrough(true) }, enabled = !c.busy && !c.recording && !c.practiceComplete) {
+                Text(if (c.conversationLanguage == "he-IL") "הצגת הדרכת השיחה" else "Show conversation guide")
+            }
             ReportContentAction(c)
             TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
             OutlinedButton(onClick = finish, enabled = !c.busy && !c.recording) { Text("Finish and review") }
@@ -456,7 +466,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             if (c.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp))
             if (c.holding) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
             if (!c.practiceComplete) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.walkthroughTarget(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = if (c.recording) listOf(c.draft.text, c.partialWords).filter { it.isNotBlank() }.joinToString(" ") else c.draft.text,
                         onValueChange = c::editDraft, placeholder = { Text(if (c.helpMode) "Say it in ${if (language == "he-IL") "Hebrew" else "English"} first…" else "Your reply… speak or type", style = MaterialTheme.typography.bodyMedium) },
                         modifier = Modifier.weight(1f).semantics { contentDescription = "Your answer — check before sending" }, enabled = enabled,
@@ -467,7 +477,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                         Icon(painterResource(R.drawable.ic_send), "Send answer", Modifier.size(22.dp))
                     }
                 }
-                HoldToSpeak(c, { action -> keyboard?.hide(); mic(action) }, Modifier.fillMaxWidth())
+                HoldToSpeak(c, { action -> keyboard?.hide(); mic(action) }, Modifier.fillMaxWidth().walkthroughTarget(2))
             }
             Text(when {
                 c.phase == "Starting microphone" -> "Wait for Listening, then speak."
@@ -528,6 +538,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     voiceSettings: () -> Unit, onDelete: () -> Unit, onDeleteAccount: () -> Unit) {
     var network by remember { mutableStateOf(c.settings.networkRecognition) }
     Title("Your Fala", c.settings.email)
+    OutlinedButton(onClick = c::requestWalkthrough, enabled = !c.busy) {
+        Text(if (c.supportLanguage == "he-IL") "הצגת הדרכת השיחה שוב" else "Show the conversation guide again")
+    }
     RewardPreferences(c)
     SupportLanguageChoice(c)
     Text("This choice applies to new conversations.", style = MaterialTheme.typography.bodySmall)

@@ -242,3 +242,14 @@ progress::-moz-progress-bar {background:var(--green)}
   html:not(.reduce-motion) .celebrate .partner-art { animation:partner-arrival .5s ease-out both; }
   @keyframes partner-arrival { from {opacity:0;transform:translateY(10px)} to {opacity:1;transform:translateY(0)} }
 }
+
+/* Modal coachmarks leave the real control visible, while preventing accidental recording/sending. */
+#walkthrough { position:fixed; inset:0; width:100%; height:100dvh; max-width:none; max-height:none; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:hidden; }
+#walkthrough::backdrop { background:transparent; backdrop-filter:none; }
+#walkthrough-spot { position:absolute; border:3px solid #e6be67; border-radius:14px; box-shadow:0 0 0 100vmax #071e19b8; pointer-events:none; }
+#walkthrough-card { position:absolute; width:min(420px,calc(100% - 24px)); max-height:calc(100% - 24px); overflow:auto; padding:18px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:22px; box-shadow:0 12px 48px #0004; }
+#walkthrough-card h2 { margin:12px 0 8px; font-size:22px; }
+#walkthrough-card p { margin:0 0 16px; font-size:15px; }
+#walkthrough-title:focus { outline:none; }
+.walkthrough-actions { display:flex; justify-content:flex-end; gap:10px; }
+#walkthrough-hint { margin:12px 0 0; }

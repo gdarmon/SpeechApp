@@ -70,6 +70,58 @@ try {
   });
   await page.goto(`${base}/app/`); await page.locator('#home').waitFor({ state: 'visible' });
   await page.locator('#start').click(); await page.locator('#conversation').waitFor({ state: 'visible' });
+  // A real first-use overlay: no automatic audio, recording or answers during the tour.
+  await page.locator('#walkthrough[open]').waitFor();
+  assert.equal(await page.locator('#walkthrough-card').getAttribute('dir'), 'rtl');
+  assert.equal(speechRequests.length, 0);
+  for (let step = 0; step < 5; step++) {
+    assert.equal(await page.locator('#walkthrough-count').textContent(), `${step + 1} / 5`);
+    for (const size of [{width:320,height:568},{width:390,height:844},{width:844,height:390},{width:1280,height:800}]) {
+      await page.setViewportSize(size); await page.waitForTimeout(60);
+      const metrics = await page.evaluate(() => {
+        const card = document.getElementById('walkthrough-card').getBoundingClientRect();
+        const spot = document.getElementById('walkthrough-spot').getBoundingClientRect();
+        const next = document.getElementById('walkthrough-next').getBoundingClientRect();
+        return {inside: card.left >= 0 && card.right <= innerWidth && card.top >= 0 && card.bottom <= innerHeight,
+          separate: card.bottom <= spot.top || card.top >= spot.bottom,
+          clickable: document.elementFromPoint(next.x + next.width/2, next.y + next.height/2)?.id === 'walkthrough-next'};
+      });
+      assert.ok(metrics.inside && metrics.clickable, JSON.stringify({step,size,metrics}));
+      if (size.height >= 568) assert.ok(metrics.separate, JSON.stringify({step,size,metrics}));
+    }
+    await page.setViewportSize({width:390,height:844});
+    if (step === 2) await page.screenshot({path:`${root}/artifacts/fala-walkthrough-he-mobile.png`});
+    if (step === 1) {
+      await page.locator('#walkthrough-back').click();
+      assert.equal(await page.locator('#walkthrough-count').textContent(), '1 / 5');
+      await page.locator('#walkthrough-next').click();
+    }
+    await page.locator('#walkthrough-next').click();
+  }
+  assert.equal(postCount, 0); assert.equal(await page.locator('#draft').inputValue(), '');
+  assert.equal(await mic.getAttribute('data-recording'), 'false');
+  await page.reload(); await page.locator('#home').waitFor({state:'visible'});
+  await page.locator('#start').click(); await page.locator('#conversation').waitFor({state:'visible'});
+  assert.equal(await page.locator('#walkthrough').isVisible(), false, 'Completion survives reopening');
+  await page.locator('#back').click(); await page.locator('#home').waitFor({state:'visible'});
+  await page.waitForFunction(() => !document.getElementById('start').disabled);
+  await page.locator('#home-language').selectOption('en-US');
+  await page.locator('[data-page="reminders-screen"]').click();
+  await page.locator('#replay-walkthrough').click();
+  await page.locator('#walkthrough-hint').waitFor({state:'visible'});
+  await page.locator('#start').click(); await page.locator('#walkthrough[open]').waitFor();
+  assert.equal(await page.locator('#walkthrough-card').getAttribute('dir'), 'ltr');
+  await page.screenshot({path:`${root}/artifacts/fala-walkthrough-en-mobile.png`});
+  await page.locator('#walkthrough-skip').click();
+  await page.reload(); await page.locator('#home').waitFor({state:'visible'});
+  await page.waitForFunction(() => !document.getElementById('start').disabled);
+  await page.locator('#home-language').selectOption('he-IL');
+  speechRequests.length = 0;
+  await page.locator('#start').click(); await page.locator('#conversation').waitFor({state:'visible'});
+  assert.equal(await page.locator('#walkthrough').isVisible(), false, 'Skip survives reopening');
+  await page.locator('#options').click(); await page.locator('#conversation-guide').click();
+  await page.locator('#walkthrough[open]').waitFor(); await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#walkthrough').isVisible(), false);
   await page.locator('#send').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
   assert.match(await page.locator('#partner-identity').textContent(), /Bateba/);
@@ -186,5 +238,5 @@ try {
   const cached = await offlinePage.evaluate(async () => { const keys = await caches.keys(); return (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat(); });
   assert.ok(cached.includes('/app/partners.js')); assert.ok(cached.includes('/app/instructors/vesoura.png')); assert.ok(cached.length >= 7); assert.ok(!cached.includes('/app/family.js')); assert.ok(cached.every(path => path.startsWith('/app/') || path === '/logo.png'));
   await offline.close();
-  console.log('PASS: capoeira-only portraits and XP unlock celebrations with reduced motion; persistent reply controls at phone/desktop/keyboard sizes with long text; suggestion selection never sends; conversation options; legacy links open normal sign-in; suggested answer playback, per-turn audio caching and slow playback; Hebrew RTL; recording/transcription and 10 turns; idempotent retry after lost response; review; offline public-only app shell; no browser exceptions.');
+  console.log('PASS: five-step English/Hebrew tour, skip/completion persistence, Settings replay, modal keyboard dismissal and responsive coachmarks; capoeira-only portraits and XP unlock celebrations with reduced motion; persistent reply controls at phone/desktop/keyboard sizes with long text; suggestion selection never sends; conversation options; legacy links open normal sign-in; suggested answer playback, per-turn audio caching and slow playback; Hebrew RTL; recording/transcription and 10 turns; idempotent retry after lost response; review; offline public-only app shell; no browser exceptions.');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

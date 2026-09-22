@@ -18,6 +18,8 @@ for device in phone seven-inch ten-inch; do
   adb shell pm clear com.fala.app
   adb shell am instrument -w -e class com.fala.app.StoreScreenshots -e device "$device" com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee "../artifacts-capture-$device.log"
   if ! grep -q 'OK (1 test)' "../artifacts-capture-$device.log"; then exit 1; fi
+  adb shell am instrument -w -e class com.fala.app.WalkthroughTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee "../artifacts-walkthrough-$device.log"
+  if ! grep -q 'OK (1 test)' "../artifacts-walkthrough-$device.log"; then exit 1; fi
   mkdir -p "../artifacts/play-store/screenshots/$device"
   adb pull /sdcard/Android/data/com.fala.app/files/store-screenshots/. "../artifacts/play-store/screenshots/$device/"
 done

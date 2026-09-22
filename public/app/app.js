@@ -1,6 +1,7 @@
 import { Recorder, Voice } from './voice.js';
 import { createRewards } from './rewards.js';
 import { apiRequest } from './api.js';
+import { createWalkthrough } from './walkthrough.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, visible = true) => { $(id).hidden = !visible; };
@@ -21,6 +22,15 @@ const recorder = new Recorder(state => {
   document.querySelectorAll('#ideas button').forEach(button => { button.disabled = busy || state !== 'idle' || !!pendingTurn; });
 }, recording => { void recordedAnswer(recording); }, error => failure(error));
 
+const walkthrough = createWalkthrough({ preferences, account: () => user?.email || '', language: () => language, stopAudio: () => voice.stop() });
+function guideHint() {
+  translated($('walkthrough-hint'), language === 'he-IL' ? 'לחצו על Talk כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה.' : 'Tap Talk to start. A short guide will show you how to listen, speak and send your reply.');
+  show('walkthrough-hint', walkthrough.needed());
+  text('replay-walkthrough', language === 'he-IL' ? 'הצגת הדרכת השיחה שוב' : 'Show the conversation guide again');
+}
+$('replay-walkthrough').onclick = () => { if (!busy) { walkthrough.request(); void home(); } };
+$('conversation-guide').onclick = () => { if (!busy && !recorder.active && !pendingTurn) { $('conversation-options').close(); walkthrough.open(true); } };
+
 async function api(path, options = {}) {
   return apiRequest(path, options, seconds => {
     text('notice', seconds ? `The conversation service is busy. Retrying in ${seconds} second${seconds === 1 ? '' : 's'}…` : 'Preparing your reply…');
@@ -36,7 +46,7 @@ function clearError() { show('error', false); show('retry', false); retryAction 
 function setBusy(value) {
   busy = value;
   document.querySelectorAll('#reward-nav button, #reward-settings input, #reward-settings select, #reward-settings button').forEach(button => { button.disabled = value; });
-  for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin']) $(id).disabled = value;
+  for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin', 'replay-walkthrough', 'conversation-guide']) $(id).disabled = value;
   for (const id of ['microphone', 'draft', 'help']) $(id).disabled = value || !!pendingTurn;
   for (const id of ['topic', 'level', 'home-language']) $(id).disabled = value || !!pendingStart;
   $('send').disabled = value || recorder.active || !$('draft').value.trim();
@@ -78,7 +88,7 @@ function updateDraft() {
 }
 function translated(element, value) { element.textContent = value || ''; element.lang = language === 'he-IL' ? 'he' : 'en'; element.dir = language === 'he-IL' ? 'rtl' : 'ltr'; }
 function setLanguage(value) {
-  language = value; preferences.set('language', language); $('language').value = $('home-language').value = language;
+  language = value; preferences.set('language', language); $('language').value = $('home-language').value = language; guideHint();
 }
 setLanguage(language);
 for (const id of ['language', 'home-language']) $(id).onchange = event => setLanguage(event.target.value);
@@ -87,6 +97,7 @@ function discardRecording() {
   if (recordingUrl) URL.revokeObjectURL(recordingUrl); recordingUrl = null; recorded = null; speechMs = 0;
 }
 function leave() {
+  walkthrough.close();
   $("report-dialog").close();
   ++epoch; recorder.cancel(); voice.stop(); discardRecording(); pendingTurn = null; pendingStart = null; audioCache.clear();
   setBusy(false); clearError(); show('notice', false); $('draft').value = ''; $('draft').lang = 'pt-BR'; $('help').checked = false;
@@ -94,7 +105,7 @@ function leave() {
 async function home() {
   leave();
   if (!user) { screen('welcome'); return; }
-  screen('home'); text('account-email', user.email);
+  screen('home'); text('account-email', user.email); guideHint();
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
     await rewards.initialize(dashboard.rewards); if(current!==epoch)return;
@@ -107,7 +118,7 @@ async function home() {
       button.onclick = () => { voice.unlock(); void task(async current => {
         const saved = await api(`/sessions/${item.id}`); if (current !== epoch) return;
         session = saved; setLanguage(saved.support_language || language);
-        if (saved.feedback) review(saved.feedback); else { renderSession(); listen(); }
+        if (saved.feedback) review(saved.feedback); else { renderSession(); if (saved.turns.filter(turn => !turn.help).length >= 10 || !walkthrough.open()) listen(); }
       }, 'Opening your conversation…'); };
       $('history').append(button);
     }
@@ -148,7 +159,7 @@ $('start').onclick = () => {
   const input = pendingStart;
   void task(async current => {
     const saved = await post('/sessions', input); if (current !== epoch) return;
-    pendingStart = null; session = saved; renderSession(); listen();
+    pendingStart = null; session = saved; renderSession(); if (!walkthrough.open()) listen();
   }, 'Fala is starting a conversation…');
 };
 function renderSession() {
@@ -194,14 +205,14 @@ function renderReply(round, topic, complete = false) {
   }
   show('ideas-card', !ideasHidden && !complete); show('show-ideas', ideasHidden && !complete);
   show('online-draft', !complete); show('microphone', !complete); show('mic-hint', !complete);
-  show('complete', complete);
+  show('complete', complete); show('conversation-guide', !complete);
   text('finish', complete ? 'See my summary' : 'Finish and review');
   text('voice-disclosure', `AI-generated voice. Recording is sent to ${transcriptionService} for transcription when you release. Check the words before sending your answer.`);
   text('mic-hint', 'Hold, speak, release. Check your words, then send.');
   if (complete) text('voice-state', 'Conversation complete. Listen, then open your summary.');
 }
 function listen(slow = false, suggestionIndex = null) {
-  if (!reply || recorder.active) return;
+  if (!reply || recorder.active || walkthrough.active) return;
   const selected = suggestionIndex === null ? reply : reply.suggested_replies[suggestionIndex];
   if (!selected) return;
   if (suggestionIndex !== null) assisted = true;
