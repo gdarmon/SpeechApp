@@ -74,13 +74,71 @@ it('shows only the joined circle and nicknames, rotates invitations, and resets 
   expect((await new Rewards(db,a,new Date('2026-09-21T14:00:00Z')).social()).members.every(m=>m.xp===0)).toBe(true);
   await friend.circle('leave');expect((await friend.social()).circle).toBe(null);expect((await owner.social()).members.length).toBe(1);
 });
-it('sends no reminder before the chosen time, suppresses duplicates across devices, and skips completed goals',async()=>{
+it('sends at the chosen local time once a day, and skips even one reply before the daily goal',async()=>{
   const rewards=new Rewards(db,a,now);await rewards.settings({timezone:'Asia/Jerusalem',reminder_enabled:true});
   expect((await new Rewards(db,a,new Date('2026-09-20T13:59:00Z')).claimReminder()).notify).toBe(false);
   expect((await rewards.claimReminder()).notify).toBe(true);expect((await rewards.claimReminder()).notify).toBe(false);
-  await new Rewards(db,b,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});const id=await session(b);for(let i=0;i<3;i++)await reply(id,b);
+  await new Rewards(db,b,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});const id=await session(b);await reply(id,b);
+  expect((await new Rewards(db,b,now).snapshot()).daily_complete).toBe(false);
   expect((await new Rewards(db,b,now).claimReminder()).notify).toBe(false);
+  expect((await new Rewards(db,a,new Date('2026-09-21T14:00:00Z')).claimReminder()).notify).toBe(true);
   await rewards.settings({reminder_enabled:false});expect((await new Rewards(db,a,new Date('2026-09-21T14:00:00Z')).claimReminder()).notify).toBe(false);
+});
+it('respects opt-out, custom time, quiet hours, and the Jerusalem daylight-saving change',async()=>{
+  const rewards=new Rewards(db,a,now);
+  expect((await rewards.claimReminder()).notify).toBe(false);
+  await rewards.settings({timezone:'Asia/Jerusalem',reminder_enabled:true,reminder_minute:18*60});
+  expect((await rewards.claimReminder()).notify).toBe(false);
+  expect((await new Rewards(db,a,new Date('2026-09-20T15:00:00Z')).claimReminder()).notify).toBe(true);
+  expect((await new Rewards(db,a,new Date('2026-09-21T16:00:00Z')).claimReminder()).notify).toBe(false);
+  await rewards.settings({reminder_minute:17*60});
+  expect((await new Rewards(db,a,new Date('2026-10-25T14:00:00Z')).claimReminder()).notify).toBe(false);
+  expect((await new Rewards(db,a,new Date('2026-10-25T15:00:00Z')).claimReminder()).notify).toBe(true);
+});
+it('uses real timestamps when a time-zone change moves practice onto the current local day',async()=>{
+  const rewards=new Rewards(db,a,now);
+  await rewards.settings({timezone:'America/Los_Angeles',reminder_enabled:true});
+  await reply(await session(),a,false,new Date('2026-09-20T01:00:00Z')); // Sep 19 in the old zone, Sep 20 in Jerusalem.
+  await rewards.settings({timezone:'Asia/Jerusalem'});
+  expect((await rewards.snapshot()).today_replies).toBe(0); // Rewards keep their original accounting date.
+  expect((await rewards.claimReminder()).notify).toBe(false);
+});
+it('delivers friendly Hebrew or English without requiring a new account preference',async()=>{
+  for(const user of [a,b,c])await new Rewards(db,user,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});
+  const id=await session();
+  await db.query(`UPDATE fala.sessions SET request=request || '{"support_language":"he-IL"}'::jsonb WHERE id=$1::uuid`,[id]);
+  expect(await new Rewards(db,a,now).claimReminder()).toMatchObject({notify:true,body:'עוד לא תרגלתם היום. בואו נתחיל בשיחה קצרה.'});
+  expect(await new Rewards(db,b,now).claimReminder('he-IL')).toMatchObject({notify:true,title:'יש זמן לקצת פורטוגזית?'});
+  expect(await new Rewards(db,c,now).claimReminder()).toMatchObject({notify:true,body:'No practice yet today. Let’s start with a short conversation.'});
+});
+it('web delivery skips one or two replies on any device, including across a time-zone change',async()=>{
+  for(const user of [a,b,c]) {
+    await new Rewards(db,user,now).settings({timezone:user===c?'America/Los_Angeles':'Asia/Jerusalem',reminder_enabled:true});
+    const endpoint=`https://fcm.googleapis.com/fcm/send/${user}`;
+    await db.query('INSERT INTO fala.push_subscriptions(endpoint,user_id,subscription) VALUES($1,$2::uuid,$3::jsonb)',[endpoint,user,JSON.stringify({endpoint,keys:{}})]);
+  }
+  await reply(await session(b),b);
+  const id=await session(c);
+  await reply(id,c,false,new Date('2026-09-20T01:00:00Z'));await reply(id,c,false,new Date('2026-09-20T01:01:00Z'));
+  await new Rewards(db,c,now).settings({timezone:'Asia/Jerusalem'});
+  const endpoints:string[]=[];
+  expect(await deliverReminders(db,now,async s=>{endpoints.push(s.endpoint);})).toEqual({delivered:1});
+  expect(endpoints).toEqual([`https://fcm.googleapis.com/fcm/send/${a}`]);
+  expect((await new Rewards(db,a,now).claimReminder()).notify).toBe(false); // The phone must not send a second copy.
+});
+it('rechecks practice after selecting a candidate, before claiming a reminder',async()=>{
+  await new Rewards(db,a,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});
+  const endpoint='https://fcm.googleapis.com/fcm/send/late-practice';
+  await db.query('INSERT INTO fala.push_subscriptions(endpoint,user_id,subscription) VALUES($1,$2::uuid,$3::jsonb)',[endpoint,a,JSON.stringify({endpoint,keys:{}})]);
+  const interleaved:Database={...db,query:async<T>(sql:string,values:Parameter[]=[])=>{
+    const rows=await db.query<T>(sql,values);
+    if(sql.includes('SELECT p.user_id FROM fala.reward_profiles'))await reply(await session());
+    return rows;
+  }};
+  let attempted=0;
+  expect(await deliverReminders(interleaved,now,async()=>{attempted++;})).toEqual({delivered:0});
+  expect(attempted).toBe(0);
+  expect(await db.query('SELECT * FROM fala.reminder_deliveries WHERE user_id=$1::uuid',[a])).toEqual([]);
 });
 it('delivers to the most recently connected browser only and removes expired subscriptions',async()=>{
   await new Rewards(db,a,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});

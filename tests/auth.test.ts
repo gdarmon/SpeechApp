@@ -334,6 +334,14 @@ it('protects reward APIs, rejects forged points and locked looks, and retains in
   expect(await db.query('SELECT * FROM fala.friend_circles')).toEqual([]);
 });
 
+it('keeps existing reminder clients compatible and validates the optional notification language',async()=>{
+  const account=await login('reminder-user');
+  expect((await call('/rewards/reminder','POST',account,{})).data).toEqual({notify:false});
+  expect((await call('/rewards/reminder?language=he-IL','POST',account,{})).data).toEqual({notify:false});
+  expect((await call('/rewards/reminder?language=invalid','POST',account,{})).status).toBe(422);
+  expect((await call('/rewards/reminder?language=he-IL','POST',undefined,{})).status).toBe(401);
+});
+
 it('accepts owned AI reports without duplicating them and deletes them with their conversation',async()=>{
   const alice=await login('report-alice'),bob=await login('report-bob');
   const session=(await start(alice)).data;

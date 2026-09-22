@@ -140,7 +140,7 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
     OutlinedTextField(name,{if(it.length<=30)name=it},label={Text("Nickname for friends")},modifier=Modifier.fillMaxWidth(),singleLine=true)
     OutlinedTextField(time,{time=it.take(5)},label={Text("Reminder time · HH:mm")},modifier=Modifier.fillMaxWidth(),singleLine=true)
     OutlinedTextField(zone,{zone=it.take(80)},label={Text("Time zone")},modifier=Modifier.fillMaxWidth(),singleLine=true)
-    Text("Around 17:00 by default. Use 15-minute steps. Skipped after three replies today, including practice on the web.",style=MaterialTheme.typography.bodySmall)
+    Text("Around 17:00 in your time zone by default. Use 15-minute steps. Only if you haven’t practised today: even one Portuguese reply on any device cancels today’s reminder.",style=MaterialTheme.typography.bodySmall)
     Button(onClick={
         val match=Regex("([01][0-9]|2[0-3]):([0-5][0-9])").matchEntire(time)
         if(match==null || match.groupValues[2].toInt()%15!=0)c.report("Choose a time such as 17:00, 17:15, 17:30 or 17:45.")

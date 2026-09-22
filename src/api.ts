@@ -89,7 +89,8 @@ export function createHandler(dependencies: Dependencies) {
       }
       if (path === '/rewards/reminder' && request.method === 'POST') {
         z.strictObject({}).parse(await body(request));
-        return respond(await store.mutate(tx => new Rewards(tx,user.id).claimReminder()));
+        const language=z.enum(['en-US','he-IL']).optional().parse(new URL(request.url).searchParams.get('language')??undefined);
+        return respond(await store.mutate(tx => new Rewards(tx,user.id).claimReminder(language)));
       }
       if (path === '/friends' && request.method === 'GET') return respond(await rewards.social());
       if (path === '/friends' && request.method === 'POST') {

@@ -34,7 +34,9 @@ export async function deliverReminders(db:Database,now=new Date(),send:Sender=(s
     WHERE p.reminder_enabled AND EXISTS(SELECT 1 FROM fala.push_subscriptions s WHERE s.user_id=p.user_id)
     AND (extract(hour FROM ($1::timestamptz AT TIME ZONE p.timezone))*60+extract(minute FROM ($1::timestamptz AT TIME ZONE p.timezone))) BETWEEN p.reminder_minute AND p.reminder_minute+59
     AND NOT EXISTS(SELECT 1 FROM fala.reminder_deliveries d WHERE d.user_id=p.user_id AND d.local_date=($1::timestamptz AT TIME ZONE p.timezone)::date)
-    AND (SELECT count(*) FROM fala.reward_events e WHERE e.user_id=p.user_id AND e.kind='reply' AND e.local_date=($1::timestamptz AT TIME ZONE p.timezone)::date)<3
+    AND NOT EXISTS(SELECT 1 FROM fala.reward_events e WHERE e.user_id=p.user_id AND e.kind='reply'
+      AND e.occurred_at >= (date_trunc('day',$1::timestamptz AT TIME ZONE p.timezone) AT TIME ZONE p.timezone)
+      AND e.occurred_at < ((date_trunc('day',$1::timestamptz AT TIME ZONE p.timezone)+interval '1 day') AT TIME ZONE p.timezone))
     ORDER BY p.user_id LIMIT 20`,[now.toISOString()]);
   let delivered=0;
   // Four workers; use only the most recently connected browser to avoid duplicate alerts.

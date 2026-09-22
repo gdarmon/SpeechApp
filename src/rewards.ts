@@ -177,15 +177,26 @@ export class Rewards {
     }
     return this.social();
   }
-  async claimReminder() {
-    const state=await this.snapshot(), {day,minute}=localClock(this.now,state.profile.timezone);
-    const elapsed=minute-state.profile.reminder_minute;
-    if(!state.profile.reminder_enabled || state.daily_complete || elapsed<0 || elapsed>=60) return {notify:false};
+  async claimReminder(language?: 'en-US' | 'he-IL') {
+    const profile=await this.profile(), {day,minute}=localClock(this.now,profile.timezone);
+    const elapsed=minute-profile.reminder_minute;
+    if(!profile.reminder_enabled || elapsed<0 || elapsed>=60) return {notify:false};
+    // One saved Portuguese reply is practice, even before the three-reply daily goal.
+    // Recompute the local day from timestamps so travel/time-zone changes cannot hide today's practice.
+    const practised=await this.db.query(`SELECT 1 FROM fala.reward_events WHERE user_id=$1::uuid AND kind='reply'
+      AND occurred_at >= ($2::date::timestamp AT TIME ZONE $3)
+      AND occurred_at < (($2::date+1)::timestamp AT TIME ZONE $3) LIMIT 1`,[this.user,day,profile.timezone]);
+    if(practised.length)return {notify:false};
+    if(!language) {
+      const [last]=await this.db.query<{language:string}>(`SELECT request->>'support_language' AS language
+        FROM fala.sessions WHERE user_id=$1::uuid AND NOT demo ORDER BY started_at DESC LIMIT 1`,[this.user]);
+      language=last?.language==='he-IL'?'he-IL':'en-US';
+    }
     const rows=await this.db.query(`INSERT INTO fala.reminder_deliveries(user_id,local_date) VALUES($1::uuid,$2::date) ON CONFLICT DO NOTHING RETURNING user_id`,[this.user,day]);
     if(!rows.length)return {notify:false};
-    return {notify:true,day,title:'A little Portuguese today?',body:state.streak.days>0
-      ? `Your ${state.streak.days}-day streak is waiting. Three short replies will keep it going.`
-      : 'Your next conversation is waiting. Start with three short replies.'};
+    return {notify:true,day,
+      title:language==='he-IL'?'יש זמן לקצת פורטוגזית?':'A little Portuguese today?',
+      body:language==='he-IL'?'עוד לא תרגלתם היום. בואו נתחיל בשיחה קצרה.':'No practice yet today. Let’s start with a short conversation.'};
   }
   async reset() {
     await this.db.query('DELETE FROM fala.reward_events WHERE user_id=$1::uuid',[this.user]);

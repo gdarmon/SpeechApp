@@ -88,7 +88,7 @@ export function createRewards({api,post,task,screen,home}) {
     const registration=await navigator.serviceWorker.ready;
     const bytes=Uint8Array.from(atob(state.web_push_key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
     const subscription=await registration.pushManager.getSubscription()||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
-    await post('/rewards/push',subscription.toJSON());render(await post('/rewards/settings',{reminder_enabled:true}));$('push-state').textContent='Connected. You will be reminded here when your daily goal is unfinished.';
+    await post('/rewards/push',subscription.toJSON());render(await post('/rewards/settings',{reminder_enabled:true}));$('push-state').textContent='Connected. You will be reminded here only if you haven’t practised that day.';
   });};
   async function disconnect(){if(!('serviceWorker' in navigator))return;const registration=await navigator.serviceWorker.getRegistration('/app/');const subscription=await registration?.pushManager?.getSubscription();if(subscription){try{await post('/rewards/push/remove',{endpoint:subscription.endpoint});}finally{await subscription.unsubscribe();}}}
   $('disconnect-push').onclick=()=>{void task(async()=>{await disconnect();$('push-state').textContent='This browser is disconnected. Other connected devices keep their settings.';});};

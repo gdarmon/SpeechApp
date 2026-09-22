@@ -47,7 +47,7 @@ class ReminderWorker(context: Context, parameters: WorkerParameters) : Coroutine
         return try {
             val profile = api.get("/rewards").getJSONObject("profile")
             if (profile.optBoolean("reminder_enabled") && NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) {
-                val reminder = api.post("/rewards/reminder")
+                val reminder = api.post("/rewards/reminder?language=${settings.supportLanguage.ifBlank { "en-US" }}")
                 if (reminder.optBoolean("notify")) {
                     val manager = applicationContext.getSystemService(NotificationManager::class.java)
                     manager.createNotificationChannel(NotificationChannel("practice", "Practice reminders", NotificationManager.IMPORTANCE_DEFAULT))
