@@ -1,0 +1,1 @@
+Android voice replies now allow a brief moment after you release the microphone to capture the last words of your sentence. A clear listening indicator shows this finishing step. Cancelling or leaving the app still stops listening immediately. Your words remain available to review before sending.

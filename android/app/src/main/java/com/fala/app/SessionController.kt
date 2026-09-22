@@ -134,7 +134,8 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var helpMode by mutableStateOf(false)
         private set
-    val recording: Boolean get() = holding || phase == "Recognizing"
+    val finishingSpeech: Boolean get() = phase == "Finishing speech"
+    val recording: Boolean get() = holding || finishingSpeech || phase == "Recognizing"
     val targetTurns: Int get() = session.optInt("target_turns", 10).coerceIn(1, 80)
     val completedTurns: Int get() = session.optJSONArray("turns")?.let { turns ->
         (0 until turns.length()).count { turns.getJSONObject(it).optInt("help") != 1 }
@@ -411,19 +412,26 @@ class SessionController(application: Application) : AndroidViewModel(application
         val generation = voiceGeneration
         timeout = viewModelScope.launch {
             delay(45000)
-            if (generation == voiceGeneration) finishHolding()
+            if (generation == voiceGeneration) finishHolding(immediate = true)
         }
         listenSegment(generation)
     }
 
-    fun finishHolding() {
+    fun finishHolding(immediate: Boolean = false) {
         if (!holding) return
         diagnostics.events.record(VoiceEvent.HOLD_RELEASE)
         holding = false; voiceLevel = 0f; timeout?.cancel()
         if (phase == "Listening") {
-            phase = "Recognizing"
+            phase = if (immediate) "Recognizing" else "Finishing speech"
             val generation = voiceGeneration
             timeout = viewModelScope.launch {
+                // Keep the last syllables when the finger lifts before the speech service
+                // has consumed its audio buffer. Cancellation/backgrounding still stops now.
+                if (!immediate) delay(1000)
+                if (generation != voiceGeneration) return@launch
+                phase = "Recognizing"
+                input.finish()
+                if (generation != voiceGeneration || phase != "Recognizing") return@launch
                 delay(8000)
                 if (generation == voiceGeneration) {
                     diagnostics.events.record(VoiceEvent.RECOGNITION_ERROR, -5, operation = VoiceOperation.AWAIT_RESULT)
@@ -435,7 +443,6 @@ class SessionController(application: Application) : AndroidViewModel(application
                         else "The speech service did not return a result in time. Check the words below or try again. If it repeats, open Microphone help."
                 }
             }
-            input.finish()
         } else {
             val wasStarting = phase == "Starting microphone"
             stopVoice(); phase = "Your turn"
@@ -455,7 +462,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         val language = if (helpMode) conversationLanguage else "pt-BR"
         input.listen(language, settings.networkRecognition,
             ready = { if (generation == voiceGeneration && holding) phase = "Listening" },
-            level = { if (generation == voiceGeneration && holding) voiceLevel = it },
+            level = { if (generation == voiceGeneration && (holding || finishingSpeech)) voiceLevel = it },
             partial = { if (generation == voiceGeneration) partialWords = it },
             result = { result ->
                 if (generation == voiceGeneration) {

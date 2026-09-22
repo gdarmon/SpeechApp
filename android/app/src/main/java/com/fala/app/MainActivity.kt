@@ -284,14 +284,14 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 }
 
 @Composable private fun HoldToSpeak(c: SessionController, mic: (() -> Unit) -> Unit, modifier: Modifier = Modifier) {
-    val enabled = !c.busy && !c.retryAvailable && !c.practiceComplete && c.phase != "Recognizing"
+    val enabled = !c.busy && !c.retryAvailable && !c.practiceComplete && !c.finishingSpeech && c.phase != "Recognizing"
     var keyboardHeld by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { keyboardHeld = false } }
     fun accessibleToggle() {
         if (c.holding) c.finishHolding() else mic { c.beginHolding() }
     }
-    Surface(color = if (c.holding) Color(0xFFA23C31) else MaterialTheme.colorScheme.primary,
-        contentColor = if (c.holding) Color.White else MaterialTheme.colorScheme.onPrimary,
+    Surface(color = if (c.holding || c.finishingSpeech) Color(0xFFA23C31) else MaterialTheme.colorScheme.primary,
+        contentColor = if (c.holding || c.finishingSpeech) Color.White else MaterialTheme.colorScheme.onPrimary,
         shape = when(c.rewards.optJSONObject("profile")?.optString("skin")) {
             "wave" -> RoundedCornerShape(topStart=28.dp,topEnd=12.dp,bottomEnd=28.dp,bottomStart=12.dp)
             "rhythm" -> RoundedCornerShape(28.dp)
@@ -334,6 +334,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(20.dp))
             Text(when {
+                c.finishingSpeech -> if (c.conversationLanguage == "he-IL") "משלים את סוף המשפט…" else "Catching the last words…"
                 c.phase == "Recognizing" -> "Finishing…"
                 c.phase == "Starting microphone" -> "Getting ready…"
                 c.holding -> "Release to stop"
@@ -501,7 +502,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 Text(if (language == "he-IL") "עזרת מיקרופון" else "Microphone help")
             }
             if (c.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp))
-            if (c.holding) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
+            if (c.holding || c.finishingSpeech) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
             if (!c.practiceComplete) {
                 Row(Modifier.walkthroughTarget(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = if (c.recording) listOf(c.draft.text, c.partialWords).filter { it.isNotBlank() }.joinToString(" ") else c.draft.text,
@@ -521,6 +522,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             Text(when {
                 c.phase == "Starting microphone" -> "Wait for Listening, then speak."
                 c.holding -> "Listening · keep holding while you speak."
+                c.finishingSpeech -> if (language == "he-IL") "אפשר לשחרר — המיקרופון מקשיב עוד שנייה לסיום המשפט." else "You can let go — the microphone listens for one more second."
                 c.phase == "Recognizing" -> "Finishing your words…"
                 c.practiceComplete -> "Practice complete · preparing your summary…"
                 c.busy -> c.connectionNotice.ifBlank { "Fala is preparing a reply…" }

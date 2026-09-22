@@ -6,6 +6,8 @@ The help screen offers permission checks, app permissions, phone speech-recognit
 
 ## Diagnosing a report
 
+Android 0.13.2 keeps listening for up to one second after an ordinary button release so the final syllables can reach the speech service. The button stays red and explains this brief listening period, then changes to recognition. A final result ends the wait early. Cancellation, navigation and backgrounding stop immediately; release before microphone readiness still cancels. The 45-second safety cutoff does not add this extra second. The eight-second final-result timeout starts after the stop request. Diagnostics distinguish HOLD_RELEASE from the later RECOGNITION_STOP; neither event contains speech.
+
 Ask the learner to reproduce the problem, then open Microphone help, preview the report and share it with fala.support@gmail.com. They choose a destination in Android's share sheet; Fala never uploads the report automatically.
 
 Reports contain app/build, device model, Android version/build, current microphone permission/mute status, the chosen recognition mode, speech-service component names and up to 80 timestamped events from the current app process. Logs accept only enum events/operations, numeric codes, boolean network choice and three allowed language tags. There are no transcripts, audio, free-form exception messages, URLs, account identifiers, tokens or general installed-app inventories.
