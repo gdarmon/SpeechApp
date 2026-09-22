@@ -31,9 +31,19 @@ class WalkthroughTest {
         return null
     }
     private fun settle() { instrumentation.waitForIdleSync(); Thread.sleep(600) }
+    private fun waitForLabel(label: String): AccessibilityNodeInfo {
+        repeat(30) { find(label)?.let { return it }; Thread.sleep(100) }
+        fun dump(node: AccessibilityNodeInfo?, depth: Int = 0) {
+            if (node == null) return
+            println("Tour node $depth text=${node.text} description=${node.contentDescription} class=${node.className}")
+            for (i in 0 until node.childCount) dump(node.getChild(i), depth + 1)
+        }
+        dump(instrumentation.uiAutomation.rootInActiveWindow)
+        error("Missing tutorial control: $label")
+    }
     private fun click(label: String) {
         settle()
-        var node = requireNotNull(find(label)) { "Missing tutorial control: $label" }
+        var node = waitForLabel(label)
         while (!node.isClickable) node = requireNotNull(node.parent)
         assertTrue(node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
         settle()
@@ -60,9 +70,9 @@ class WalkthroughTest {
                 assertTrue(ConnectionSettings(activity).walkthroughSeen)
             }
             for (step in 0..4) {
-                settle(); assertNotNull(find("${step + 1} / 5"))
                 capture("en-step-${step + 1}")
-                if (step == 1) { click("Back"); assertNotNull(find("1 / 5")); click("Next") }
+                waitForLabel("${step + 1} / 5")
+                if (step == 1) { click("Back"); waitForLabel("1 / 5"); click("Next") }
                 click(if (step == 4) "Let’s try it" else "Next")
             }
             scenario.recreate()
