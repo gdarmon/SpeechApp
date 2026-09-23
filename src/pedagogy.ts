@@ -87,17 +87,17 @@ export function lessonModel(term: string, meaning: string, question: number, lan
       ] },
     { text: `Por que quer repetir ${named}?`, he: `למה תרצה לחזור על ${named}?`, en: `Why would you like to repeat ${named}?`,
       answers: [
-        [`Quero repetir ${named} porque ainda não lembro desse nome.`, `אני רוצה לחזור על ${named} כי אני עדיין לא זוכר את השם הזה.`, `I'd like to repeat ${named} because I don't remember that name yet.`],
+        [`Quero repetir ${named} porque ainda não lembro bem desse nome.`, `אני רוצה לחזור על ${named} כי אני עדיין לא זוכר היטב את השם הזה.`, `I'd like to repeat ${named} because I don't remember that name well yet.`],
         [`Quero ouvir ${named} de novo, porque quero lembrar.`, `אני רוצה לשמוע את ${named} שוב, כי אני רוצה לזכור.`, `I'd like to hear ${named} again because I want to remember.`],
       ] },
     { text: `Como pediria ajuda com ${named}?`, he: `איך היית מבקש עזרה עם ${named}?`, en: `How would you ask for help with ${named}?`,
       answers: [
-        [`Não entendi ${named}. Pode explicar esse nome com palavras simples?`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה במילים פשוטות?`, `I didn't understand ${named}. Could you explain that name in simple words?`],
+        [`Não entendi ${named}. Pode explicar esse nome com palavras simples? Quero entender melhor para usar na conversa.`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה במילים פשוטות? אני רוצה להבין טוב יותר כדי להשתמש בו בשיחה.`, `I didn't understand ${named}. Could you explain that name in simple words? I'd like to understand it better to use it in conversation.`],
         [`Não lembro de ${named}. Pode repetir esse nome mais devagar?`, `אני לא זוכר את ${named}. אפשר לחזור על השם הזה לאט יותר?`, `I don't remember ${named}. Could you repeat that name more slowly?`],
       ] },
     { text: `Como reformularia seu pedido sobre ${named}?`, he: `איך היית מנסח מחדש את הבקשה שלך לגבי ${named}?`, en: `How would you rephrase your request about ${named}?`,
       answers: [
-        [`Eu explicaria que quero entender o nome ${named}. Pediria uma explicação curta, porque preciso usar esse nome numa conversa.`, `הייתי מסביר שאני רוצה להבין את השם ${named}. הייתי מבקש הסבר קצר, כי אני צריך להשתמש בשם הזה בשיחה.`, `I'd explain that I want to understand the name ${named}. I'd ask for a short explanation, because I need to use the name in conversation.`],
+        [`Eu explicaria que quero entender o nome ${named}. Pediria uma explicação curta, porque preciso usar esse nome numa conversa com meus colegas na próxima aula.`, `הייתי מסביר שאני רוצה להבין את השם ${named}. הייתי מבקש הסבר קצר, כי אני צריך להשתמש בשם הזה בשיחה עם חבריי בשיעור הבא.`, `I'd explain that I want to understand the name ${named}. I'd ask for a short explanation, because I need to use the name in a conversation with my classmates at the next class.`],
         [`Eu diria que preciso ouvir ${named} mais devagar. Se isso não ajudasse, pediria outra explicação para conseguir usar esse nome numa conversa.`, `הייתי אומר שאני צריך לשמוע את ${named} לאט יותר. אם זה לא היה עוזר, הייתי מבקש הסבר אחר כדי להשתמש בשם הזה בשיחה.`, `I'd say I need to hear ${named} more slowly. If that didn't help, I'd ask for another explanation so I could use the name in conversation.`],
       ] },
   ];

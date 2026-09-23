@@ -17,13 +17,17 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const final = context.last_turn === true;
     const input = context.input as Partial<TurnInput> | undefined;
     const lesson = context.lesson as { vocabulary?: { term: string }[]; deferred_terms?: string[];
-      next_prompt?: { format?: string; focus_term?: string; allow_repetition?: boolean; model?: unknown } } | undefined;
-    const teaching = context.teaching as { allow_repetition?: boolean } | undefined;
+      next_prompt?: { format?: string; phase?: string; focus_term?: string; allow_repetition?: boolean; model?: unknown } } | undefined;
+    const teaching = context.teaching as { allow_repetition?: boolean; phase?: string } | undefined;
     const forms = (term: string) => [term, ...(capoeiraTerm(term)?.aliases ?? [])];
     const contains = (text: string, term: string) => forms(term).some(form => (` ${termKey(text)} `).includes(` ${termKey(form)} `));
     const respondsToNewTerm = (context.capoeira_reference as { term: string }[] | undefined)?.some(entry =>
       contains(input?.text ?? "", entry.term) && !lesson?.vocabulary?.some(known => known.term === entry.term));
-    const repair = help || reply.turn_feedback?.kind === "clarify" || /repet|de novo|novamente/i.test(input?.text ?? "");
+    // "Quero repetir martelo" can be the intended lesson answer, not a request
+    // to replay the question. Do not bypass the teaching contract for every
+    // occurrence of a word we deliberately teach throughout this curriculum.
+    const repetitionRequest = /^(?:(?:voce )?pode(?:ria)?(?: voce)? (?:repetir|falar de novo|dizer novamente)|repete|repita|de novo|novamente)\b/.test(termKey(input?.text ?? ""));
+    const repair = help || reply.turn_feedback?.kind === "clarify" || repetitionRequest;
     if (start && lesson?.vocabulary?.length) {
       const openingText = ` ${termKey([reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" "))} `;
       if (!lesson.vocabulary.some(entry => openingText.includes(` ${termKey(entry.term)} `))) {
@@ -103,6 +107,11 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     }
     if (start && reply.pace !== "slow") reject("Start at a gentle speaking pace.");
     if (reply.suggested_replies.some(idea => wordCount(idea.text) > limits.idea_words || idea.text.length > limits.idea_chars)) reject(`Keep reply ideas within ${limits.idea_words} words and ${limits.idea_chars} characters for this level.`);
+    const phase = teaching?.phase ?? lesson?.next_prompt?.phase;
+    if (!help && !final && !repair && limits.level >= 3 && ["model", "retrieve", "recall"].includes(phase ?? "")
+      && !reply.suggested_replies.some(idea => wordCount(idea.text) >= limits.minimum_words)) {
+      reject(`At this teaching stage, at least one IDEA must demonstrate the level's connected-answer goal (about ${limits.minimum_words} words or more, within the idea limit). Use the reviewed model, not filler. This requirement is for the example, never the learner's answer.`);
+    }
     if (wordCount(reply.practice_phrase) > Math.min(10, limits.idea_words)) reject(`Help with one short phrase of at most ${Math.min(10, limits.idea_words)} words.`);
     const feedback = reply.turn_feedback;
     if (start || help) {

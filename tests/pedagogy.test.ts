@@ -103,6 +103,21 @@ describe("focused ten-answer lessons", () => {
       ] }).success).toBe(true);
   });
 
+  it("models connected answers at higher levels without requiring the learner to write a long answer", () => {
+    const lesson = lessonContext({ id: "evasions-v1", visit: 1 }, 3, "he-IL", 4)!;
+    const context = { action: "continue", practice: { level: 4 }, lesson, teaching: teachingPlan(4, 3),
+      input: { text: "Quero repetir esquiva diagonal." } };
+    const reply = replySchema.parse({ ...lesson.next_prompt.model, turn_feedback: feedback });
+    expect(coachingReplySchema(context).safeParse(reply).success).toBe(true);
+    expect(coachingReplySchema(context).safeParse({ ...reply, suggested_replies: [
+      { text: "Quero esquiva diagonal.", translation: "אני רוצה התחמקות אלכסונית." },
+      { text: "Pode repetir?", translation: "אפשר לחזור?" },
+    ] }).success).toBe(false);
+    const guided = lessonContext({ id: "evasions-v1", visit: 1 }, 1, "he-IL", 4)!;
+    expect(coachingReplySchema({ ...context, lesson: guided, teaching: teachingPlan(4, 1) })
+      .safeParse({ ...reply, ...guided.next_prompt.model }).success).toBe(true);
+  });
+
   it("lets meaningful repeated short answers contribute without promoting rote or assisted sessions", () => {
     const texts = ["Quero martelo.", "Pode repetir?", "Quero queixada.", "Quero martelo.", "Pode repetir?", "Quero queixada.", "Sim.", "Sim.", "Não.", "Não."];
     const session = { request: { resolved_level: 1 }, opening: question(), demo: false,
