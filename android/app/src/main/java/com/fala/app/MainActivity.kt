@@ -112,7 +112,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     var microphoneHelp by remember { mutableStateOf(false) }
     var playbackHelp by remember { mutableStateOf(false) }
     val openMicrophoneHelp: () -> Unit = { c.pause(); microphoneHelp = true }
-    val openPlaybackHelp: () -> Unit = { c.pause(); playbackHelp = true }
+    val openPlaybackHelp: () -> Unit = { c.pause(); conversationOptions = false; playbackHelp = true }
     BackHandler(c.screen !in listOf("home", "welcome", "language")) { if (!c.busy) c.navigate("home") }
     val scroll = rememberScrollState()
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
