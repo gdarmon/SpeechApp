@@ -52,13 +52,13 @@ internal fun Modifier.walkthroughTarget(step: Int): Modifier = composed {
 internal fun walkthroughCopy(hebrew: Boolean): List<Pair<String, String>> = if (hebrew) listOf(
     "מתחילים בהקשבה" to "לחצו על Listen כדי לשמוע את השאלה בפורטוגזית. Slower משמיע לאט יותר. אפשר להציג גם את המילים והתרגום.",
     "מוצאים מילים לתשובה" to "צריכים עזרה? פתחו את הרעיונות לתשובה. לחיצה על רעיון מעתיקה אותו לעריכה. ליד כל רעיון יש השמעה רגילה והשמעה איטית — בחרו בקצב שנוח לכם.",
-    "לוחצים, מדברים, משחררים" to "בפעם הראשונה אשרו גישה למיקרופון. אחר כך החזיקו את הכפתור, חכו ל־Listening ודברו. שחררו בסיום; Fala תקשיב עוד שנייה להשלמת המילים. אם המיקרופון נסגר מיד, פתחו את עזרת המיקרופון: בחלק מהמכשירים צריך לבחור זיהוי דרך האינטרנט, שעשוי לשלוח קול לספק הדיבור של המכשיר. אפשר תמיד להקליד.",
+    "לוחצים, מדברים, משחררים" to "בפעם הראשונה אשרו גישה למיקרופון. החזיקו את הכפתור, חכו ל־Listening ודברו. שחררו בסיום; Fala תקשיב עוד שנייה להשלמת המילים.",
     "בודקים ורק אז שולחים" to "המילים שלכם יופיעו כאן. אפשר לתקן אותן ואז ללחוץ על חץ השליחה. הדיבור לא שולח תשובה אוטומטית.",
     "תשובה אחת בכל פעם" to "אחרי 10 תשובות תקבלו משוב ומילים לחזרה. אין צורך למהר. אפשר לפתוח את ההדרכה שוב בהגדרות."
 ) else listOf(
     "Listen to the question" to "Tap Listen to hear the Portuguese. Slower gives you more time. You can reveal the words and translation too.",
     "Find your first words" to "Open Ideas for your reply when you need help. Tap an idea to copy it. Each idea has Normal and Slow playback buttons. Choose a comfortable pace, then make the words your own.",
-    "Hold, speak, release" to "The first time, allow microphone access. Then hold the button, wait for Listening and speak. Release when finished; Fala listens for one more second to catch the last words. If it closes immediately, open Microphone help: some phones need network recognition, which may send audio to your phone’s speech provider. You can always type.",
+    "Hold, speak, release" to "The first time, allow microphone access. Hold the button, wait for Listening and speak. Release when finished; Fala listens for one more second to catch the last words.",
     "Check, then send" to "Your words appear here first. Edit them if needed, then tap the send arrow. Speaking never sends an answer automatically.",
     "One reply at a time" to "After 10 replies, review your feedback and useful words. Take your time. You can reopen this guide in Settings."
 )
@@ -88,7 +88,7 @@ internal fun Walkthrough(c: SessionController, targets: Map<Int, WalkthroughAnch
                     CornerRadius(14.dp.toPx()), style = Stroke(3.dp.toPx()))
             }
             val top = (anchor?.bounds?.center?.y ?: 0f) > heightPx / 2
-            val cardMaxHeight = maxHeight * 0.52f
+            val cardMaxHeight = maxHeight * if (step == 2) 0.78f else 0.52f
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp),
                 contentAlignment = if (top) Alignment.TopCenter else Alignment.BottomCenter) {
                 CompositionLocalProvider(LocalLayoutDirection provides if (hebrew) LayoutDirection.Rtl else LayoutDirection.Ltr) {
@@ -103,7 +103,11 @@ internal fun Walkthrough(c: SessionController, targets: Map<Int, WalkthroughAnch
                             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(copy[step].first, style = MaterialTheme.typography.titleLarge)
                                 Text(copy[step].second.replace("10", c.targetTurns.toString()), style = MaterialTheme.typography.bodyMedium)
-                                if (step == 2) TextButton(onClick = microphoneHelp) { Text(if (hebrew) "בדיקת המיקרופון והגדרות" else "Microphone help & settings") }
+                                if (step == 2) {
+                                    HorizontalDivider()
+                                    OnlineSpeechChoice(hebrew, c.networkRecognition, c::chooseNetworkRecognition, enabled = !c.busy)
+                                    TextButton(onClick = microphoneHelp) { Text(if (hebrew) "בדיקת המיקרופון והגדרות" else "Microphone help & settings") }
+                                }
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                 if (step > 0) TextButton(onClick = c::previousWalkthroughStep) { Text(if (hebrew) "הקודם" else "Back") }

@@ -562,11 +562,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     SupportLanguageChoice(c)
     Text("Choose once. Fala speaks Portuguese and shows help in your language.")
     Text("Fala sends your transcript to its conversation service and AI provider. Your conversations and learning memory are saved to your account until you delete them. Fala does not record audio.")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(network, { network = it }, enabled = !c.busy)
-        Text("Use network speech recognition", Modifier.padding(start = 12.dp))
-    }
-    Text("On-device speech recognition is preferred. Network recognition may send audio to your phone's speech provider. Voice playback can also use the network.")
+    OnlineSpeechChoice(c.supportLanguage == "he-IL", network, { network = it }, enabled = !c.busy)
+    Text(if (c.supportLanguage == "he-IL") "הקראת משפטים (Listen) יכולה גם היא להשתמש בקול שדורש אינטרנט."
+        else "Voice playback (Listen) can also use a voice that needs the internet.")
     PrivacyLink()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(consent, { consent = it }, enabled = !c.busy)
@@ -590,11 +588,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     RewardPreferences(c)
     SupportLanguageChoice(c)
     Text("This choice applies to new conversations.", style = MaterialTheme.typography.bodySmall)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(c.networkRecognition, c::chooseNetworkRecognition, enabled = !c.busy)
-        Text("Use network speech recognition", Modifier.padding(start = 12.dp))
-    }
-    Text("Network recognition may send audio to your phone's speech provider. Voice playback may also use a network voice if no local voice is installed.")
+    OnlineSpeechChoice(c.supportLanguage == "he-IL", c.networkRecognition, c::chooseNetworkRecognition, enabled = !c.busy)
+    Text(if (c.supportLanguage == "he-IL") "הקראת משפטים (Listen) יכולה להשתמש באינטרנט אם אין קול מקומי מותקן."
+        else "Voice playback (Listen) may use the internet if no local voice is installed.")
     TextButton(onClick = microphoneHelp) { Text(if (c.supportLanguage == "he-IL") "עזרת מיקרופון ושיתוף דוח תקלה" else "Microphone help & share a report") }
     TextButton(onClick = voiceSettings) { Text(if (c.supportLanguage == "he-IL") "עזרת השמעה וקול פורטוגזי" else "Playback help & Portuguese voice") }
     PrivacyLink()

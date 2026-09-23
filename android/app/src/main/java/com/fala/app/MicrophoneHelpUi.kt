@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -69,14 +68,7 @@ internal fun MicrophoneHelp(c: SessionController, mic: (() -> Unit) -> Unit, app
                     "If access is blocked: open app settings → Permissions → Microphone → Allow while using the app. Also check that microphone access is on in your phone’s privacy settings."))
                 TextButton(onClick = appSettings) { Text(words("פתיחת הרשאות Fala", "Open Fala permissions")) }
                 Text(words("2. זיהוי הדיבור במכשיר", "2. Your phone’s speech recognition"), style = MaterialTheme.typography.titleSmall)
-                Text(words("בחלק מהמכשירים זיהוי דיבור מקומי אינו זמין, או שחסרה השפה. במקרה כזה אפשר לבחור זיהוי דרך האינטרנט ולנסות שוב עם חיבור פעיל.",
-                    "Some phones cannot recognize speech on-device, or lack the language. You can choose network recognition and try again with an internet connection."))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(c.networkRecognition, { c.chooseNetworkRecognition(it); preview = null })
-                    Text(words("זיהוי דיבור דרך האינטרנט", "Use network speech recognition"), Modifier.padding(start = 8.dp).weight(1f))
-                }
-                Text(words("כשהאפשרות מופעלת, ספק זיהוי הדיבור של המכשיר עשוי לקבל את הקול שלכם.",
-                    "When enabled, your phone’s speech provider may receive your audio."), style = MaterialTheme.typography.bodySmall)
+                OnlineSpeechChoice(he, c.networkRecognition, { c.chooseNetworkRecognition(it); preview = null }, enabled = !c.busy)
                 TextButton(onClick = {
                     runCatching { context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }
                         .recoverCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }

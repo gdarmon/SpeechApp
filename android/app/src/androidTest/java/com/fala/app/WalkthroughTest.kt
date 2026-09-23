@@ -31,6 +31,19 @@ class WalkthroughTest {
         return null
     }
     private fun settle() { instrumentation.waitForIdleSync(); Thread.sleep(600) }
+    private fun scrollForward(node: AccessibilityNodeInfo? = instrumentation.uiAutomation.rootInActiveWindow): Boolean {
+        if (node == null) return false
+        if (node.isScrollable && node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return true
+        for (i in 0 until node.childCount) if (scrollForward(node.getChild(i))) return true
+        return false
+    }
+    private fun reveal(label: String) {
+        repeat(8) {
+            if (find(label)?.isVisibleToUser == true) return
+            if (!scrollForward()) return
+            settle()
+        }
+    }
     private fun waitForLabel(label: String): AccessibilityNodeInfo {
         repeat(30) { find(label)?.let { return it }; Thread.sleep(100) }
         fun dump(node: AccessibilityNodeInfo?, depth: Int = 0) {
@@ -43,6 +56,7 @@ class WalkthroughTest {
     }
     private fun click(label: String) {
         settle()
+        reveal(label)
         var node = waitForLabel(label)
         while (!node.isClickable) node = requireNotNull(node.parent)
         assertTrue(node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
@@ -65,6 +79,7 @@ class WalkthroughTest {
                 val c = ViewModelProvider(activity)[SessionController::class.java]
                 c.settings.saveSession(JSONObject().put("token", "fala_" + "s".repeat(43)).put("expires_at", "2099-01-01T00:00:00Z").put("email", "tour@example.invalid"))
                 c.settings.walkthroughSeen = false
+                c.chooseNetworkRecognition(false)
                 state(c, "screen", "talk"); state(c, "session", session); state(c, "reply", reply)
                 assertTrue(c.openWalkthrough())
                 assertTrue(ConnectionSettings(activity).walkthroughSeen)
@@ -74,6 +89,17 @@ class WalkthroughTest {
                 waitForLabel("${step + 1} / 5")
                 if (step == 1) { click("Back"); waitForLabel("1 / 5"); click("Next") }
                 if (step == 2) {
+                    scenario.onActivity { activity ->
+                        assertFalse(ViewModelProvider(activity)[SessionController::class.java].networkRecognition)
+                    }
+                    click("Use online speech recognition")
+                    scenario.onActivity { activity ->
+                        val c = ViewModelProvider(activity)[SessionController::class.java]
+                        assertTrue(c.networkRecognition)
+                        assertTrue(ConnectionSettings(activity).networkRecognition)
+                        assertFalse(c.recording) // An opt-in changes the setting; it must not begin capture.
+                    }
+                    capture("en-online-recognition-enabled")
                     click("Microphone help & settings")
                     waitForLabel("Microphone help")
                     capture("en-microphone-help")
@@ -92,6 +118,7 @@ class WalkthroughTest {
                 val c = ViewModelProvider(activity)[SessionController::class.java]
                 assertNull(c.walkthroughStep)
                 assertFalse(c.openWalkthrough())
+                assertTrue(c.networkRecognition)
                 assertEquals("", c.draft.text); assertEquals(0, c.completedTurns); assertFalse(c.recording)
                 state(c, "session", JSONObject(session.toString()).put("support_language", "he-IL"))
                 state(c, "reply", JSONObject(reply.toString()).put("translation", "מכירים את הג׳ינגה?")
@@ -100,6 +127,16 @@ class WalkthroughTest {
             }
             for (step in 0..4) {
                 capture("he-step-${step + 1}")
+                if (step == 2) {
+                    click("זיהוי דיבור דרך האינטרנט")
+                    scenario.onActivity { activity ->
+                        val c = ViewModelProvider(activity)[SessionController::class.java]
+                        assertFalse(c.networkRecognition)
+                        assertFalse(ConnectionSettings(activity).networkRecognition)
+                        assertFalse(c.recording)
+                    }
+                    capture("he-online-recognition-disabled")
+                }
                 if (step < 4) click("הבא") else click("דלגו על ההדרכה")
             }
             scenario.onActivity { activity ->
