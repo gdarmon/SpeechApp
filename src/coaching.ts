@@ -18,7 +18,7 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const input = context.input as Partial<TurnInput> | undefined;
     const lesson = context.lesson as { vocabulary?: { term: string }[]; deferred_terms?: string[];
       next_prompt?: { format?: string; phase?: string; focus_term?: string; allow_repetition?: boolean; model?: unknown } } | undefined;
-    const teaching = context.teaching as { allow_repetition?: boolean; phase?: string } | undefined;
+    const teaching = context.teaching as { allow_repetition?: boolean; phase?: string; focus_words?: string[] } | undefined;
     const forms = (term: string) => [term, ...(capoeiraTerm(term)?.aliases ?? [])];
     const contains = (text: string, term: string) => forms(term).some(form => (` ${termKey(text)} `).includes(` ${termKey(form)} `));
     const respondsToNewTerm = (context.capoeira_reference as { term: string }[] | undefined)?.some(entry =>
@@ -28,6 +28,13 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     // occurrence of a word we deliberately teach throughout this curriculum.
     const repetitionRequest = /^(?:(?:voce )?pode(?:ria)?(?: voce)? (?:repetir|falar de novo|dizer novamente)|repete|repita|de novo|novamente)\b/.test(termKey(input?.text ?? ""));
     const repair = help || reply.turn_feedback?.kind === "clarify" || repetitionRequest;
+    if (!lesson && !help && !final && !repair && teaching?.focus_words?.length) {
+      const exposure = normalized([reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" ")).split(" ");
+      const retained = teaching.focus_words.some(word => exposure.some(token => token === word
+        || /[oa]$/.test(word) && new RegExp(`^${word.slice(0, -1)}[oa]s?$`, "u").test(token)
+        || token === `${word}s`));
+      if (!retained) reject("Reuse at least one teaching.focus_words anchor from the opening in the question or an idea. Do not replace the learning focus with a new mini-topic.");
+    }
     if (start && lesson?.vocabulary?.length) {
       const openingText = ` ${termKey([reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" "))} `;
       if (!lesson.vocabulary.some(entry => openingText.includes(` ${termKey(entry.term)} `))) {

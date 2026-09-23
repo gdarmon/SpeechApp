@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAPOEIRA_LESSONS, lessonContext } from "../src/capoeira.js";
-import { teachingPlan } from "../src/pedagogy.js";
+import { openingFocus, teachingPlan } from "../src/pedagogy.js";
 import { coachingReplySchema, wordCount } from "../src/coaching.js";
 import { PRACTICE_LEVELS, practiceResult } from "../src/learning.js";
 import { replySchema, type Session } from "../src/models.js";
@@ -14,6 +14,20 @@ const question = (text = "Quer repetir martelo?") => replySchema.parse({ text, t
   ] });
 
 describe("focused ten-answer lessons", () => {
+  it("keeps everyday vocabulary anchored to the opening instead of changing subjects every turn", () => {
+    const opening = replySchema.parse({ text: "O que quer beber?", suggested_replies: [
+      { text: "Quero um café com leite, por favor.", translation: "A coffee with milk, please." },
+      { text: "Um chá, por favor.", translation: "A tea, please." },
+    ] });
+    expect(openingFocus(opening, 2)).toEqual(["café", "chá"]);
+    const context = { action: "continue", practice: { level: 1 }, teaching: teachingPlan(1, 1, opening) };
+    const good = replySchema.parse({ text: "Quer café com leite?", translation: "Want coffee with milk?", turn_feedback: { kind: "ok", message: "A clear request." },
+      suggested_replies: [{ text: "Quero café com leite.", translation: "I want coffee with milk." }, { text: "Quero chá.", translation: "I want tea." }] });
+    expect(coachingReplySchema(context).safeParse(good).success).toBe(true);
+    expect(coachingReplySchema(context).safeParse({ ...good, text: "O que quer comer?", suggested_replies: [
+      { text: "Quero um sanduíche.", translation: "I want a sandwich." }, { text: "Um bolo.", translation: "A cake." },
+    ] }).success).toBe(false);
+  });
   it("keeps a bounded learning focus with spaced returns across every level and theme", () => {
     for (const level of PRACTICE_LEVELS) for (const theme of CAPOEIRA_LESSONS) for (const visit of [1, 2, 5]) {
       const seen = new Set<string>();

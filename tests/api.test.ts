@@ -106,6 +106,14 @@ describe("Netlify API against PostgreSQL", () => {
     const report = (await call(`/sessions/${session.id}/finish`, "POST", {})).data;
     expect(report.vocabulary).toContainEqual(expect.objectContaining({ word: "aú sem mão", translation: "גלגלון באוויר ללא תמיכת הידיים" }));
   });
+  it("recovers the everyday word anchors from the saved opening across turns and help", async () => {
+    const session = (await start({ topic: "choose for me", practice_level: 1 })).data;
+    expect(coach.calls.at(-1)?.teaching).toMatchObject({ focus_words: [] });
+    await turn(session.id, { text: "Quero café." });
+    expect(coach.calls.at(-1)?.teaching).toMatchObject({ focus_words: ["café"], phase: "guided" });
+    await turn(session.id, { text: "Please repeat", help: true, language: "en-US" });
+    expect(coach.calls.at(-1)?.teaching).toMatchObject({ focus_words: ["café"], phase: "guided" });
+  });
   it("persists a rotating lesson without changing it on retries, help or resume", async () => {
     const input = { topic: "capoeira class", support_language: "he-IL", request_id: randomUUID() };
     const first = (await start(input)).data;

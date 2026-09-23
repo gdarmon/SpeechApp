@@ -1,4 +1,15 @@
 import { practiceLevel } from "./learning.js";
+import type { Reply } from "./models.js";
+
+const frameWords = new Set("a o as os um uma uns umas e ou de do da dos das em no na nos nas ao aos à às por para com sem que qual quais como onde quando quem porque eu você vocês ele ela eles elas nós me se meu minha seu sua seus suas sim não oi olá bom boa bem tudo muito mais menos esse essa isso isto aqui ali então é são foi ser estar está estou tá também favor obrigado obrigada até tchau legal claro ótimo ok quero quer querer tenho tem ter vou vai ir posso pode poderia gostaria prefiro gosto sou fomos fui estava era já ainda vez novo novamente tomar beber comer pedir repetir ouvir fazer aprender treinar praticar jogar estudar comprar".split(" "));
+export function openingFocus(opening: Pick<Reply, "suggested_replies"> | undefined, budget: number) {
+  const ideas = (opening?.suggested_replies ?? []).map(idea =>
+    (idea.text.toLocaleLowerCase("pt-BR").match(/[\p{L}]+/gu) ?? []).filter(word => word.length > 2 && !frameWords.has(word)));
+  // Take an anchor from each idea before secondary details from either one.
+  const words = Array.from({ length: Math.max(0, ...ideas.map(words => words.length)) }, (_, index) =>
+    ideas.flatMap(words => words[index] ? [words[index]] : [])).flat();
+  return [...new Set(words)].slice(0, budget);
+}
 
 // Product teaching budgets, not CEFR scores. A session practises a small set of
 // chunks repeatedly; advancing the turn does not mean introducing a new topic.
@@ -28,13 +39,15 @@ const languageWork = [
   "Develop and adapt one plan. Reuse THREE frames for a choice, a reason and an alternative. Introduce at most one related complication; a concise relevant answer remains valid.",
 ];
 
-export function teachingPlan(levelValue: unknown, question = 0) {
+export function teachingPlan(levelValue: unknown, question = 0, opening?: Pick<Reply, "suggested_replies">) {
   const level = practiceLevel(levelValue).level;
+  const targetTerms = level === 1 ? 2 : level === 2 ? 3 : 4;
   const sequence = sequences[Math.min(level - 1, 2)];
   const index = Math.max(0, Math.min(10, Math.trunc(question) || 0));
   return {
     revision: "focused-practice-v1",
-    target_terms: level === 1 ? 2 : level === 2 ? 3 : 4,
+    target_terms: targetTerms,
+    focus_words: openingFocus(opening, targetTerms),
     language_work: languageWork[level - 1],
     phase: stages[index] ?? "close",
     task: tasks[index] ?? "Close briefly with no new question or vocabulary.",
