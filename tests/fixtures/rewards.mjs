@@ -1,6 +1,6 @@
 export const rewardFixture = () => ({
   "xp": 100,
-  "today_xp": 50,
+  "today_xp": 20,
   "today_replies": 10,
   "daily_complete": true,
   "profile": {
@@ -59,19 +59,19 @@ export const rewardFixture = () => ({
     {
       "id": "beach",
       "name": "Copacabana",
-      "xp": 100,
+      "xp": 2000,
       "unlocked": true
     },
     {
       "id": "roda",
       "name": "Roda",
-      "xp": 300,
+      "xp": 5000,
       "unlocked": false
     },
     {
       "id": "sunset",
       "name": "Salvador sunset",
-      "xp": 1000,
+      "xp": 10000,
       "unlocked": false
     }
   ],
@@ -85,13 +85,13 @@ export const rewardFixture = () => ({
     {
       "id": "wave",
       "name": "Ocean wave",
-      "xp": 150,
+      "xp": 2000,
       "unlocked": false
     },
     {
       "id": "rhythm",
       "name": "Roda rhythm",
-      "xp": 600,
+      "xp": 5000,
       "unlocked": false
     }
   ],
@@ -107,14 +107,14 @@ export const rewardFixture = () => ({
       "id": "bateba",
       "name": "Bateba",
       "color": "Blue & copper",
-      "xp": 200,
+      "xp": 2000,
       "unlocked": false
     },
     {
       "id": "vesoura",
       "name": "Vesoura",
       "color": "Red & gold",
-      "xp": 500,
+      "xp": 5000,
       "unlocked": false
     }
   ],
@@ -128,7 +128,7 @@ export const rewardFixture = () => ({
     "title": "Practise three different class scenarios",
     "progress": 1,
     "target": 3,
-    "xp": 10
+    "xp": 0
   },
   "web_push_key": null
 });

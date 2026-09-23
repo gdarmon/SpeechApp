@@ -41,14 +41,14 @@ try {
  const beforePreview=settingsWrites;
  await bateba.getByRole('button',{name:'Preview',exact:true}).click();
  assert.equal(await page.locator('#partner-preview-use').isDisabled(),true);
- assert.match(await page.locator('#partner-preview-note').textContent(),/100 more XP/);
+ assert.match(await page.locator('#partner-preview-note').textContent(),/1900 more XP/);
  await page.keyboard.press('Escape'); assert.equal(settingsWrites,beforePreview);
  await page.locator('#partner-none').click();
  await page.waitForFunction(()=>document.querySelector('#partner-none').disabled);
  await page.reload(); await page.locator('#home').waitFor({state:'visible'});
  assert.match(await page.locator('#partner-home').textContent(),/Fala only/);
  assert.equal(await page.locator('#partner-home img').count(),0);
- rewards.xp=200;rewards.instructors[1].unlocked=true;
+ rewards.xp=2000;rewards.instructors[1].unlocked=true;
  await page.locator('[data-page="rewards-screen"]').click();
  await bateba.getByRole('button',{name:'Use Bateba'}).click();
  await page.waitForFunction(()=>document.querySelector('#instructor-list [data-partner="bateba"]').dataset.selected==='true');

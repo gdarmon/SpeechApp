@@ -47,7 +47,7 @@ class PlaybackRecoveryTest {
             assertEquals("default", engine.calls.single().second)
             main { engine.events.failed(first, -3) }
             assertEquals(listOf("default", "fallback"), engine.calls.map { it.second })
-            assertTrue(engine.calls.all { it.third == 0.7f })
+            assertTrue(engine.calls.all { it.third == 0.45f })
             val second = engine.calls.last().first
             main { engine.events.finished(first); engine.events.failed(first, -9) }
             assertEquals(0, done); assertTrue(failures.isEmpty())

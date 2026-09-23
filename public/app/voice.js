@@ -65,7 +65,7 @@ export class Voice {
       const buffer = await this.context.decodeAudioData(bytes.slice(0));
       if (generation !== this.generation) return;
       if (this.context.state !== 'running') throw new Error('Tap Listen to hear Fala.');
-      const source = this.context.createBufferSource(); source.buffer = buffer; source.playbackRate.value = slow ? .7 : 1;
+      const source = this.context.createBufferSource(); source.buffer = buffer; source.playbackRate.value = slow ? .45 : 1;
       source.connect(this.context.destination); this.source = source;
       source.onended = () => { if (generation === this.generation) this.status('Your turn. Hold the microphone when you’re ready.'); };
       source.start(); this.status('Listen to Fala…');

@@ -115,7 +115,7 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
     }
     Text("Your milestones",style=MaterialTheme.typography.titleLarge)
     c.rewards.optJSONArray("badges")?.items()?.forEach { Text("${if(it.optBoolean("earned")) "✓" else "○"} ${it.getString("name")}") }
-    Text("2 XP per reply (first 20 daily), 20 XP per ten-answer conversation (first two daily), and 10 XP for reaching three replies today. Mistakes and hints still count. Three different class scenarios in one week earn 10 extra XP.",style=MaterialTheme.typography.bodySmall)
+    Text("1 XP per Portuguese reply, plus 1 XP when you speak it. Up to 20 XP per ten-answer lesson and 40 XP per day. Mistakes and answer ideas still count. Daily goals and weekly milestones celebrate practice without extra points.",style=MaterialTheme.typography.bodySmall)
     Text("One missed day per Monday-based week can protect your streak. Protected days are marked ◇ and earn no points.",style=MaterialTheme.typography.bodySmall)
     preview?.let { item ->
         val color=when(item.getString("id")) {"beach"->Color(0xFF006B80);"roda"->Color(0xFF815214);"sunset"->Color(0xFF963F40);else->Color(0xFF12664F)}
@@ -195,6 +195,6 @@ private fun JSONArray.items() = (0 until length()).map { getJSONObject(it) }
         if(circle.optBoolean("owner")) TextButton(onClick={c.circleAction("rotate")},enabled=!c.busy){Text("Replace invitation")}
         TextButton(onClick={confirmLeave=true},enabled=!c.busy){Text(if(circle.optBoolean("owner")) "Close this circle" else "Leave this circle")}
     }
-    c.rewards.optJSONObject("weekly_mission")?.let { m ->Text("Weekly mission",style=MaterialTheme.typography.titleLarge);Text(m.getString("title"));Text("${m.optInt("progress")}/${m.optInt("target")} · +${m.optInt("xp")} XP")}
+    c.rewards.optJSONObject("weekly_mission")?.let { m ->Text("Weekly mission",style=MaterialTheme.typography.titleLarge);Text(m.getString("title"));Text("${m.optInt("progress")}/${m.optInt("target")}" + if(m.optInt("xp")>0) " · +${m.optInt("xp")} XP" else " · Practice milestone")}
     if(confirmLeave) AlertDialog(onDismissRequest={confirmLeave=false},title={Text(if(circle?.optBoolean("owner")==true) "Close the circle for everyone?" else "Leave this circle?")},text={Text("Everyone keeps their own points and rewards.")},confirmButton={TextButton(onClick={confirmLeave=false;c.circleAction("leave")}){Text("Confirm")}},dismissButton={TextButton(onClick={confirmLeave=false}){Text("Cancel")}})
 }

@@ -77,7 +77,7 @@ export function createRewards({api,post,task,screen,home}) {
     if(c.owner)box.append(button('Replace invitation',()=>social({action:'rotate'}),'text-button'));
     box.append(button(c.owner?'Close this circle':'Leave this circle',()=>{if(confirm(c.owner?'Close this circle for every member? Everyone keeps their own points.':'Leave this circle? Your points and rewards stay yours.'))social({action:'leave'});},'text-button'));
     const mission=state?.weekly_mission;
-    if(mission){const card=node('article');card.append(node('h2','Your weekly mission'),node('p',mission.title),node('p',`${mission.progress}/${mission.target} · +${mission.xp} XP`));box.append(card);}
+    if(mission){const card=node('article');card.append(node('h2','Your weekly mission'),node('p',mission.title),node('p',`${mission.progress}/${mission.target}${mission.xp>0?` · +${mission.xp} XP`:" · Practice milestone"}`));box.append(card);}
   }
   function social(input){void task(async()=>{const own=generation;const next=await post('/friends',input);if(own===generation)renderCircle(next);});}
   $('reward-nav').querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));

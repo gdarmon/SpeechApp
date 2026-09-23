@@ -195,11 +195,16 @@ try {
   });
   await page.locator('.idea-actions .text-button').first().click();
   await page.waitForFunction(() => window.phrasePlaybackRates.length === 1);
-  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[0]) - 0.7) < 0.001);
+  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[0]) - 0.45) < 0.001);
   await page.locator('.idea-actions .secondary').first().click();
   await page.waitForFunction(() => window.phrasePlaybackRates.length === 2);
   assert.equal(await page.evaluate(() => window.phrasePlaybackRates[1]), 1, 'Normal must restore normal speed after Slow');
-  await page.locator('#listen').click(); await page.waitForTimeout(100);
+  await page.locator('#slow').click();
+  await page.waitForFunction(() => window.phrasePlaybackRates.length === 3);
+  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[2]) - 0.45) < 0.001);
+  await page.locator('#listen').click();
+  await page.waitForFunction(() => window.phrasePlaybackRates.length === 4);
+  assert.equal(await page.evaluate(() => window.phrasePlaybackRates[3]), 1);
   assert.equal(speechRequests.length, 3, 'Repeating or slowing a saved clip must not request it again');
   assert.equal(await page.locator('#draft').inputValue(), ''); assert.equal(postCount, 0);
   await page.locator('#options').click();await page.locator('#report-reply').click();

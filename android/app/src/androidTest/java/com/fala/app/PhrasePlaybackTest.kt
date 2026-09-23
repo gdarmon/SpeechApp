@@ -65,7 +65,7 @@ class PhrasePlaybackTest {
                 assertTrue(clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 repeat(20) { instrumentation.waitForIdleSync(); if (rates.size <= index) Thread.sleep(100) }
             }
-            assertEquals(listOf(1f, 0.7f, 0.7f, 1f, 0.7f, 1f), rates)
+            assertEquals(listOf(1f, 0.45f, 0.45f, 1f, 0.45f, 1f), rates)
         }
     }
     @Test fun phraseSpeedOverridesSlowQuestionWithoutEditingOrSendingAnAnswer() {

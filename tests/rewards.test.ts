@@ -13,7 +13,7 @@ beforeAll(async()=>{
   pg=new PGlite();const wrap=(client:Pick<PGlite,'query'>):Executor=>({query:async<T>(sql:string,values:Parameter[]=[]) => (await client.query<T>(sql,values)).rows});
   db={...wrap(pg),transaction:fn=>pg.transaction(tx=>fn(wrap(tx))),close:()=>pg.close()};
   await pg.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
-  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql', '202609230001_walkthrough.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql', '202609230001_walkthrough.sql', '202609230002_reward_rules.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
 },30000);
 afterAll(async()=>{await db.close();});
 beforeEach(async()=>{
@@ -21,8 +21,14 @@ beforeEach(async()=>{
   for(const id of [a,b,c])await db.query('INSERT INTO fala.users(id,google_subject,email) VALUES($1::uuid,$1,$2)',[id,`${id}@example.test`]);
 });
 async function session(user=a,lesson='kicks-v1',demo=false){const id=randomUUID();await db.query(`INSERT INTO fala.sessions(id,request_id,request,kind,topic,opening,user_id,demo) VALUES($1::uuid,$1,$2::jsonb,'conversation','Class','{}',$3::uuid,$4)`,[id,JSON.stringify({resolved_lesson:{id:lesson}}),user,demo]);return id;}
-async function reply(id:string,user=a,help=false,clock=now){const request=randomUUID();await db.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply) VALUES($1::uuid,$2,'{"source":"speech"}','Sim, com certeza.',$3,$4,1000,'{}')`,[id,request,help,help?'en-US':'pt-BR']);await db.transaction(tx=>new Rewards(tx,user,clock).recordReply(id,request));return request;}
+async function reply(id:string,user=a,help=false,clock=now,source:'typed'|'speech'='speech'){const request=randomUUID();await db.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply) VALUES($1::uuid,$2,$5::jsonb,'Sim, com certeza.',$3,$4,$6,'{}')`,[id,request,help,help?'en-US':'pt-BR',JSON.stringify({source}),source==='speech'?1000:0]);await db.transaction(tx=>new Rewards(tx,user,clock).recordReply(id,request));return request;}
 async function conversation(user=a,lesson='kicks-v1',clock=now){const id=await session(user,lesson);for(let i=0;i<10;i++)await reply(id,user,false,clock);return id;}
+// Previous earned points, without hundreds of synthetic conversations in a threshold test.
+async function earnedPoints(xp:number,rules=2,user=a){
+  await db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,occurred_at,rules_version)
+    SELECT $1::uuid,$2 || n,'reply',LEAST(20,$3-(n-1)*20),'2026-09-18','2026-09-18T12:00:00Z',$4
+    FROM generate_series(1,($3+19)/20) AS n`,[user,randomUUID(),xp,rules]);
+}
 
 it('remembers the guide on the account across clients, settings changes and learning resets',async()=>{
   const rewards=new Rewards(db,a,now);
@@ -48,14 +54,39 @@ it('restores guide dismissal for returning learners from versions that only stor
   expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(true);
 });
 
-it('awards one first-conversation reward, counts guided practice, and prevents replay/cap farming',async()=>{
+it('caps a spoken lesson at 20 XP, caps a day at 40, and prevents replay/cap farming',async()=>{
   const rewards=new Rewards(db,a,now),id=await session();const key=await reply(id);
   await rewards.recordReply(id,key);expect((await rewards.snapshot()).xp).toBe(2);
   for(let i=1;i<10;i++)await reply(id);
-  expect(await rewards.snapshot()).toMatchObject({xp:50,today_xp:50,today_replies:10,daily_complete:true,completed:1});
-  await conversation();await conversation();expect((await rewards.snapshot()).xp).toBe(90);
-  await reply(id);expect((await rewards.snapshot()).xp).toBe(90);
+  expect(await rewards.snapshot()).toMatchObject({xp:20,today_xp:20,today_replies:10,daily_complete:true,completed:1});
+  await conversation();await conversation();expect(await rewards.snapshot()).toMatchObject({xp:40,completed:3});
+  await reply(id);expect((await rewards.snapshot()).xp).toBe(40);
   expect((await new Rewards(db,b,now).snapshot()).xp).toBe(0);
+});
+it('awards 1 XP for typed and 2 for spoken replies, without daily or completion bonuses',async()=>{
+  const id=await session(),rewards=new Rewards(db,a,now);
+  await reply(id,a,false,now,'typed');expect((await rewards.snapshot()).xp).toBe(1);
+  for(let i=1;i<10;i++)await reply(id,a,false,now,i<5?'typed':'speech');
+  expect(await rewards.snapshot()).toMatchObject({xp:15,completed:1});
+  expect(await db.query('SELECT DISTINCT rules_version FROM fala.reward_events WHERE user_id=$1::uuid',[a])).toEqual([{rules_version:2}]);
+  expect(await db.query("SELECT xp FROM fala.reward_events WHERE user_id=$1::uuid AND kind<>'reply'",[a])).toEqual([{xp:0},{xp:0}]);
+});
+it('caps a lesson across midnight and allows a fresh day to earn points again',async()=>{
+  const id=await session(),next=new Date('2026-09-21T14:00:00Z');
+  for(let i=0;i<5;i++)await reply(id);
+  for(let i=0;i<5;i++)await reply(id,a,false,next);
+  await reply(id,a,false,next); // Eleventh reply cannot earn more, even on another date.
+  expect(await new Rewards(db,a,next).snapshot()).toMatchObject({xp:20,today_xp:10,completed:1});
+  await conversation(a,'other',next);
+  expect(await new Rewards(db,a,next).snapshot()).toMatchObject({xp:40,today_xp:30,completed:2});
+});
+it('only awards the remaining daily point and still counts completed practice',async()=>{
+  await conversation();
+  const mixed=await session();
+  await reply(mixed,a,false,now,'typed');for(let i=1;i<10;i++)await reply(mixed);
+  const last=await session();await reply(last);
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:40,today_replies:21,completed:2});
+  expect(await db.query('SELECT xp FROM fala.reward_events WHERE session_id=$1::uuid',[last])).toEqual([{xp:1}]);
 });
 it('excludes demos, help turns and another learner’s records',async()=>{
   const id=await session(a,'kicks-v1',true);await reply(id);const live=await session();const key=await reply(live,a,true);
@@ -65,16 +96,17 @@ it('excludes demos, help turns and another learner’s records',async()=>{
 it('keeps rewards on session deletion, clears them on learning reset, and validates unlocks server-side',async()=>{
   const rewards=new Rewards(db,a,now);await expect(rewards.settings({theme:'roda'})).rejects.toMatchObject({status:403});
   const id=await conversation();await conversation(a,'instruments-v1');await conversation(a,'exercises-v1');
-  expect((await rewards.snapshot()).xp).toBe(100);await rewards.settings({theme:'beach'});
+  expect((await rewards.snapshot()).xp).toBe(40);await earnedPoints(1960);await rewards.settings({theme:'beach'});
   await db.query('DELETE FROM fala.sessions WHERE id=$1::uuid',[id]);expect((await rewards.snapshot()).profile.theme).toBe('beach');
   await rewards.reset();expect(await rewards.snapshot()).toMatchObject({xp:0,profile:{theme:'classic',skin:'classic'}});
   expect(rewardSettingsSchema.safeParse({xp:9000}).success).toBe(false);
 });
-it('awards the weekly scenario mission only once and starts a new weekly mission on Monday',async()=>{
+it('keeps daily and weekly milestones without stacking extra XP and resets the mission on Monday',async()=>{
   for(const lesson of ['one','two','three','four'])await conversation(a,lesson);
-  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:100,weekly_scenarios:4});
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:40,weekly_scenarios:4,weekly_mission:{xp:0,progress:3}});
+  expect(await db.query("SELECT kind,xp FROM fala.reward_events WHERE kind='mission'")).toEqual([{kind:'mission',xp:0}]);
   const next=new Date('2026-09-21T14:00:00Z');await conversation(a,'one',next);
-  expect(await new Rewards(db,a,next).snapshot()).toMatchObject({xp:150,weekly_scenarios:1});
+  expect(await new Rewards(db,a,next).snapshot()).toMatchObject({xp:60,weekly_scenarios:1});
 });
 it('uses local dates, handles Jerusalem DST, and protects at most one missed day in a week',()=>{
   expect(localClock(new Date('2026-09-20T21:05:00Z'),'Asia/Jerusalem').day).toBe('2026-09-21');
@@ -91,7 +123,8 @@ it('shows only the joined circle and nicknames, rotates invitations, and resets 
   await owner.settings({nickname:'Gilad',timezone:'Asia/Jerusalem'});await friend.settings({nickname:'Friend'});
   const group=await owner.circle('create','Our roda');expect((await outsider.social()).circle).toBe(null);
   await friend.circle('join',group.circle!.invite_code);await conversation(a);
-  const shared=await friend.social();expect(shared.members[0]).toMatchObject({name:'Gilad',xp:50,self:false});
+  const shared=await friend.social();expect(shared.members[0]).toMatchObject({name:'Gilad',xp:20,self:false,conversations:1});
+  expect(shared.challenge?.progress).toBe(1); // Completion no longer needs an XP bonus to count.
   expect(JSON.stringify(shared)).not.toMatch(/google_subject|email|@example|session_id|transcript/);
   const rotated=await owner.circle('rotate');expect(rotated.circle!.invite_code).not.toBe(group.circle!.invite_code);
   await expect(outsider.circle('join',group.circle!.invite_code)).rejects.toMatchObject({status:404});
@@ -194,25 +227,60 @@ it('starts with a free partner, synchronizes choices, and rejects unearned or in
   expect((await new Rewards(db,b,now).snapshot()).profile.instructor).toBe('bananera');
   await rewards.reset();expect((await rewards.snapshot()).profile.instructor).toBe('none');
 });
-it('unlocks partners at earned XP boundaries and preserves rewards through migration and session deletion',async()=>{
+it('unlocks the first skins and partners at 2000 XP and the next at 5000 XP',async()=>{
   const rewards=new Rewards(db,a,now);
-  // Three 50-XP conversations on separate days, then all but the tenth reply of day four.
-  for(let day=0;day<3;day++)await conversation(a,'kicks-v1',new Date(now.getTime()+day*86400000));
-  const day4=new Date(now.getTime()+3*86400000),id=await session();
-  for(let i=0;i<9;i++)await reply(id,a,false,day4);
-  expect((await rewards.snapshot()).xp).toBe(178);
-  await expect(rewards.settings({instructor:'bateba'})).rejects.toMatchObject({status:403});
-  await reply(id,a,false,day4);
-  expect((await rewards.snapshot()).xp).toBe(200);
-  await rewards.settings({instructor:'bateba'});
-  await pg.exec(await readFile(new URL('../supabase/migrations/202609210001_instructors.sql',import.meta.url),'utf8'));
+  await earnedPoints(1999);
+  for(const selection of [{skin:'wave'},{instructor:'bateba'},{theme:'beach'}] as const)
+    await expect(rewards.settings(selection)).rejects.toMatchObject({status:403});
+  const id=await session();await reply(id,a,false,now,'typed');
+  expect((await rewards.snapshot()).xp).toBe(2000);
+  await rewards.settings({skin:'wave',instructor:'bateba',theme:'beach'});
+  await earnedPoints(2999);
+  for(const selection of [{skin:'rhythm'},{instructor:'vesoura'},{theme:'roda'}] as const)
+    await expect(rewards.settings(selection)).rejects.toMatchObject({status:403});
+  await reply(id,a,false,now,'typed');
+  expect((await rewards.snapshot()).xp).toBe(5000);
+  await rewards.settings({skin:'rhythm',instructor:'vesoura',theme:'roda'});
   await db.query('DELETE FROM fala.sessions WHERE id=$1::uuid',[id]);
-  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:200,profile:{instructor:'bateba'}});
-  for(let day=4;day<9;day++)await conversation(a,'kicks-v1',new Date(now.getTime()+day*86400000));
-  await expect(rewards.settings({instructor:'vesoura'})).rejects.toMatchObject({status:403});
-  await conversation(a,'kicks-v1',new Date(now.getTime()+9*86400000));
-  expect((await rewards.snapshot()).xp).toBe(500);
-  await rewards.settings({instructor:'vesoura'});
-  expect((await new Rewards(db,a,now).snapshot()).profile.instructor).toBe('vesoura');
-  await rewards.reset();expect(await rewards.snapshot()).toMatchObject({xp:0,profile:{instructor:'bananera'}});
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:5000,profile:{skin:'rhythm',instructor:'vesoura',theme:'roda'}});
+  await expect(rewards.settings({theme:'sunset'})).rejects.toMatchObject({status:403});
+  await earnedPoints(4999);await expect(rewards.settings({theme:'sunset'})).rejects.toMatchObject({status:403});
+  await earnedPoints(1);await rewards.settings({theme:'sunset'});
+  await rewards.reset();expect(await rewards.snapshot()).toMatchObject({xp:0,profile:{instructor:'bananera',skin:'classic',theme:'classic'}});
+});
+
+it('preserves all previously earned looks without awarding future unlocks at old thresholds',async()=>{
+  const rewards=new Rewards(db,a,now);
+  await earnedPoints(150,1);
+  await rewards.settings({skin:'wave',theme:'beach'});
+  await earnedPoints(450,2); // New points cannot unlock Bateba at the old 200-XP boundary.
+  for(const selection of [{skin:'rhythm'},{instructor:'bateba'},{theme:'roda'}] as const)
+    await expect(rewards.settings(selection)).rejects.toMatchObject({status:403});
+  await pg.exec(await readFile(new URL('../supabase/migrations/202609230002_reward_rules.sql',import.meta.url),'utf8'));
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:600,profile:{skin:'wave',theme:'beach'}});
+  await rewards.settings({skin:'classic'});await rewards.settings({skin:'wave'}); // Re-equipping also stays available.
+  await earnedPoints(1000,1,b);
+  const older=new Rewards(db,b,now);
+  const before=await older.snapshot();
+  expect([...before.themes,...before.skins,...before.instructors].every(item=>item.unlocked)).toBe(true);
+  await older.settings({theme:'sunset',skin:'rhythm',instructor:'vesoura'});
+  await older.reset();
+  for(const selection of [{skin:'rhythm'},{instructor:'vesoura'},{theme:'sunset'}] as const)
+    await expect(older.settings(selection)).rejects.toMatchObject({status:403});
+});
+
+it('defaults old-server writes to legacy rules while new awards always use version 2',async()=>{
+  await db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date)
+    VALUES($1::uuid,'old-server','daily',10,'2026-09-18')`,[a]);
+  await reply(await session());
+  expect(await db.query('SELECT event_key,rules_version FROM fala.reward_events ORDER BY occurred_at,event_key')).toEqual(
+    expect.arrayContaining([{event_key:'old-server',rules_version:1},expect.objectContaining({rules_version:2})]));
+});
+
+it('does not add points to a legacy session that already exceeds the new lesson cap',async()=>{
+  const id=await session();
+  await db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,session_id)
+    VALUES($1::uuid,'old-complete','complete',20,'2026-09-19',$2::uuid)`,[a,id]);
+  await reply(id);
+  expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:20,today_xp:0});
 });

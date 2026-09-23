@@ -41,7 +41,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 beforeAll(async () => {
   pg = new PGlite();
   await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql", "202609210002_content_reports.sql", "202609230001_walkthrough.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
+  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql", "202609210002_content_reports.sql", "202609230001_walkthrough.sql", '202609230002_reward_rules.sql']) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
   db = { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))), close: () => pg.close() };
 }, 30000);
@@ -322,7 +322,7 @@ it('protects reward APIs, rejects forged points and locked looks, and retains in
   const answer={request_id:randomUUID(),text:'Sim, eu gosto.',source:'typed'};
   await call(`/sessions/${conversation.id}/turns`,'POST',alice,answer);
   await call(`/sessions/${conversation.id}/turns`,'POST',alice,answer);
-  expect((await call('/rewards','GET',alice)).data.xp).toBe(2);
+  expect((await call('/rewards','GET',alice)).data.xp).toBe(1);
   expect((await call('/rewards','GET',bob)).data.xp).toBe(0);
   for(let i=0;i<10;i++) expect((await call('/friends','POST',bob,{action:'join',value:'a'.repeat(24)})).status).toBe(404);
   expect((await call('/friends','POST',bob,{action:'join',value:'a'.repeat(24)})).status).toBe(429);

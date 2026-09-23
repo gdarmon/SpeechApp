@@ -113,8 +113,8 @@ class AndroidSpeechOutput private constructor(
         }
         log.record(VoiceEvent.PLAYBACK_START, language = "pt-BR", operation = VoiceOperation.SPEAK)
         deadline(r, 12_000)
-        val rate = if (r.slow) 0.7f else 1f
-        log.record(VoiceEvent.PLAYBACK_RATE, if (r.slow) 70 else 100, operation = VoiceOperation.SET_TTS_RATE)
+        val rate = if (r.slow) 0.45f else 1f
+        log.record(VoiceEvent.PLAYBACK_RATE, if (r.slow) 45 else 100, operation = VoiceOperation.SET_TTS_RATE)
         val result = runCatching { engine?.speak(r.text, rate, r.attempt!!) }.getOrNull()
         if (result != TextToSpeech.SUCCESS) failAttempt(r, result ?: TextToSpeech.ERROR_SERVICE, VoiceOperation.SPEAK)
     }

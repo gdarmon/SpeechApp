@@ -5,20 +5,27 @@ import { AppError } from './models.js';
 
 export const THEMES = [
   { id: 'classic', name: 'Fala Classic', xp: 0 },
-  { id: 'beach', name: 'Copacabana', xp: 100 },
-  { id: 'roda', name: 'Roda', xp: 300 },
-  { id: 'sunset', name: 'Salvador sunset', xp: 1000 },
+  { id: 'beach', name: 'Copacabana', xp: 2000 },
+  { id: 'roda', name: 'Roda', xp: 5000 },
+  { id: 'sunset', name: 'Salvador sunset', xp: 10000 },
 ] as const;
 export const SKINS = [
   { id: 'classic', name: 'Classic', xp: 0 },
-  { id: 'wave', name: 'Ocean wave', xp: 150 },
-  { id: 'rhythm', name: 'Roda rhythm', xp: 600 },
+  { id: 'wave', name: 'Ocean wave', xp: 2000 },
+  { id: 'rhythm', name: 'Roda rhythm', xp: 5000 },
 ] as const;
 export const INSTRUCTORS = [
   { id: 'bananera', name: 'Bananera', xp: 0, color: 'Green & gold' },
-  { id: 'bateba', name: 'Bateba', xp: 200, color: 'Blue & copper' },
-  { id: 'vesoura', name: 'Vesoura', xp: 500, color: 'Red & gold' },
+  { id: 'bateba', name: 'Bateba', xp: 2000, color: 'Blue & copper' },
+  { id: 'vesoura', name: 'Vesoura', xp: 5000, color: 'Red & gold' },
 ] as const;
+// Only points awarded by the old rules retain the old unlock thresholds.
+// New practice must never grant another reward at a retired threshold.
+const LEGACY_UNLOCK_XP: Record<string, number> = {
+  classic: 0, beach: 100, roda: 300, sunset: 1000, wave: 150, rhythm: 600,
+  bananera: 0, bateba: 200, vesoura: 500,
+};
+const LESSON_XP_LIMIT = 20, DAILY_XP_LIMIT = 40;
 export const zoneSchema = z.string().max(80).refine(value => {
   try { new Intl.DateTimeFormat('en', { timeZone: value }); return /^[A-Za-z0-9_+\-/]+$/.test(value); } catch { return false; }
 }, 'Choose a valid time zone.');
@@ -76,52 +83,59 @@ export class Rewards {
   }
   async snapshot() {
     const profile=await this.profile(), {day}=localClock(this.now,profile.timezone);
-    const [totals]=await this.db.query<{ xp:number; spoken:number; completed:number; today_replies:number; today_xp:number; weekly_scenarios:number }>(`SELECT
+    const [earned]=await this.db.query<{ xp:number; legacy_xp:number; spoken:number; completed:number; today_replies:number; today_xp:number; weekly_scenarios:number }>(`SELECT
       COALESCE(sum(xp),0)::int AS xp,
+      COALESCE(sum(xp) FILTER(WHERE rules_version=1),0)::int AS legacy_xp,
       count(*) FILTER(WHERE kind='reply' AND spoken)::int AS spoken,
       count(*) FILTER(WHERE kind='complete')::int AS completed,
       count(*) FILTER(WHERE kind='reply' AND local_date=$2::date)::int AS today_replies,
       COALESCE(sum(xp) FILTER(WHERE local_date=$2::date),0)::int AS today_xp,
       count(DISTINCT lesson) FILTER(WHERE kind='complete' AND local_date >= $3::date AND lesson IS NOT NULL)::int AS weekly_scenarios
       FROM fala.reward_events WHERE user_id=$1::uuid`,[this.user,day,weekOf(day)]);
+    const { legacy_xp, ...totals } = earned;
+    const unlocked = (item: { id: string; xp: number }) => totals.xp >= item.xp || legacy_xp >= LEGACY_UNLOCK_XP[item.id];
     const days=await this.db.query<{day:string}>(`SELECT local_date::text AS day FROM fala.reward_events WHERE user_id=$1::uuid AND kind='reply' GROUP BY local_date HAVING count(*)>=3`,[this.user]);
     return { ...totals, profile, today:day, daily_target:3, daily_complete:totals.today_replies>=3,
       streak:streakFor(days.map(row=>row.day),day),
-      themes:THEMES.map(t=>({...t,unlocked:totals.xp>=t.xp})), skins:SKINS.map(s=>({...s,unlocked:totals.xp>=s.xp})),
-      instructors:INSTRUCTORS.map(i=>({...i,unlocked:totals.xp>=i.xp})),
+      themes:THEMES.map(t=>({...t,unlocked:unlocked(t)})), skins:SKINS.map(s=>({...s,unlocked:unlocked(s)})),
+      instructors:INSTRUCTORS.map(i=>({...i,unlocked:unlocked(i)})),
       badges:[{name:'First conversation',earned:totals.completed>=1},{name:'Ten conversations',earned:totals.completed>=10},
         {name:'100 spoken replies',earned:totals.spoken>=100},{name:'Three class scenarios this week',earned:totals.weekly_scenarios>=3}],
-      weekly_mission:{title:'Practise three different class scenarios',progress:Math.min(3,totals.weekly_scenarios),target:3,xp:10},
+      weekly_mission:{title:'Practise three different class scenarios',progress:Math.min(3,totals.weekly_scenarios),target:3,xp:0},
       web_push_key:process.env.FALA_VAPID_PUBLIC_KEY && process.env.FALA_VAPID_PRIVATE_KEY ? process.env.FALA_VAPID_PUBLIC_KEY : null };
   }
 
   // Called inside the same per-learner transaction as the saved reply. Browser counters are never trusted.
   async recordReply(session: string, requestId: string) {
     const [answer]=await this.db.query<{ spoken:boolean; lesson:string|null; round:number }>(`SELECT
-      t.request->>'source'='speech' AS spoken, s.request->'resolved_lesson'->>'id' AS lesson,
+      COALESCE(t.request->>'source','speech')='speech' AND t.speech_ms>0 AS spoken, s.request->'resolved_lesson'->>'id' AS lesson,
       (SELECT count(*)::int FROM fala.turns previous WHERE previous.session_id=s.id AND NOT previous.help AND previous.id<=t.id) AS round
       FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
       WHERE s.user_id=$1::uuid AND s.id=$2::uuid AND t.request_id=$3 AND NOT s.demo AND NOT t.help
         AND t.language='pt-BR' AND t.text ~ '[A-Za-zÀ-ÿ]'`,[this.user,session,requestId]);
     if (!answer || answer.round>10) return;
     const profile=await this.profile(), {day}=localClock(this.now,profile.timezone);
-    const [counts]=await this.db.query<{ replies:number; complete:number }>(`SELECT count(*) FILTER(WHERE kind='reply')::int AS replies,
-      count(*) FILTER(WHERE kind='complete')::int AS complete FROM fala.reward_events WHERE user_id=$1::uuid AND local_date=$2::date`,[this.user,day]);
-    const inserted=await this.db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,occurred_at,session_id,lesson,spoken)
-      VALUES($1::uuid,$2,'reply',$3,$4::date,$5::timestamptz,$6::uuid,$7,$8) ON CONFLICT DO NOTHING RETURNING event_key`,
-      [this.user,`reply:${session}:${requestId}`,counts.replies<20?2:0,day,this.now.toISOString(),session,answer.lesson,answer.spoken??false]);
+    const [counts]=await this.db.query<{ replies:number; day_xp:number; session_xp:number }>(`SELECT
+      count(*) FILTER(WHERE kind='reply' AND local_date=$2::date)::int AS replies,
+      COALESCE(sum(xp) FILTER(WHERE local_date=$2::date),0)::int AS day_xp,
+      COALESCE(sum(xp) FILTER(WHERE session_id=$3::uuid),0)::int AS session_xp
+      FROM fala.reward_events WHERE user_id=$1::uuid AND (local_date=$2::date OR session_id=$3::uuid)`,[this.user,day,session]);
+    const xp = Math.max(0, Math.min(answer.spoken ? 2 : 1, DAILY_XP_LIMIT-counts.day_xp, LESSON_XP_LIMIT-counts.session_xp));
+    const inserted=await this.db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,occurred_at,session_id,lesson,spoken,rules_version)
+      VALUES($1::uuid,$2,'reply',$3,$4::date,$5::timestamptz,$6::uuid,$7,$8,2) ON CONFLICT DO NOTHING RETURNING event_key`,
+      [this.user,`reply:${session}:${requestId}`,xp,day,this.now.toISOString(),session,answer.lesson,answer.spoken??false]);
     if (!inserted.length) return;
-    if (counts.replies+1>=3) await this.event(`daily:${day}`,'daily',10,day);
+    if (counts.replies+1>=3) await this.event(`daily:${day}`,'daily',0,day);
     const [sessionCount]=await this.db.query<{n:number}>(`SELECT count(*)::int AS n FROM fala.reward_events WHERE user_id=$1::uuid AND session_id=$2::uuid AND kind='reply'`,[this.user,session]);
     if (sessionCount.n===10) {
-      await this.event(`complete:${session}`,'complete',counts.complete<2?20:0,day,session,answer.lesson);
+      await this.event(`complete:${session}`,'complete',0,day,session,answer.lesson);
       const [lessons]=await this.db.query<{n:number}>(`SELECT count(DISTINCT lesson)::int AS n FROM fala.reward_events WHERE user_id=$1::uuid AND kind='complete' AND local_date >= $2::date`,[this.user,weekOf(day)]);
-      if(lessons.n>=3) await this.event(`mission:${weekOf(day)}`,'mission',10,day);
+      if(lessons.n>=3) await this.event(`mission:${weekOf(day)}`,'mission',0,day);
     }
   }
   private async event(key:string,kind:string,xp:number,day:string,session:string|null=null,lesson:string|null=null) {
-    await this.db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,occurred_at,session_id,lesson)
-      VALUES($1::uuid,$2,$3,$4,$5::date,$6::timestamptz,$7::uuid,$8) ON CONFLICT DO NOTHING`,[this.user,key,kind,xp,day,this.now.toISOString(),session,lesson]);
+    await this.db.query(`INSERT INTO fala.reward_events(user_id,event_key,kind,xp,local_date,occurred_at,session_id,lesson,rules_version)
+      VALUES($1::uuid,$2,$3,$4,$5::date,$6::timestamptz,$7::uuid,$8,2) ON CONFLICT DO NOTHING`,[this.user,key,kind,xp,day,this.now.toISOString(),session,lesson]);
   }
   async settings(input:z.infer<typeof rewardSettingsSchema>) {
     const state=await this.snapshot(), profile=state.profile;
@@ -141,7 +155,7 @@ export class Rewards {
     if(!circle) return {circle:null,members:[]};
     const week=weekOf(localClock(this.now,circle.timezone).day);
     const members=await this.db.query<{name:string;xp:number;conversations:number;self:boolean}>(`SELECT p.nickname AS name,
-      COALESCE(sum(e.xp),0)::int AS xp, count(*) FILTER(WHERE e.kind='complete' AND e.xp>0)::int AS conversations, m.user_id=$2::uuid AS self
+      COALESCE(sum(e.xp),0)::int AS xp, count(*) FILTER(WHERE e.kind='complete')::int AS conversations, m.user_id=$2::uuid AS self
       FROM fala.circle_members m JOIN fala.reward_profiles p ON p.user_id=m.user_id
       LEFT JOIN fala.reward_events e ON e.user_id=m.user_id AND e.occurred_at>=($3::date::timestamp AT TIME ZONE $4)
         AND e.occurred_at < (($3::date+7)::timestamp AT TIME ZONE $4)
