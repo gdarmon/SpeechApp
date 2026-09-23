@@ -6,7 +6,7 @@ import { replySchema, type Session } from "../src/models.js";
 
 describe("varied ABADÁ conversations", () => {
   it("accepts a natural first-person reply using song vocabulary without requiring title recitation", () => {
-    const reply = replySchema.parse({ text: "Na aula, como você entra na roda?", translation: "בשיעור, איך אתה נכנס למעגל?", pace: "slow",
+    const reply = replySchema.parse({ text: "Como você entra na roda?", translation: "איך אתה נכנס למעגל?", pace: "slow",
       suggested_replies: [{ text: "Entro sem medo.", translation: "אני נכנס בלי פחד." }, { text: "Entro devagar.", translation: "אני נכנס לאט." }] });
     const context = { action: "start", support_language: "he-IL", practice: { level: 1 },
       lesson: lessonContext({ id: "song-phrases-v1", visit: 1 }, 0, "he-IL") };
@@ -87,16 +87,14 @@ describe("varied ABADÁ conversations", () => {
     expect(coachingReplySchema({ action: "help", opening }).safeParse(opening).success).toBe(true);
   });
 
-  it("enforces open speaking tasks without restricting the planned choice or confirmation turns", () => {
-    const reply = replySchema.parse({ text: "Qual chute você prefere?", pace: "slow", translation: "Which kick do you prefer?",
-      suggested_replies: [{ text: "Prefiro martelo.", translation: "I prefer martelo." }, { text: "Eu gosto de armada.", translation: "I like armada." }] });
+  it("allows simple choices and confirmations without introducing deferred terms", () => {
+    const reply = replySchema.parse({ text: "Quer repetir martelo?", pace: "slow", translation: "Want to repeat martelo?",
+      suggested_replies: [{ text: "Quero martelo.", translation: "I want martelo." }, { text: "Pode repetir?", translation: "Can you repeat?" }] });
     const context = { action: "start", lesson: lessonContext({ id: "kicks-v1", visit: 1 }) };
     expect(coachingReplySchema(context).safeParse(reply).success).toBe(true);
-    expect(coachingReplySchema({ ...context, recent_openings: ["Oi! Qual chute você prefere?"] }).safeParse(reply).success).toBe(false);
     expect(coachingReplySchema({ ...context, lesson: lessonContext({ id: "exercises-v1", visit: 1 }) }).safeParse(reply).success).toBe(false);
-    for (const text of ["Você prefere martelo?", "Martelo ou armada?", "Qual você prefere: martelo ou armada?"]) {
-      expect(coachingReplySchema(context).safeParse({ ...reply, text }).success).toBe(false);
-      expect(coachingReplySchema({ ...context, lesson: lessonContext({ id: "kicks-v1", visit: 1 }, 4) }).safeParse({ ...reply, text }).success).toBe(true);
-    }
+    expect(coachingReplySchema(context).safeParse({ ...reply, text: "Martelo ou armada?" }).success).toBe(false);
+    const later = { ...context, lesson: lessonContext({ id: "kicks-v1", visit: 1 }, 4) };
+    expect(coachingReplySchema(later).safeParse({ ...reply, text: "Martelo ou queixada?" }).success).toBe(true);
   });
 });

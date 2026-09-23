@@ -123,9 +123,9 @@ describe("Netlify API against PostgreSQL", () => {
     const second = (await start({ topic: "capoeira class" })).data;
     expect(second.topic).toContain("Instruments");
     await turn(first.id, { text: "Prefiro martelo." });
-    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "queixada" } });
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "martelo" } });
     await turn(first.id, { text: "Please repeat", help: true, language: "en-US" });
-    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "queixada" } });
+    expect(coach.calls.at(-1)?.lesson).toMatchObject({ id: "kicks-v1", next_prompt: { focus_term: "martelo" } });
     expect((await call(`/sessions/${first.id}`)).data.topic).toBe(first.topic);
     const review = (await finish(first.id)).data;
     expect(review.vocabulary.find((item: { word: string }) => item.word === "martelo").translation).toContain("בעיטה");

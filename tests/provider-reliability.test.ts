@@ -38,7 +38,7 @@ describe('provider throttling recovery', () => {
     await new CompatibleProvider({ ...settings, baseUrl: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' }, new Timing(), request)
       .reply({ action: 'start', practice: { level: 1 } });
     const properties = body.response_format.json_schema.schema.properties;
-    expect(properties.suggested_replies.items.properties.text.maxLength).toBe(60);
+    expect(properties.suggested_replies.items.properties.text.maxLength).toBe(70);
     expect(properties.pace.const).toBe('slow');
     expect(properties.translation.minLength).toBe(1);
   });

@@ -1,5 +1,5 @@
 import type { Feedback, Reply, Session } from "./models.js";
-import { CAPOEIRA_LESSONS, CAPOEIRA_TERMS, capoeiraTerm, isCapoeira, termKey } from "./capoeira.js";
+import { CAPOEIRA_TERMS, capoeiraTerm, isCapoeira, lessonContext, termKey } from "./capoeira.js";
 
 export const vocabularyTokens = (text: string) => text.normalize("NFC").toLowerCase().match(/[a-zà-öø-ÿ]+/g) ?? [];
 const phrases = CAPOEIRA_TERMS.flatMap(term => [term.word, ...term.aliases].map(alias => ({ word: term.word, parts: termKey(alias).split(" ") })))
@@ -37,9 +37,10 @@ export function focusWords(session: Session, counts: Map<string, number>, seen: 
   const focus = new Set(session.turns.flatMap(turn => vocabularyUnits(
     turn.reply.turn_feedback?.kind === "correction" ? turn.reply.turn_feedback.natural : turn.help ? turn.reply.practice_phrase : "", capoeira)));
   const relevant = (word: string) => classWords.has(word) || !!capoeiraTerm(word);
-  const lessonWords = new Set(CAPOEIRA_LESSONS.find(lesson => lesson.id === session.request?.resolved_lesson?.id)?.words ?? []);
+  const lessonWords = new Set(lessonContext(session.request?.resolved_lesson, 10,
+    session.request?.support_language, session.request?.resolved_level)?.vocabulary.map(entry => entry.term) ?? []);
   const score = (word: string, count: number) => (seen.has(word) ? 0 : 5) + (focus.has(word) ? 3 : 0)
-    + (capoeira && relevant(word) ? 4 : 0) + (lessonWords.has(word) ? 3 : 0) + Math.min(3, Math.log2(count + 1));
+    + (capoeira && relevant(word) ? 4 : 0) + (lessonWords.has(word) ? 10 : 0) + Math.min(3, Math.log2(count + 1));
   const ranked = [...counts].filter(([word]) => !common.has(word) && (word.length >= 3 || capoeira && relevant(word)))
     .sort((a,b) => score(b[0], b[1]) - score(a[0], a[1]) || a[0].localeCompare(b[0], "pt-BR"));
   const used = new Set<string>();

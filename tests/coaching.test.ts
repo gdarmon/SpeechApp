@@ -7,7 +7,7 @@ import { sanitizeFeedback } from "../src/service.js";
 const opening = replySchema.parse({ text: "Oi! Tudo bem?", translation: "היי! מה שלומך?", pace: "slow",
   suggested_replies: [{ text: "Estou bem.", translation: "שלומי טוב." }, { text: "Mais ou menos.", translation: "ככה ככה." }] });
 const correction = { kind: "correction", message: "Use quero for I want.", said: "Eu querer café", natural: "Eu quero café" };
-const fixed = { ...opening, text: "Eu quero café. Com leite?", turn_feedback: correction };
+const fixed = { ...opening, text: "Com leite?", turn_feedback: correction };
 
 describe("small-step conversation contract", () => {
   it("accepts a short greeting and rejects a complicated opening, stacked questions and long answer ideas", () => {
@@ -26,7 +26,7 @@ describe("small-step conversation contract", () => {
     expect(schema.parse(fixed).turn_feedback?.natural).toBe("Eu quero café");
     expect(schema.safeParse(opening).success).toBe(false);
     expect(schema.safeParse({ ...fixed, turn_feedback: { ...correction, said: "Ele querer café" } }).success).toBe(false);
-    expect(schema.safeParse({ ...fixed, text: "Boa! Com leite?" }).success).toBe(true);
+    expect(schema.safeParse({ ...fixed, text: "Quer leite?" }).success).toBe(true);
     expect(schema.safeParse({ ...fixed, text: "Eu quero café." }).success).toBe(false);
     expect(schema.safeParse({ ...fixed, turn_feedback: { ...correction, natural: "Eu querer café!" } }).success).toBe(false);
     expect(schema.safeParse({ ...fixed, turn_feedback: { ...correction, natural: "Eu quero קפה" } }).success).toBe(false);
@@ -37,7 +37,7 @@ describe("small-step conversation contract", () => {
   it("does not grade a help-language request and closes answer ten without a new question", () => {
     expect(coachingReplySchema({ action: "help" }).safeParse(fixed).success).toBe(false);
     const schema = coachingReplySchema({ action: "continue", input: { text: "Estou bem." }, last_turn: true });
-    const closing = { ...opening, text: "Boa prática! Até a próxima!", suggested_replies: [],
+    const closing = { ...opening, text: "Boa prática! Até a próxima!", translation: "תרגול טוב! להתראות!", suggested_replies: [],
       turn_feedback: { kind: "ok", message: "That answer works.", said: "", natural: "" } };
     expect(schema.safeParse(closing).success).toBe(true);
     expect(schema.safeParse({ ...closing, text: "Boa! E você?" }).success).toBe(false);

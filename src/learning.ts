@@ -1,11 +1,11 @@
 import type { Session, Turn } from "./models.js";
 
 export const PRACTICE_LEVELS = [
-  { level: 1, title: "First phrases", goal: "Understand one simple instruction and answer with a short phrase.", answer_goal: "A short phrase in your own words", minimum_words: 3, opening_words: 8, opening_chars: 70, turn_words: 16, turn_chars: 110, idea_words: 7, idea_chars: 60 },
-  { level: 2, title: "Full sentences", goal: "Give a full sentence and add one useful detail.", answer_goal: "One full sentence with a detail", minimum_words: 5, opening_words: 12, opening_chars: 100, turn_words: 24, turn_chars: 180, idea_words: 12, idea_chars: 100 },
-  { level: 3, title: "Connected answers", goal: "Connect two thoughts and explain a short sequence.", answer_goal: "Two connected sentences", minimum_words: 10, opening_words: 18, opening_chars: 150, turn_words: 36, turn_chars: 250, idea_words: 24, idea_chars: 180 },
-  { level: 4, title: "Explain and clarify", goal: "Explain what happened, ask for clarification and give a reason.", answer_goal: "About three sentences", minimum_words: 16, opening_words: 24, opening_chars: 190, turn_words: 48, turn_chars: 330, idea_words: 40, idea_chars: 280 },
-  { level: 5, title: "Flexible conversations", goal: "Handle an unfamiliar situation, explain your choice and adapt when plans change.", answer_goal: "Three or more connected sentences", minimum_words: 24, opening_words: 32, opening_chars: 240, turn_words: 65, turn_chars: 480, idea_words: 60, idea_chars: 350 },
+  { level: 1, title: "First phrases", goal: "Reuse a short phrase to express one concrete need.", answer_goal: "One short phrase, usually 2–7 words", minimum_words: 2, opening_words: 7, opening_chars: 70, turn_words: 7, turn_chars: 70, idea_words: 7, idea_chars: 70 },
+  { level: 2, title: "Full sentences", goal: "Give a full sentence with one useful detail.", answer_goal: "One short sentence, usually 5–12 words", minimum_words: 5, opening_words: 12, opening_chars: 100, turn_words: 12, turn_chars: 100, idea_words: 12, idea_chars: 100 },
+  { level: 3, title: "Connected answers", goal: "Connect two thoughts with a reason or a short sequence.", answer_goal: "Two short connected thoughts", minimum_words: 10, opening_words: 18, opening_chars: 150, turn_words: 18, turn_chars: 150, idea_words: 24, idea_chars: 180 },
+  { level: 4, title: "Explain and clarify", goal: "Explain one event or clarify one misunderstanding.", answer_goal: "Two or three connected sentences on one point", minimum_words: 16, opening_words: 24, opening_chars: 190, turn_words: 24, turn_chars: 190, idea_words: 32, idea_chars: 250 },
+  { level: 5, title: "Flexible conversations", goal: "Explain a choice and adapt it to one change of plan.", answer_goal: "A concise explanation with a reason or alternative", minimum_words: 24, opening_words: 32, opening_chars: 240, turn_words: 32, turn_chars: 240, idea_words: 40, idea_chars: 300 },
 ] as const;
 
 export type PracticeLevel = typeof PRACTICE_LEVELS[number];
@@ -32,7 +32,8 @@ export function practiceResult(session: Session): PracticeResult {
   const successful = own.filter(turn => turn.reply.turn_feedback?.kind === "ok" && answerWords(turn.text) >= level.minimum_words);
   const varied = new Set(successful.map(turn => normalizeAnswer(turn.text)));
   return { level: level.level, independent_answers: own.length, successful_answers: varied.size,
-    ready: !session.demo && session.turns.filter(turn => !turn.help).length >= 10 && varied.size >= 6 };
+    ready: !session.demo && session.turns.filter(turn => !turn.help).length >= 10 && successful.length >= 6
+      && varied.size >= (level.level === 1 ? 3 : level.level === 2 ? 4 : 6) };
 }
 
 export function practiceProgress(results: { level: number; sessions: number }[]): PracticeProgress {

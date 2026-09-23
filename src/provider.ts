@@ -137,7 +137,7 @@ export class CompatibleProvider implements AIProvider {
       + `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
       + (action === "CONTINUE" ? "turn_feedback MUST be an object with kind, message, said and natural; NEVER null. " : "turn_feedback MUST be null. ")
       + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
-        : `Give two translated answer ideas that model this level's target answer length. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Keep the conversation going with one relevant question at this level; it is not time for a farewell.`);
+        : `Give two translated ideas that directly answer this question using familiar frames. Length limits are ceilings, not a quota; never pad an answer. Help/correction phrases maximum ${Math.min(10, limits.idea_words)} words. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Follow teaching.task and recycle its focus; it is not time for a farewell.`);
     return this.complete(partnerPrompt(context) + instruction, context, coachingReplySchema(context));
   }
   feedback(context: Record<string, unknown>) {

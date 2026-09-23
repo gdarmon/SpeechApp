@@ -1,6 +1,6 @@
 import { replySchema, type TurnInput } from "./models.js";
 import { coachingLimits } from "./learning.js";
-import { termKey } from "./capoeira.js";
+import { capoeiraTerm, termKey } from "./capoeira.js";
 
 export const wordCount = (text: string) => text.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
 const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}]+/gu)?.join(" ") ?? "";
@@ -16,22 +16,50 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const help = context.action === "help";
     const final = context.last_turn === true;
     const input = context.input as Partial<TurnInput> | undefined;
-    const lesson = context.lesson as { vocabulary?: { term: string }[]; next_prompt?: { format?: string } } | undefined;
+    const lesson = context.lesson as { vocabulary?: { term: string }[]; deferred_terms?: string[];
+      next_prompt?: { format?: string; focus_term?: string; allow_repetition?: boolean; model?: unknown } } | undefined;
+    const teaching = context.teaching as { allow_repetition?: boolean } | undefined;
+    const forms = (term: string) => [term, ...(capoeiraTerm(term)?.aliases ?? [])];
+    const contains = (text: string, term: string) => forms(term).some(form => (` ${termKey(text)} `).includes(` ${termKey(form)} `));
+    const respondsToNewTerm = (context.capoeira_reference as { term: string }[] | undefined)?.some(entry =>
+      contains(input?.text ?? "", entry.term) && !lesson?.vocabulary?.some(known => known.term === entry.term));
+    const repair = help || reply.turn_feedback?.kind === "clarify" || /repet|de novo|novamente/i.test(input?.text ?? "");
     if (start && lesson?.vocabulary?.length) {
       const openingText = ` ${termKey([reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" "))} `;
       if (!lesson.vocabulary.some(entry => openingText.includes(` ${termKey(entry.term)} `))) {
         reject("Start in the selected lesson: include at least one of its vocabulary terms in the question or an answer idea.");
       }
     }
-    if (!help && !final && reply.turn_feedback?.kind !== "clarify" && !/repet|de novo|novamente/i.test(input?.text ?? "")) {
+    if (lesson && !final && !repair && !respondsToNewTerm) {
+      const exposure = [reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" ");
+      if (lesson.next_prompt?.focus_term && !contains(exposure, lesson.next_prompt.focus_term)) {
+        reject("Reuse the current focus_term in the question or an answer idea. Stay on this learning target instead of switching subjects.");
+      }
+      // Remove full introduced names first: corda crua must not be mistaken for
+      // a deferred name inside the already-taught corda crua e amarela.
+      let remaining = ` ${termKey(exposure)} `;
+      for (const entry of [...(lesson.vocabulary ?? [])].sort((a,b) => b.term.length - a.term.length)) {
+        for (const form of forms(entry.term).sort((a,b) => b.length - a.length)) {
+          remaining = remaining.split(` ${termKey(form)} `).join(" ");
+        }
+      }
+      if (lesson.deferred_terms?.some(term => contains(remaining, term))) {
+        reject("Do not introduce deferred lesson terms. Recycle the vocabulary already introduced in this session.");
+      }
+    }
+    if (!help && !final && !repair) {
       const previous = start ? (context.recent_openings as string[] | undefined) ?? [] : [
         (context.opening as { text?: string } | undefined)?.text ?? "",
         ...((context.turns as { reply?: { text?: string } }[] | undefined) ?? []).map(turn => turn.reply?.text ?? ""),
       ];
       const question = spokenQuestion(reply.text);
-      if (previous.some(text => text && (normalized(text) === normalized(reply.text)
+      const retrieval = teaching?.allow_repetition || lesson?.next_prompt?.allow_repetition;
+      // Reusing a reviewed question frame in a new beginner lesson is useful:
+      // the target name changes, while the language remains familiar.
+      const checked = start && lesson?.next_prompt?.model ? [] : retrieval ? previous.slice(-1) : previous;
+      if (checked.some(text => text && (normalized(text) === normalized(reply.text)
         || lesson && question && normalized(spokenQuestion(text)) === normalized(question)))) {
-        reject("This repeats an earlier question, even if its introduction changed. Ask a different useful question that follows the learner's answer and current lesson task.");
+        reject("Avoid an immediate question loop. Reuse vocabulary and answer frames; repeat an earlier question only on a planned retrieval turn after an intervening exchange, or when the learner asks for help.");
       }
       if (lesson?.next_prompt?.format === "open") {
         if (!/\b(qual|quais|como|quem|onde|quando|quanto|quantos|quanta|quantas|por que|o que)\b/i.test(question) || /\bou\b/i.test(question)) {
@@ -50,9 +78,26 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     if (questions > 1) reject("Ask only one question at a time.");
     if (!final && !help && questions !== 1) reject("Ask one simple next question in text so the learner can reply.");
     if (final && reply.text.includes("?")) reject("Close the practice without asking a new question.");
+    if ((reply.translation.match(/\?/g)?.length ?? 0) !== questions) reject("Translate the same question or statement; do not add or remove a question in translation.");
+    if (/\b(?:e|mas)\s+(?:quem|quando|onde|como|qual|quais|por que|o que)\b/i.test(spokenQuestion(reply.text))) {
+      reject("Ask about one thing, not two joined questions sharing a question mark.");
+    }
+    if (limits.level === 1 && /^(?:quando|enquanto|se|depois que|antes de)\b[^?]*[,;]/i.test(reply.text.trim())) {
+      reject("At level 1 use one short clause. Remove the scene-setting subordinate clause.");
+    }
+    if (limits.level === 1 && !help && !final) {
+      const questionOnly = reply.text.replace(/^(?:oi|olá|bom dia|boa tarde|boa noite)[!.,]\s*/i, "");
+      if (/[.!;]\s*\p{L}/u.test(questionOnly) || /[,;]\s*(?:quem|quando|onde|como|qual|quais|o que)\b/i.test(questionOnly)) {
+        reject("At level 1 ask just the short question. Put feedback in turn_feedback instead of adding a second spoken sentence or preamble.");
+      }
+      const afterWhich = termKey(reply.text).replace(/^qual (?:e )?(?:o |a )?/, "");
+      if (/^qual\b/i.test(reply.text) && lesson?.vocabulary?.some(entry => afterWhich.startsWith(`${termKey(entry.term)} `))) {
+        reject("Do not ask which variant of an unexplained name or an unstated class sequence. Ask which NAME to hear/repeat, using the reviewed model and matching answer ideas.");
+      }
+    }
     if (start && reply.pace !== "slow") reject("Start at a gentle speaking pace.");
     if (reply.suggested_replies.some(idea => wordCount(idea.text) > limits.idea_words || idea.text.length > limits.idea_chars)) reject(`Keep reply ideas within ${limits.idea_words} words and ${limits.idea_chars} characters for this level.`);
-    if (wordCount(reply.practice_phrase) > 10) reject("Help with one short phrase at a time.");
+    if (wordCount(reply.practice_phrase) > Math.min(10, limits.idea_words)) reject(`Help with one short phrase of at most ${Math.min(10, limits.idea_words)} words.`);
     const feedback = reply.turn_feedback;
     if (start || help) {
       if (feedback) reject("Do not grade a greeting or an English/Hebrew help request.");
@@ -68,6 +113,6 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     if (!feedback.said || !feedback.natural || !input?.text?.includes(feedback.said)) reject("Quote only the current learner answer.");
     if (normalized(feedback.said) === normalized(feedback.natural)) reject("Do not correct punctuation or already-correct wording.");
     if (/^eu tenho \d+ anos$/.test(normalized(feedback.said))) reject("That age statement is already correct.");
-    if (wordCount(feedback.natural) > 10) reject("Give one short corrected phrase.");
+    if (wordCount(feedback.natural) > Math.min(10, limits.idea_words)) reject(`Give one short corrected phrase of at most ${Math.min(10, limits.idea_words)} words.`);
   });
 }

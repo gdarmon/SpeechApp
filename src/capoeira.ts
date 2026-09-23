@@ -1,5 +1,6 @@
 // Original bilingual learning notes. Sources and terminology caveats are recorded
 // in docs/abada-curriculum.md; these are language prompts, not movement tutorials.
+import { beginnerModel, teachingPlan } from "./pedagogy.js";
 export type CapoeiraTerm = { word: string; en: string; he: string; aliases: string[] };
 const term = (word: string, en: string, he: string, ...aliases: string[]): CapoeiraTerm => ({ word, en, he, aliases });
 export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
@@ -159,30 +160,28 @@ export function chooseLesson(topic: string, history: LessonHistory[]): LessonCho
   return { id: next.id, visit: (used.get(next.id)?.visits ?? 0) + 1 };
 }
 
-const tasks = [
-  "Open with one concrete question about the learner's class, preference or need in this situation. Use the focus term in an answer idea if it does not fit the question. No definition quiz.",
-  "Follow their answer: ask which part or name they want the teacher/classmate to explain. Make this a request, not another choice between moves.",
-  "Mention the focus term in a short class remark and check whether the learner wants it repeated or explained. A yes/no answer is fine here.",
-  "Introduce the next term naturally in the situation and ask for one detail, such as who their partner is or when it appears in class. No technical quiz.",
-  "Offer two simple ways to continue in this situation, such as hearing a name again or moving on. This is the one A-or-B choice turn.",
-  "Introduce the last term in a short remark and ask what they would request from their instructor about it. Do not ask the learner to define or teach it.",
-  "Ask how they would tell a classmate one detail already discussed. Suggest a short useful statement, not two move names to choose between.",
-  "Confirm a detail from their actual answer or check whether they want another explanation. A yes/no answer is fine here.",
-  "Ask what they would like the teacher or classmate to include next time, using familiar vocabulary.",
-  "Ask what they would tell their instructor or classmate about today's practice. Invite a short recap, not another preference or definition.",
-];
-const formats = ["open", "open", "yes_no", "open", "choice", "open", "open", "yes_no", "open", "open"];
-const termOrder = [0, 1, 0, 2, 1, 3, 2, 3, 0, 1];
-export function lessonContext(choice: LessonChoice | undefined, question = 0, language = "en-US") {
+export function lessonContext(choice: LessonChoice | undefined, question = 0, language = "en-US", level: unknown = 1) {
   const selected = CAPOEIRA_LESSONS.find(item => item.id === choice?.id);
   if (!selected || !choice) return undefined;
   const offset = (choice.visit - 1) % selected.words.length;
-  const words = [...selected.words.slice(offset), ...selected.words.slice(0,offset)];
+  const plan = teachingPlan(level, question);
+  const words = [...selected.words.slice(offset), ...selected.words.slice(0,offset)].slice(0, plan.target_terms);
+  const introduced = words.slice(0, plan.introduced_terms);
+  const focus = words[plan.focus_index % words.length];
+  const meaning = capoeiraTerm(focus)![language === "he-IL" ? "he" : "en"];
+  const patterns = plan.target_terms === 2 ? ["Quero ...", "Pode repetir?"]
+    : /cords|ceremony/.test(selected.id) ? ["Tenho ...", "É ..."]
+    : /birthday/.test(selected.id) ? ["Parabéns!", "Obrigado / Obrigada."]
+    : /song-phrases/.test(selected.id) ? ["Entro ...", "Pode repetir?"]
+    : ["Quero ...", "Pode repetir?"];
   return { id: selected.id, title: selected.title, school: "ABADÁ", situation: selected.situation,
-    vocabulary: words.map(word => { const entry = capoeiraTerm(word)!; return { term: entry.word, meaning: entry.en, translation: language === "he-IL" ? entry.he : entry.en }; }),
-    next_prompt: question >= 10 ? { task: "Close this practice without a new question or term." } : {
-      task: tasks[question], format: formats[question], focus_term: words[termOrder[question] % words.length],
-      opening_style: ["Ask a preference", "Ask which item they need", "Ask about their own class"][(CAPOEIRA_LESSONS.indexOf(selected) + choice.visit - 1) % 3],
-    },
+    answer_frames: patterns,
+    vocabulary: introduced.map(word => { const entry = capoeiraTerm(word)!; return { term: entry.word, meaning: entry.en, translation: language === "he-IL" ? entry.he : entry.en }; }),
+    // The provider sees meanings only for introduced terms. The validator also
+    // knows which names from this theme must wait for a later turn or visit.
+    deferred_terms: selected.words.filter(word => !introduced.includes(word)),
+    next_prompt: { task: plan.task, phase: plan.phase, format: plan.format, allow_repetition: plan.allow_repetition,
+      focus_term: question >= 10 ? undefined : focus,
+      model: plan.target_terms === 2 ? beginnerModel(focus, meaning, question, language) : undefined },
   };
 }

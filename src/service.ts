@@ -5,6 +5,7 @@ import { independentAnswer, practiceLevel, practiceResult } from "./learning.js"
 import { capoeiraTerm, chooseLesson, lessonContext } from "./capoeira.js";
 import type { AIProvider } from "./provider.js";
 import type { Store } from "./store.js";
+import { teachingPlan } from "./pedagogy.js";
 
 const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}_]+/gu)?.join(" ") || "";
 // Prior translations and feedback are already stored for display. The partner needs
@@ -20,14 +21,17 @@ const coachedCorrections = (session: Session) => session.turns.flatMap(turn => {
 function context(kind: string, topic: string, learner: LearnerContext, session?: Session, question = 0) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
     recent_openings: session ? undefined : learner.recent_openings,
-    lesson: lessonContext(session?.request.resolved_lesson, question, session?.request.support_language),
+    lesson: lessonContext(session?.request.resolved_lesson, question, session?.request.support_language, session?.request.resolved_level),
+    teaching: teachingPlan(session?.request.resolved_level ?? learner.practice.level, question),
     support_language: session?.request.support_language ?? "en-US",
     practice_target: PRACTICE_TURNS,
     practice: practiceLevel(session ? session.request.resolved_level : learner.practice.level),
     weaknesses: [...learner.memory, ...learner.help_patterns].filter(m => new Date(m.due_at).getTime() <= Date.now())
       .sort((a,b) => b.occurrences-a.occurrences || a.due_at.localeCompare(b.due_at)).slice(0,3),
     known_pattern_keys: learner.memory.map(m => m.key).filter(Boolean).slice(0,30),
-    opening: session ? partnerContext(session.opening, session.turns.length === 0) : undefined, turn_count: session?.turns.length || 0,
+    // The opening models anchor everyday vocabulary/frames for the whole lesson,
+    // even when the learner did not choose one of those ideas on the first turn.
+    opening: session ? partnerContext(session.opening, true) : undefined, turn_count: session?.turns.length || 0,
     turns: (session?.turns || []).slice(-12).map((t, index, turns) => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply, index === turns.length - 1) })),
   };
 }
@@ -46,8 +50,9 @@ export class Sessions {
       const { learner } = await tx.snapshot();
       const level = practiceLevel(input.practice_level ?? learner.practice.level);
       const choice = this.ai.demo ? undefined : chooseLesson(input.topic, learner.lessons ?? []);
-      const lesson = lessonContext(choice, 0, input.support_language);
-      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), lesson, practice: level, support_language: input.support_language ?? "en-US", action: "start" });
+      const lesson = lessonContext(choice, 0, input.support_language, level.level);
+      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), lesson, practice: level,
+        teaching: teachingPlan(level.level), support_language: input.support_language ?? "en-US", action: "start" });
       if (lesson) reply.topic = `ABADÁ capoeira · ${lesson.title}`;
       return tx.create(input, reply, this.ai.demo, level.level, choice);
     });
