@@ -10,6 +10,9 @@ adb shell am instrument -w -e class com.fala.app.SupportDiagnosticsTest,com.fala
 if ! grep -q 'OK (3 tests)' ../artifacts/play-store/screenshots/validation/support-and-playback-test.log; then exit 1; fi
 adb shell am instrument -w -e class com.fala.app.SpeechReleaseTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/speech-release-test.log
 if ! grep -q 'OK (6 tests)' ../artifacts/play-store/screenshots/validation/speech-release-test.log; then exit 1; fi
+adb shell am instrument -w -e class com.fala.app.PlaybackRecoveryTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/playback-recovery-test.log
+if ! grep -q 'OK (5 tests)' ../artifacts/play-store/screenshots/validation/playback-recovery-test.log; then exit 1; fi
+adb pull /sdcard/Android/data/com.fala.app/files/playback-help ../artifacts/play-store/screenshots/validation/
 adb shell settings put global sysui_demo_allowed 1
 adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1000
 adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false

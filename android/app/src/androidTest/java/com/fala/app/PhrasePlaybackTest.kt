@@ -5,6 +5,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.fala.app.data.ConnectionSettings
+import com.fala.app.voice.PlaybackFailure
 import com.fala.app.voice.SpeechOutput
 import org.junit.Assert.*
 import org.junit.Test
@@ -21,7 +22,7 @@ class PhrasePlaybackTest {
                 val output = SessionController::class.java.getDeclaredField("output").apply { isAccessible = true }
                 (output.get(c) as SpeechOutput).close()
                 output.set(c, object : SpeechOutput {
-                    override fun speak(text: String, slow: Boolean, done: () -> Unit, error: (String) -> Unit) {
+                    override fun speak(text: String, slow: Boolean, done: () -> Unit, error: (PlaybackFailure) -> Unit) {
                         played.add(text to slow); done()
                     }
                     override fun stop() {}

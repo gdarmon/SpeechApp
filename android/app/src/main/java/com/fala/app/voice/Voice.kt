@@ -11,7 +11,8 @@ interface SpeechInput {
 }
 
 interface SpeechOutput {
-    fun speak(text: String, slow: Boolean, done: () -> Unit, error: (String) -> Unit)
+    fun speak(text: String, slow: Boolean, done: () -> Unit, error: (PlaybackFailure) -> Unit)
+    fun refresh() {}
     fun stop()
     fun close()
 }

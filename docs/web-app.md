@@ -36,8 +36,12 @@ Adding an email to Internal testers does not itself enroll that account. In Play
 
 If it still does not appear, inspect the exact Play message, device compatibility, Family Link restrictions/parent approval and the app's target-audience settings. Do not change a birthday or use an adult identity to bypass restrictions. Changing the target audience to include children is a product/policy decision and requires meeting Google's Families requirements; it is not a code fix. This update does not change Play Console audience settings or claim to have fixed Play installation.
 
-Online AI handling of under-13 personal data requires OpenAI's approved Zero Data Retention plus appropriate child safeguards before enablement. `store:false` alone is not that approval. No such approval has been verified for this project.
+If OpenAI handles under-13 personal data, its guidance requires approved Zero Data Retention plus appropriate child safeguards before enablement. Other providers require their own current contractual and data-protection review. `store:false` alone is not that approval. No such approval has been verified for this project.
 
 References: [Google internal testing](https://support.google.com/googleplay/android-developer/answer/9845334), [Google target audience](https://support.google.com/googleplay/android-developer/answer/9867159), [Family Link app controls](https://support.google.com/families/answer/7103028), [OpenAI under-18 guidance](https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance).
 
 After the Netlify rename, use the new origin in the Google Web client and update saved links. Browser cookies and push subscriptions belong to the old origin: sign in and reconnect notifications on the new site. Android 0.11.0 preserves an existing device session only for this specific approved rename; other origin changes still require sign-in.
+
+## Planned child accounts
+
+Full AI conversations for ages 8–12 are requested but not enabled. See [the child-account rollout specification](children-ai-rollout.md) for provider approval, parental verification, account isolation and release requirements. The current public age declaration remains 13+.

@@ -38,12 +38,22 @@ class SupportDiagnostics(private val context: Context, val events: VoiceLog = Vo
                 .map { "${it.serviceInfo.packageName}/${it.serviceInfo.name}" }.sorted().joinToString(", ")
         }.getOrDefault("Unavailable")
         appendLine("Recognition services: $services")
+        val ttsEngine = runCatching { Settings.Secure.getString(context.contentResolver, "tts_default_synth") }.getOrNull()
+        appendLine("Selected text-to-speech engine: ${ttsEngine.orEmpty()}")
+        val ttsServices = runCatching {
+            context.packageManager.queryIntentServices(Intent("android.intent.action.TTS_SERVICE"), 0)
+                .map { it.serviceInfo.packageName }.distinct().sorted().joinToString(", ")
+        }.getOrDefault("Unavailable")
+        appendLine("Text-to-speech engines: $ttsServices")
+        val audio = context.getSystemService(AudioManager::class.java)
+        appendLine("Media volume: ${audio?.getStreamVolume(AudioManager.STREAM_MUSIC)} / ${audio?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}")
         appendLine()
         appendLine("Recent events from this app run (no recordings, conversation text, email or sign-in credentials):")
         appendLine(events.text())
         appendLine()
         appendLine("Microphone permission: code 1 = allowed; 0 = denied.")
         appendLine("Recognition errors: 1/2 = network; 3 = audio; 4 = server; 5 = client; 6/7 = no speech/match; 8 = busy; 9 = permission; 10 = too many requests; 11 = disconnected; 12/13 = language unavailable.")
+        appendLine("Playback errors (separate from microphone recognition): -1 = generic; -3 = synthesis; -4 = service; -5 = output; -6/-7 = network; -8 = invalid request; -9 = voice download incomplete; -101 = no installed Brazilian voice; -102 = callback timeout.")
         appendLine("Fala recognition errors: -1 = no on-device service; -2 = no default service; -3 = operation threw; -4 = ready timeout; -5 = result timeout.")
     }
 

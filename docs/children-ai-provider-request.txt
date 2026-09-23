@@ -1,0 +1,22 @@
+Subject: Zero Data Retention eligibility for Fala, a parent-managed language-learning app
+
+Hello,
+
+I develop Fala (com.fala.app), a Brazilian Portuguese speaking-practice app with English and Hebrew learning support. Our current service is for ages 13 and over. We want to build full AI conversations for children aged 8–12 through parent-managed learner profiles.
+
+Before enabling that service, I would like to confirm eligibility for Zero Data Retention on a dedicated OpenAI API project and the additional safeguards required for this use case.
+
+The planned data flow includes conversational text, short speech-transcription requests, and potentially speech synthesis. We plan to obtain verifiable parental consent before processing a child's data, separate child and parent accounts, minimize retained learning data, provide parent revocation and deletion controls, and implement child-appropriate input/output safety checks and reporting. These safeguards are planned and are not yet a live under-13 service.
+
+Please confirm:
+- Whether this use case and our account can qualify for Zero Data Retention, including any commercial requirements.
+- The application process and which current models/endpoints cover conversation, transcription, speech synthesis and moderation under the approved settings.
+- Any additional contractual, safety, regional or retention requirements for children aged 8–12.
+- How we can verify the controls are active on the dedicated project before launch.
+
+We will not send children's data through this proposed service before the required arrangements and safeguards are in place.
+
+Fala: https://falachatapp.netlify.app
+Support: fala.support@gmail.com
+
+Account organization/project identifiers can be provided through your authenticated support channel. No API keys or child records are included in this request.

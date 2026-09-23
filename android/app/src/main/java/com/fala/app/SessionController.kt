@@ -114,6 +114,8 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var voiceTrouble by mutableStateOf(false)
         private set
+    var playbackTrouble by mutableStateOf(false)
+        private set
     private var permissionMissing = false
     private fun refreshMicrophonePermission() {
         if (permissionMissing && diagnostics.microphoneAllowed()) {
@@ -124,6 +126,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         diagnostics.events.record(VoiceEvent.MICROPHONE_PERMISSION, if (granted) 1 else 0, operation = VoiceOperation.REQUEST_PERMISSION)
         if (!granted) {
             permissionMissing = true
+            playbackTrouble = false
             voiceTrouble = true
             voiceNotice = SpeechFailure(9).message(conversationLanguage == "he-IL", networkRecognition)
         } else refreshMicrophonePermission()
@@ -227,7 +230,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         closeWalkthrough()
         ReminderScheduler.cancel(getApplication())
         pause(); settings.clearSession()
-        diagnostics.clear(); voiceTrouble = false; permissionMissing = false
+        diagnostics.clear(); voiceTrouble = false; playbackTrouble = false; permissionMissing = false
         history = JSONArray(); progress = JSONObject(); session = JSONObject(); reply = JSONObject()
         feedback = JSONObject(); heard = ""; draft = ReplyDraft(); voiceNotice = ""; demo = false
         retryAction = null; retryAvailable = false; screen = "welcome"
@@ -338,7 +341,10 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun pause() { audioEnabled = false; stopVoice(); phase = "Your turn"; showSummaryWhenReady() }
     fun setForeground(value: Boolean) {
         diagnostics.events.record(if (value) VoiceEvent.APP_FOREGROUND else VoiceEvent.APP_BACKGROUND)
-        if (value) refreshMicrophonePermission()
+        if (value) {
+            refreshMicrophonePermission()
+            if (!foreground) output.refresh() // Reload downloaded voices / a changed Android engine.
+        }
         foreground = value; if (!value) pause()
     }
 
@@ -374,7 +380,7 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     private fun speakPortuguese(text: String, slowPlayback: Boolean = slow || reply.optString("pace") == "slow") {
         stopVoice()
-        voiceTrouble = false
+        voiceTrouble = false; playbackTrouble = false; permissionMissing = false
         if (!audioEnabled || !foreground) { phase = "Your turn"; return }
         if (text.isBlank()) { phase = "Your turn"; return }
         phase = "Speaking"
@@ -382,8 +388,14 @@ class SessionController(application: Application) : AndroidViewModel(application
         output.speak(text, slowPlayback, done = {
             if (generation == voiceGeneration) { phase = "Your turn"; showSummaryWhenReady() }
         }, error = { message ->
-            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message; voiceTrouble = true; showSummaryWhenReady() }
+            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message.message(conversationLanguage == "he-IL"); playbackTrouble = true; voiceTrouble = false; showSummaryWhenReady() }
         })
+    }
+
+    fun testPlayback() {
+        if (busy || recording) return
+        output.refresh()
+        listenTo("Olá! Vamos falar português.")
     }
 
     fun editDraft(text: String) {
@@ -406,7 +418,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun beginHolding() {
         if (busy || retryAvailable || recording || practiceComplete || !foreground || screen != "talk") return
         diagnostics.events.record(VoiceEvent.HOLD_START)
-        voiceTrouble = false
+        voiceTrouble = false; playbackTrouble = false
         stopVoice(); audioEnabled = true; holding = true; voiceNotice = ""
         draft = ReplyDraft(assisted = draft.assisted)
         val generation = voiceGeneration

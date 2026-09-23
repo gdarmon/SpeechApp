@@ -21,7 +21,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable
 internal fun MicrophoneHelp(c: SessionController, mic: (() -> Unit) -> Unit, appSettings: () -> Unit,
-    voiceSettings: () -> Unit, close: () -> Unit) {
+    voiceSettings: () -> Unit, playback: Boolean = false, close: () -> Unit) {
     val context = LocalContext.current
     val he = (if (c.screen == "talk") c.conversationLanguage else c.supportLanguage) == "he-IL"
     fun words(hebrew: String, english: String) = if (he) hebrew else english
@@ -37,9 +37,26 @@ internal fun MicrophoneHelp(c: SessionController, mic: (() -> Unit) -> Unit, app
         onDispose { lifecycle.removeObserver(observer) }
     }
     CompositionLocalProvider(LocalLayoutDirection provides if (he) LayoutDirection.Rtl else LayoutDirection.Ltr) {
-        AlertDialog(onDismissRequest = close, title = { Text(words("עזרת מיקרופון", "Microphone help")) }, text = {
+        AlertDialog(onDismissRequest = close, title = { Text(if (playback) words("עזרת השמעה", "Playback help") else words("עזרת מיקרופון", "Microphone help")) }, text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (c.voiceTrouble && c.voiceNotice.isNotBlank()) Text(c.voiceNotice)
+                if ((if (playback) c.playbackTrouble else c.voiceTrouble) && c.voiceNotice.isNotBlank()) Text(c.voiceNotice)
+                if (playback) {
+                    Text(words("Listen משמיע את הקול הפורטוגזי של המכשיר ואינו צריך הרשאת מיקרופון.",
+                        "Listen uses your phone’s Portuguese text-to-speech voice. It does not need microphone permission."))
+                    Text(words("1. הגבירו את עוצמת המדיה ובדקו שהקול לא נשלח לאוזניות או לרמקול Bluetooth אחר.",
+                        "1. Turn up media volume and check that audio is not routed to headphones or another Bluetooth speaker."))
+                    Text(words("2. פתחו הגדרות הקראה. בחרו מנוע שתומך בפורטוגזית ברזילאית והתקינו את הקול Português (Brasil). המתינו לסיום ההורדה.",
+                        "2. Open text-to-speech settings. Choose an engine supporting Brazilian Portuguese and install the Português (Brasil) voice. Wait for the download to finish."))
+                    Text(words("במכשירי Samsung, אם הקול של Samsung לא עובד, אפשר לבחור Speech Recognition & Synthesis from Google אם הוא מותקן. קול מקומי מותקן יכול לעבוד ללא אינטרנט.",
+                        "On Samsung, if the Samsung voice fails, choose Speech Recognition & Synthesis from Google if installed. An installed offline voice can play without internet."))
+                    TextButton(onClick = voiceSettings) { Text(words("פתיחת הגדרות הקראה", "Open text-to-speech settings")) }
+                    Text(words("3. חזרו לכאן ולחצו על בדיקת השמעה. אין צורך להתקין מחדש את Fala.",
+                        "3. Return here and tap Test playback. You do not need to reinstall Fala."))
+                    OutlinedButton(onClick = c::testPlayback, enabled = !c.busy && c.phase != "Speaking") {
+                        Text(words("בדיקת השמעה", "Test playback"))
+                    }
+                    if (c.phase == "Speaking") Text(words("משמיע משפט בדיקה…", "Playing a test phrase…"))
+                } else {
                 Text(words("1. הרשאת מיקרופון", "1. Microphone permission"), style = MaterialTheme.typography.titleSmall)
                 Text(if (allowed) words("ההרשאה מאושרת. החזיקו את הכפתור, המתינו ל־Listening ודברו. שחררו ובדקו את המילים לפני השליחה.",
                     "Permission is allowed. Hold the button, wait for Listening and speak. Release and check your words before sending.")
@@ -66,6 +83,7 @@ internal fun MicrophoneHelp(c: SessionController, mic: (() -> Unit) -> Unit, app
                         .onFailure { notice = words("פתחו את הגדרות המכשיר וחפשו זיהוי דיבור.", "Open your phone’s settings and search for speech recognition.") }
                 }) { Text(words("הגדרות זיהוי דיבור במכשיר", "Phone speech recognition settings")) }
                 TextButton(onClick = voiceSettings) { Text(words("אין קול בהשמעה? הגדרות הקראה", "No playback sound? Voice settings")) }
+                }
                 HorizontalDivider()
                 Text(words("עדיין יש תקלה?", "Still having trouble?"), style = MaterialTheme.typography.titleSmall)
                 Text(words("נסו לשחזר את התקלה ואז שתפו דוח עם התמיכה ב־fala.support@gmail.com. הדוח כולל דגם, גרסאות, מצב הרשאות ושלבי תקלה — בלי הקלטות, תוכן שיחות או פרטי כניסה. אתם בוחרים למי לשלוח; דבר לא נשלח אוטומטית.",

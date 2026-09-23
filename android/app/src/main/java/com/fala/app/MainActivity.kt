@@ -110,7 +110,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     var finishDialog by remember { mutableStateOf(false) }
     var conversationOptions by remember { mutableStateOf(false) }
     var microphoneHelp by remember { mutableStateOf(false) }
+    var playbackHelp by remember { mutableStateOf(false) }
     val openMicrophoneHelp: () -> Unit = { c.pause(); microphoneHelp = true }
+    val openPlaybackHelp: () -> Unit = { c.pause(); playbackHelp = true }
     BackHandler(c.screen !in listOf("home", "welcome", "language")) { if (!c.busy) c.navigate("home") }
     val scroll = rememberScrollState()
     LaunchedEffect(c.screen, c.reply) { scroll.scrollTo(0) }
@@ -119,7 +121,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
         topBar = { if (c.screen == "talk") ConversationHeader(c) { conversationOptions = true } },
         bottomBar = {
-            if (c.screen == "talk") ConversationComposer(c, mic, openMicrophoneHelp)
+            if (c.screen == "talk") ConversationComposer(c, mic, openMicrophoneHelp, openPlaybackHelp)
             else if (c.settings.signedIn && c.screen in listOf("home", "rewards", "friends", "settings")) Surface(color=MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(6.dp),horizontalArrangement=Arrangement.SpaceEvenly) {
                     listOf("home" to "Practise", "friends" to "Friends", "rewards" to "Rewards", "settings" to "Settings").forEach { (destination,label) ->
@@ -156,7 +158,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             if (updates.visible(c.screen, c.busy)) UpdateCard(updates, c.supportLanguage == "he-IL")
             when (c.screen) {
                 "welcome" -> Welcome(c, google)
-                "settings" -> AccountSettings(c, google, openMicrophoneHelp, voiceSettings, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })
+                "settings" -> AccountSettings(c, google, openMicrophoneHelp, openPlaybackHelp, onDelete = { deleteTarget = "all" }, onDeleteAccount = { deleteTarget = "account" })
                 "language" -> {
                     Title("A little help, in your language.", "Choose translations once. You can change this in Settings.")
                     SupportLanguageChoice(c)
@@ -189,9 +191,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         }
     }
     }
-    if (c.screen == "talk" && !microphoneHelp) Walkthrough(c, walkthroughTargets, openMicrophoneHelp)
+    if (c.screen == "talk" && !microphoneHelp && !playbackHelp) Walkthrough(c, walkthroughTargets, openMicrophoneHelp)
     if (microphoneHelp) MicrophoneHelp(c, mic, appSettings, voiceSettings) { microphoneHelp = false }
-    if (conversationOptions && c.screen == "talk") ConversationOptions(c, voiceSettings,
+    if (playbackHelp) MicrophoneHelp(c, mic, appSettings, voiceSettings, playback = true) { c.pause(); playbackHelp = false }
+    if (conversationOptions && c.screen == "talk") ConversationOptions(c, openPlaybackHelp,
         microphoneHelp = { conversationOptions = false; openMicrophoneHelp() },
         close = { conversationOptions = false }, finish = { conversationOptions = false; c.pause(); finishDialog = true })
     if (deleteTarget != null) AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete this learning data?") },
@@ -477,13 +480,13 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 Text(if (c.conversationLanguage == "he-IL") "הצגת הדרכת השיחה" else "Show conversation guide")
             }
             ReportContentAction(c)
-            TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
+            TextButton(onClick = voiceSettings) { Text(if (c.supportLanguage == "he-IL") "עזרת השמעה וקול פורטוגזי" else "Playback help & Portuguese voice") }
             OutlinedButton(onClick = finish, enabled = !c.busy && !c.recording) { Text("Finish and review") }
         }
     }, confirmButton = { TextButton(onClick = close) { Text("Done") } })
 }
 
-@Composable private fun ConversationComposer(c: SessionController, mic: (() -> Unit) -> Unit, microphoneHelp: () -> Unit) {
+@Composable private fun ConversationComposer(c: SessionController, mic: (() -> Unit) -> Unit, microphoneHelp: () -> Unit, playbackHelp: () -> Unit) {
     val language = c.conversationLanguage
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
@@ -500,6 +503,9 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
             if (c.voiceNotice.isNotBlank()) Text(c.voiceNotice, Modifier.heightIn(max = 64.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall)
             if (c.voiceTrouble && c.voiceNotice.isNotBlank()) TextButton(onClick = microphoneHelp, contentPadding = PaddingValues(horizontal = 4.dp)) {
                 Text(if (language == "he-IL") "עזרת מיקרופון" else "Microphone help")
+            }
+            if (c.playbackTrouble && c.voiceNotice.isNotBlank()) TextButton(onClick = playbackHelp, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text(if (language == "he-IL") "עזרת השמעה" else "Playback help")
             }
             if (c.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp))
             if (c.holding || c.finishingSpeech) LinearProgressIndicator(progress = { c.voiceLevel }, modifier = Modifier.fillMaxWidth().height(3.dp))
@@ -590,7 +596,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     }
     Text("Network recognition may send audio to your phone's speech provider. Voice playback may also use a network voice if no local voice is installed.")
     TextButton(onClick = microphoneHelp) { Text(if (c.supportLanguage == "he-IL") "עזרת מיקרופון ושיתוף דוח תקלה" else "Microphone help & share a report") }
-    TextButton(onClick = voiceSettings) { Text("Brazilian voice settings") }
+    TextButton(onClick = voiceSettings) { Text(if (c.supportLanguage == "he-IL") "עזרת השמעה וקול פורטוגזי" else "Playback help & Portuguese voice") }
     PrivacyLink()
     OutlinedButton(onClick = { c.signOut(google::clear) }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
     TextButton(onClick = onDelete, enabled = !c.busy) { Text("Delete all my learning data") }
