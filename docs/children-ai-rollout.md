@@ -6,7 +6,7 @@
 
 ## מה חסר לפני שאפשר להפעיל
 
-1. **ספק AI מתאים ופרטיות בפועל.** מסלול מוצע: פרויקט OpenAI נפרד לילדים, עם אישור Zero Data Retention פעיל ובדיקה שהמודל וכל נקודות הקצה שנבחרו מכוסים. אין כרגע ראיה לאישור כזה בחשבון Fala. `store:false` אינו תחליף. אם נשארים עם Groq, צריך לוודא במפורש שהתנאים החלים על החשבון מתירים משתמשי קצה בגיל 8–12 ולתעד את הגדרות שמירת הנתונים; אין להסתמך על הסכם ישן מארכיון.
+1. **ספק AI מתאים ופרטיות בפועל.** נבדקו הגדרות השירות החי: שיחות ותמלול משתמשים ב־Groq. לפי התיעוד העדכני שלו, כל לקוח יכול להפעיל ZDR בהגדרות Data Controls; לא נדרש עבורו הליך אישור ZDR של OpenAI. יש לבדוק ולהפעיל את ההגדרה בארגון שמשרת את Fala, ולברר שההסכם החל מכסה משתמשי קצה בגיל 8–12. מצב ההגדרה בפועל טרם אומת. חלופה אפשרית: פרויקט OpenAI נפרד לילדים, עם אישור Zero Data Retention פעיל ובדיקה שהמודל וכל נקודות הקצה שנבחרו מכוסים. אין כרגע ראיה לאישור כזה בחשבון Fala. `store:false` אינו תחליף. במסלול Groq צריך לוודא במפורש שהתנאים החלים על החשבון מתירים משתמשי קצה בגיל 8–12 ולתעד את הגדרות שמירת הנתונים; אין להסתמך על הסכם ישן מארכיון.
 2. **אימות הסכמת הורה.** Google Sign-In מוכיח שליטה בחשבון, לא הורות או הסכמה מאומתת. גם סימון תיבה ואישור התקנה ב־Family Link אינם תחליף אוטומטי להסכמה לעיבוד שיחות. לפיילוט קטן אפשר לבחון תהליך אימות הורה בשיחת וידאו עם צוות שהוכשר לכך; לפני שימוש בו יש להסדיר את הנוהל, ההודעה הישירה להורה והדין החל. לחלופין אפשר לחבר ספק אימות ייעודי, לאחר בחירתו והפעלת חשבון שירות. אין לשמור תעודות זהות או וידאו ב־Fala.
 3. **הפצה ומדינות.** לאחר השלמת המימוש והבדיקות, לעדכן ב־Play Console קהל יעד, פרטיות, Data safety והוראות ביקורת. Google Groups אינו זמין לחשבונות אישיים מתחת לגיל 13. לתכנן מסלול בדיקה נפרד עם רשימת כתובות, ולבדוק בפועל התקנה בחשבון Family Link תקין; לא להבטיח זכאות להתקנה לפני הבדיקה. להשאיר את קבוצת הבודקים הקיימת פעילה.
 
@@ -44,6 +44,8 @@
 
 - [OpenAI — Under-18 guidance](https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance)
 - [OpenAI — Data controls](https://developers.openai.com/api/docs/guides/your-data)
+- [Groq — Data retention, including self-service ZDR](https://console.groq.com/docs/your-data)
+- [Groq — Data Controls settings](https://console.groq.com/settings/data-controls)
 - [Groq — Current services agreement](https://console.groq.com/docs/legal/services-agreement)
 - [Google Play — Families policies](https://support.google.com/googleplay/android-developer/answer/9893335?hl=en)
 - [Google Groups — Join a group](https://support.google.com/groups/answer/1067205?hl=en)

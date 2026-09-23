@@ -1,0 +1,16 @@
+Subject: Fala — confirm requirements for parent-managed learners aged 8–12
+
+Hello,
+
+I develop Fala (com.fala.app), a Brazilian Portuguese language-learning app. Our live service currently uses Groq for chat and transcription and is intended for ages 13 and above. We are planning full AI conversations for children aged 8–12 through parent-managed profiles.
+
+Before enabling this use case, please confirm whether our applicable Groq Services Agreement and model terms permit an adult developer's application to serve child end users aged 8–12, subject to verifiable parental consent and appropriate child privacy and safety safeguards. Please clarify how the agreement's Age Requirement applies to these end users.
+
+We understand from your current Your Data documentation that all customers can enable Zero Data Retention in Data Controls. We will verify this is enabled for the organization serving Fala before launching the child service. Please identify any additional contractual, regional, data-processing or safety requirements for chat and transcription in this use case.
+
+Our planned controls include parental verification and consent, parent-managed accounts, isolated child profiles, revocation and deletion, minimized data retention, child-appropriate input/output checks, and no social sharing in the child mode. These controls are planned; we have not launched an under-13 service.
+
+App: https://falachatapp.netlify.app
+Support: fala.support@gmail.com
+
+We can provide organization details through your authenticated support channel. This message contains no API keys, recordings or child data.
