@@ -39,7 +39,7 @@ class ConnectionSettings(context: Context) {
     fun clearSession() {
         prefs.edit().remove("token").remove("origin").remove("email").remove("expires").remove("active").remove("url").remove("rewardProfile").apply()
     }
-    // Kept across sign-out, scoped to the account on this device. Never synced as learning data.
+    // Local cache survives sign-out and upgrades; the account profile restores it on other devices.
     private val walkthroughKey: String get() = "walkthroughSeen:" + java.security.MessageDigest.getInstance("SHA-256")
         .digest(email.lowercase(java.util.Locale.ROOT).toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     var walkthroughSeen: Boolean

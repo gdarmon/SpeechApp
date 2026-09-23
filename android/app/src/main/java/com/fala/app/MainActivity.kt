@@ -231,7 +231,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(20.dp)) {
         Text("Talk", style = MaterialTheme.typography.headlineSmall)
     }
-    if (!c.settings.walkthroughSeen) TranslatedText(
+    if (c.walkthroughNeeded) TranslatedText(
         if (c.supportLanguage == "he-IL") "לחצו על Talk כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה."
         else "Tap Talk to start. A short guide will show you how to listen, speak and send your reply.", c.supportLanguage)
     InstructorHome(c)
@@ -400,10 +400,10 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                 OutlinedButton(onClick = c::revealText) { Text("Show the words and translation") }
             }
             Row(Modifier.walkthroughTarget(0), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = c::play, enabled = !c.busy && !c.recording && !c.retryAvailable) {
+                TextButton(onClick = { c.play(false) }, enabled = !c.busy && !c.recording && !c.retryAvailable) {
                     Icon(painterResource(R.drawable.ic_play), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Listen")
                 }
-                TextButton(onClick = { c.slow = !c.slow; c.play() }, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text(if (c.slow) "Slow ✓" else "Slower") }
+                TextButton(onClick = { c.play(true) }, enabled = !c.busy && !c.recording && !c.retryAvailable) { Text("Slower") }
                 Spacer(Modifier.weight(1f))
                 if (c.phase == "Speaking") TextButton(onClick = c::pause) { Text("Stop") }
             }

@@ -47,10 +47,16 @@ class SessionController(application: Application) : AndroidViewModel(application
         private set
     var walkthroughStep by mutableStateOf<Int?>(null)
         private set
+    private var walkthroughReplayRequested by mutableStateOf(false)
+    private var walkthroughSync: Job? = null
+    val walkthroughNeeded: Boolean get() = walkthroughReplayRequested ||
+        (rewards.optJSONObject("profile")?.optBoolean("walkthrough_seen") != true && !settings.walkthroughSeen)
     fun openWalkthrough(force: Boolean = false): Boolean {
-        if (screen != "talk" || practiceComplete || (!force && settings.walkthroughSeen)) return false
+        if (screen != "talk" || practiceComplete || (!force && !walkthroughNeeded)) return false
         pause()
         settings.walkthroughSeen = true // Remember even if the app closes halfway through.
+        walkthroughReplayRequested = false
+        syncWalkthrough()
         walkthroughStep = 0
         return true
     }
@@ -62,8 +68,26 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun previousWalkthroughStep() { walkthroughStep = walkthroughStep?.let { (it - 1).coerceAtLeast(0) } }
     fun requestWalkthrough() {
         if (busy) return
-        settings.walkthroughSeen = false
+        walkthroughReplayRequested = true
         navigate("home")
+    }
+    private fun syncWalkthrough() {
+        val profile = rewards.optJSONObject("profile") ?: return
+        if (!profile.has("walkthrough_seen") || profile.optBoolean("walkthrough_seen") ||
+            !settings.walkthroughSeen || !settings.signedIn || walkthroughSync?.isActive == true) return
+        val account = settings.email
+        walkthroughSync = viewModelScope.launch {
+            try {
+                if (settings.email != account || !settings.signedIn) return@launch
+                val saved = api.post("/rewards/settings", JSONObject().put("walkthrough_seen", true))
+                if (settings.email == account && saved.optJSONObject("profile")?.optBoolean("walkthrough_seen") == true) {
+                    val current = JSONObject(rewards.toString())
+                    current.optJSONObject("profile")?.put("walkthrough_seen", true)
+                    updateRewards(current)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* Keep the local flag; retry on the next dashboard load. */ }
+        }
     }
     var busy by mutableStateOf(false)
         private set
@@ -227,6 +251,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     }
 
     private fun clearAccount() {
+        walkthroughSync?.cancel(); walkthroughSync = null; walkthroughReplayRequested = false
         closeWalkthrough()
         ReminderScheduler.cancel(getApplication())
         pause(); settings.clearSession()
@@ -255,6 +280,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         history = dashboard.getJSONArray("history")
         demo = dashboard.getJSONObject("status").optBoolean("demo")
         dashboard.optJSONObject("rewards")?.let { updateRewards(it) }
+        syncWalkthrough()
         if (rewards.has("profile") && !rewards.getJSONObject("profile").optBoolean("timezone_confirmed")) {
             updateRewards(api.post("/rewards/settings", JSONObject().put("timezone", java.time.ZoneId.systemDefault().id)))
         }
@@ -263,6 +289,7 @@ class SessionController(application: Application) : AndroidViewModel(application
     private fun updateRewards(value: JSONObject) {
         rewards = value
         value.optJSONObject("profile")?.let { profile ->
+            if (profile.optBoolean("walkthrough_seen")) settings.walkthroughSeen = true
             settings.rewardProfile = profile.toString()
             ReminderScheduler.schedule(getApplication(), profile)
         }
@@ -348,16 +375,17 @@ class SessionController(application: Application) : AndroidViewModel(application
         foreground = value; if (!value) pause()
     }
 
-    fun play() {
+    fun play(slowPlayback: Boolean = false) {
         if (busy || retryAvailable) return
+        slow = slowPlayback
         audioEnabled = true; voiceNotice = ""
-        playReply()
+        playReply(slowPlayback)
     }
 
-    private fun playReply() {
+    private fun playReply(slowPlayback: Boolean = slow || reply.optString("pace") == "slow") {
         if (screen != "talk" || walkthroughStep != null) return
         val feedback = reply.optJSONObject("turn_feedback")
-        speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()))
+        speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()), slowPlayback)
     }
 
     fun listenTo(text: String, slowPlayback: Boolean = false) {

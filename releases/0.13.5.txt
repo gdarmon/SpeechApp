@@ -1,0 +1,1 @@
+The beginner guide now remembers returning learners across updates and signed-in devices. Replay it only when you choose it in Settings. Normal and slow playback now select distinct speeds, even when a lesson suggests a slower pace. Repeated taps on Slower stay slow, and slow playback is more noticeable for both questions and suggested replies.

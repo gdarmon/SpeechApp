@@ -6,8 +6,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 mkdir -p ../artifacts/play-store/screenshots/validation
 adb shell pm clear com.fala.app
-adb shell am instrument -w -e class com.fala.app.SupportDiagnosticsTest,com.fala.app.PhrasePlaybackTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/support-and-playback-test.log
-if ! grep -q 'OK (3 tests)' ../artifacts/play-store/screenshots/validation/support-and-playback-test.log; then exit 1; fi
+adb shell am instrument -w -e class com.fala.app.SupportDiagnosticsTest,com.fala.app.PhrasePlaybackTest,com.fala.app.WalkthroughPersistenceTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/support-and-playback-test.log
+if ! grep -q 'OK (6 tests)' ../artifacts/play-store/screenshots/validation/support-and-playback-test.log; then exit 1; fi
 adb shell am instrument -w -e class com.fala.app.SpeechReleaseTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/speech-release-test.log
 if ! grep -q 'OK (6 tests)' ../artifacts/play-store/screenshots/validation/speech-release-test.log; then exit 1; fi
 adb shell am instrument -w -e class com.fala.app.PlaybackRecoveryTest com.fala.app.test/androidx.test.runner.AndroidJUnitRunner | tee ../artifacts/play-store/screenshots/validation/playback-recovery-test.log

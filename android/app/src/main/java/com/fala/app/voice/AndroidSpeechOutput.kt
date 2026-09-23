@@ -15,7 +15,7 @@ internal interface PlaybackEngine {
     fun voices(): List<PlaybackVoice>
     fun defaultVoice(): String?
     fun select(name: String): Int
-    fun speak(text: String, slow: Boolean, id: String): Int
+    fun speak(text: String, rate: Float, id: String): Int
     fun stop()
     fun close()
 }
@@ -113,7 +113,9 @@ class AndroidSpeechOutput private constructor(
         }
         log.record(VoiceEvent.PLAYBACK_START, language = "pt-BR", operation = VoiceOperation.SPEAK)
         deadline(r, 12_000)
-        val result = runCatching { engine?.speak(r.text, r.slow, r.attempt!!) }.getOrNull()
+        val rate = if (r.slow) 0.7f else 1f
+        log.record(VoiceEvent.PLAYBACK_RATE, if (r.slow) 70 else 100, operation = VoiceOperation.SET_TTS_RATE)
+        val result = runCatching { engine?.speak(r.text, rate, r.attempt!!) }.getOrNull()
         if (result != TextToSpeech.SUCCESS) failAttempt(r, result ?: TextToSpeech.ERROR_SERVICE, VoiceOperation.SPEAK)
     }
     private fun failAttempt(r: Request, code: Int, operation: VoiceOperation) {
@@ -196,9 +198,9 @@ private fun androidEngine(context: Context): (PlaybackEvents) -> PlaybackEngine 
             val voice = tts.voices?.firstOrNull { it.name == name } ?: return TextToSpeech.ERROR_NOT_INSTALLED_YET
             return tts.setVoice(voice)
         }
-        override fun speak(text: String, slow: Boolean, id: String): Int {
+        override fun speak(text: String, rate: Float, id: String): Int {
             tts.setAudioAttributes(playbackAttributes)
-            tts.setSpeechRate(if (slow) 0.78f else 0.93f)
+            if (tts.setSpeechRate(rate) != TextToSpeech.SUCCESS) return TextToSpeech.ERROR_SYNTHESIS
             return tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         }
         override fun stop() { tts.stop() }

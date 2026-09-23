@@ -19,13 +19,13 @@ class PlaybackRecoveryTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private fun main(action: () -> Unit) { instrumentation.runOnMainSync(action); instrumentation.waitForIdleSync() }
     private class Engine(val events: PlaybackEvents, val available: List<PlaybackVoice>) : PlaybackEngine {
-        val calls = mutableListOf<Triple<String, String, Boolean>>()
+        val calls = mutableListOf<Triple<String, String, Float>>()
         var selected = ""
         var closed = false
         override fun voices() = available
         override fun defaultVoice() = "default"
         override fun select(name: String): Int { selected = name; return 0 }
-        override fun speak(text: String, slow: Boolean, id: String): Int { calls.add(Triple(id, selected, slow)); return 0 }
+        override fun speak(text: String, rate: Float, id: String): Int { calls.add(Triple(id, selected, rate)); return 0 }
         override fun stop() {}
         override fun close() { closed = true }
     }
@@ -47,7 +47,7 @@ class PlaybackRecoveryTest {
             assertEquals("default", engine.calls.single().second)
             main { engine.events.failed(first, -3) }
             assertEquals(listOf("default", "fallback"), engine.calls.map { it.second })
-            assertTrue(engine.calls.all { it.third })
+            assertTrue(engine.calls.all { it.third == 0.7f })
             val second = engine.calls.last().first
             main { engine.events.finished(first); engine.events.failed(first, -9) }
             assertEquals(0, done); assertTrue(failures.isEmpty())

@@ -41,7 +41,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 beforeAll(async () => {
   pg = new PGlite();
   await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql", "202609210002_content_reports.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
+  for (const file of ["202609180001_fala.sql", "202609180002_google_sign_in.sql", "202609200001_rewards.sql", "202609210001_instructors.sql", "202609210002_content_reports.sql", "202609230001_walkthrough.sql"]) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
   db = { ...wrap(pg), transaction: fn => pg.transaction(tx => fn(wrap(tx))), close: () => pg.close() };
 }, 30000);

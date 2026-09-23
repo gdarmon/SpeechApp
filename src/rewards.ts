@@ -31,9 +31,10 @@ export const rewardSettingsSchema = z.strictObject({
   appearance: z.enum(['system','light','dark']).optional(),
   reduce_motion: z.boolean().optional(), reminder_enabled: z.boolean().optional(),
   reminder_minute: z.number().int().min(0).max(1439).multipleOf(15).optional(),
+  walkthrough_seen: z.literal(true).optional(),
 });
 type Profile = { nickname: string; timezone: string; timezone_confirmed: boolean; theme: string; skin: string; instructor: string;
-  appearance: string; reduce_motion: boolean; reminder_enabled: boolean; reminder_minute: number; zone_changed_at: string | null };
+  appearance: string; reduce_motion: boolean; reminder_enabled: boolean; reminder_minute: number; zone_changed_at: string | null; walkthrough_seen: boolean };
 const dateKey = (date: Date) => date.toISOString().slice(0,10);
 export const dayOffset = (date: string, days: number) => dateKey(new Date(Date.parse(date+'T12:00:00Z')+days*86400000));
 export const weekOf = (date: string) => dayOffset(date,-((new Date(date+'T12:00:00Z').getUTCDay()+6)%7));
@@ -65,8 +66,12 @@ export function streakFor(activeDays: string[], today: string) {
 export class Rewards {
   constructor(private db: Executor, private user: string, private now = new Date()) {}
   async profile(): Promise<Profile> {
-    await this.db.query('INSERT INTO fala.reward_profiles(user_id) VALUES($1::uuid) ON CONFLICT DO NOTHING',[this.user]);
-    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,instructor,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
+    // Saved practice also identifies returning learners from clients without this flag.
+    await this.db.query(`INSERT INTO fala.reward_profiles(user_id,walkthrough_seen)
+      VALUES($1::uuid,EXISTS(SELECT 1 FROM fala.sessions s JOIN fala.turns t ON t.session_id=s.id WHERE s.user_id=$1::uuid))
+      ON CONFLICT(user_id) DO UPDATE SET walkthrough_seen=true
+      WHERE EXCLUDED.walkthrough_seen AND NOT fala.reward_profiles.walkthrough_seen`,[this.user]);
+    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,instructor,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at,walkthrough_seen FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
     return profile;
   }
   async snapshot() {
@@ -126,8 +131,9 @@ export class Rewards {
     const next={...profile,...input};
     await this.db.query(`UPDATE fala.reward_profiles SET nickname=$2,timezone=$3,theme=$4,skin=$5,appearance=$6,reduce_motion=$7,
       reminder_enabled=$8,reminder_minute=$9,timezone_confirmed=timezone_confirmed OR $10,
-      zone_changed_at=CASE WHEN $10 AND timezone_confirmed AND timezone<>$3 THEN $11::timestamptz ELSE zone_changed_at END,instructor=$12 WHERE user_id=$1::uuid`,
-      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString(),next.instructor]);
+      zone_changed_at=CASE WHEN $10 AND timezone_confirmed AND timezone<>$3 THEN $11::timestamptz ELSE zone_changed_at END,instructor=$12,
+      walkthrough_seen=walkthrough_seen OR $13 WHERE user_id=$1::uuid`,
+      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString(),next.instructor,input.walkthrough_seen===true]);
     return this.snapshot();
   }
   async social() {

@@ -22,7 +22,18 @@ const recorder = new Recorder(state => {
   document.querySelectorAll('#ideas button').forEach(button => { button.disabled = busy || state !== 'idle' || !!pendingTurn; });
 }, recording => { void recordedAnswer(recording); }, error => failure(error));
 
-const walkthrough = createWalkthrough({ preferences, account: () => user?.email || '', language: () => language, stopAudio: () => voice.stop() });
+let walkthroughAccount = '', walkthroughSyncAccount = '';
+const walkthrough = createWalkthrough({ preferences, account: () => user?.email || '', language: () => language,
+  stopAudio: () => voice.stop(), onSeen: rememberWalkthrough });
+function rememberWalkthrough() {
+  const account = user?.email;
+  if (!account || walkthroughAccount !== account || walkthroughSyncAccount === account) return;
+  walkthroughSyncAccount = account;
+  void post('/rewards/settings', { walkthrough_seen: true }).then(saved => {
+    if (user?.email === account && saved.profile?.walkthrough_seen) walkthrough.restore(true);
+  }).catch(() => { /* Retain the local flag and retry when loading the dashboard. */ })
+    .finally(() => { if (walkthroughSyncAccount === account) walkthroughSyncAccount = ''; });
+}
 function guideHint() {
   translated($('walkthrough-hint'), language === 'he-IL' ? 'לחצו על Talk כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה.' : 'Tap Talk to start. A short guide will show you how to listen, speak and send your reply.');
   show('walkthrough-hint', walkthrough.needed());
@@ -109,6 +120,9 @@ async function home() {
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
     await rewards.initialize(dashboard.rewards); if(current!==epoch)return;
+    walkthroughAccount = typeof dashboard.rewards?.profile?.walkthrough_seen === 'boolean' ? user.email : '';
+    if (walkthroughAccount) walkthrough.restore(dashboard.rewards.profile.walkthrough_seen);
+    guideHint();
     transcriptionService = dashboard.status?.speech?.transcription === 'groq' ? 'Groq' : dashboard.status?.speech?.transcription === 'openai' ? 'OpenAI' : 'the configured speech service';
     const progress = dashboard.progress.practice;
     text('progress', progress ? `Level ${progress.level} · ${progress.title}. ${progress.goal}` : 'Start with short, simple replies.');

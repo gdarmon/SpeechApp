@@ -1,5 +1,5 @@
-// A local, per-account first-use preference; no lesson answers or credentials are stored.
-export function createWalkthrough({ preferences, account, language, stopAudio }) {
+// Cache the account preference locally. App versions never invalidate it.
+export function createWalkthrough({ preferences, account, language, stopAudio, onSeen = () => {} }) {
   const dialog = document.getElementById('walkthrough');
   const card = document.getElementById('walkthrough-card');
   const spot = document.getElementById('walkthrough-spot');
@@ -11,6 +11,8 @@ export function createWalkthrough({ preferences, account, language, stopAudio })
   const skip = document.getElementById('walkthrough-skip');
   const key = () => `walkthroughSeen:${account()}`;
   const seen = new Set();
+  const requested = new Set();
+  const remembered = () => seen.has(key()) || preferences.get(key()) === 'true';
   let step = 0, frame;
   const selectors = ['.playback', '#ideas-card .row, #show-ideas', '#microphone', '#online-draft', '#round'];
   const copy = {
@@ -70,13 +72,18 @@ export function createWalkthrough({ preferences, account, language, stopAudio })
   new ResizeObserver(position).observe(card);
   return {
     get active() { return dialog.open; },
-    needed() { return !seen.has(key()) && preferences.get(key()) !== 'true'; },
-    request() { seen.delete(key()); preferences.set(key(), 'false'); },
+    needed() { return requested.has(key()) || !remembered(); },
+    request() { requested.add(key()); },
+    restore(serverSeen) {
+      if (serverSeen) { seen.add(key()); preferences.set(key(), 'true'); }
+      else if (remembered()) onSeen();
+    },
     open(force = false) {
       if (!force && !this.needed()) return false;
       stopAudio();
       // Remember display as well as completion, so closing the app never causes a repeated interruption.
       seen.add(key()); preferences.set(key(), 'true');
+      requested.delete(key()); onSeen();
       step = 0; dialog.showModal(); render(); return true;
     },
     close,

@@ -43,6 +43,7 @@ try {
   const mic = page.locator('#microphone');
   // Exercise the online UI with a deterministic API and audio fixture, without a Google account.
   const rewards = rewardFixture();
+  rewards.profile.walkthrough_seen = false;
   rewards.profile.instructor = "bateba"; rewards.xp = 480; rewards.instructors[1].unlocked = true; rewards.profile.reduce_motion = true;
   let saved, dropGet = false, postCount = 0; const speechRequests = [], reports = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
   const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
@@ -54,6 +55,7 @@ try {
     if (path === '/dashboard') return send({ status: { speech: { transcription: 'groq', voice: 'openai' } }, progress: { practice: { level: 1, title: 'First phrases', goal: 'Simple replies.' } }, history: [], rewards });
     if (path === '/content-reports') { reports.push(request.postDataJSON()); return reports.length === 1 ? route.abort() : send({received:true}); }
     if (path === '/rewards') return send(rewards);
+    if (path === '/rewards/settings') { Object.assign(rewards.profile, request.postDataJSON()); return send(rewards); }
     if (path === '/sessions') { saved = { id: 'session-fixture', topic: request.postDataJSON().topic, capoeira: request.postDataJSON().topic === 'capoeira class', support_language: 'he-IL', practice: { level: 1 }, opening: reply, turns: [] }; return send(saved); }
     if (path.endsWith('/speech')) { speechRequests.push(request.postDataJSON()); return route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }); }
     if (path === '/speech/transcribe') { assert.ok(request.postDataBuffer().length > 128); return send({ text: 'Sim, conheço.' }); }
@@ -100,9 +102,13 @@ try {
   }
   assert.equal(postCount, 0); assert.equal(await page.locator('#draft').inputValue(), '');
   assert.equal(await mic.getAttribute('data-recording'), 'false');
+  await page.waitForFunction(() => localStorage.getItem('fala.walkthroughSeen:browser-fixture@fala.invalid') === 'true');
+  assert.equal(rewards.profile.walkthrough_seen, true, 'Viewing the guide is synced to the account');
+  // Simulate lost local state / a fresh device, retaining only the account on the server.
+  await page.evaluate(() => localStorage.removeItem('fala.walkthroughSeen:browser-fixture@fala.invalid'));
   await page.reload(); await page.locator('#home').waitFor({state:'visible'});
   await page.locator('#start').click(); await page.locator('#conversation').waitFor({state:'visible'});
-  assert.equal(await page.locator('#walkthrough').isVisible(), false, 'Completion survives reopening');
+  assert.equal(await page.locator('#walkthrough').isVisible(), false, 'Account restores completion even without local storage');
   await page.locator('#back').click(); await page.locator('#home').waitFor({state:'visible'});
   await page.waitForFunction(() => !document.getElementById('start').disabled);
   await page.locator('#home-language').selectOption('en-US');
@@ -189,7 +195,7 @@ try {
   });
   await page.locator('.idea-actions .text-button').first().click();
   await page.waitForFunction(() => window.phrasePlaybackRates.length === 1);
-  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[0]) - 0.8) < 0.001);
+  assert.ok(Math.abs(await page.evaluate(() => window.phrasePlaybackRates[0]) - 0.7) < 0.001);
   await page.locator('.idea-actions .secondary').first().click();
   await page.waitForFunction(() => window.phrasePlaybackRates.length === 2);
   assert.equal(await page.evaluate(() => window.phrasePlaybackRates[1]), 1, 'Normal must restore normal speed after Slow');

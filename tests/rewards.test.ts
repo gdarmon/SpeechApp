@@ -13,7 +13,7 @@ beforeAll(async()=>{
   pg=new PGlite();const wrap=(client:Pick<PGlite,'query'>):Executor=>({query:async<T>(sql:string,values:Parameter[]=[]) => (await client.query<T>(sql,values)).rows});
   db={...wrap(pg),transaction:fn=>pg.transaction(tx=>fn(wrap(tx))),close:()=>pg.close()};
   await pg.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
-  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql', '202609230001_walkthrough.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
 },30000);
 afterAll(async()=>{await db.close();});
 beforeEach(async()=>{
@@ -23,6 +23,30 @@ beforeEach(async()=>{
 async function session(user=a,lesson='kicks-v1',demo=false){const id=randomUUID();await db.query(`INSERT INTO fala.sessions(id,request_id,request,kind,topic,opening,user_id,demo) VALUES($1::uuid,$1,$2::jsonb,'conversation','Class','{}',$3::uuid,$4)`,[id,JSON.stringify({resolved_lesson:{id:lesson}}),user,demo]);return id;}
 async function reply(id:string,user=a,help=false,clock=now){const request=randomUUID();await db.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply) VALUES($1::uuid,$2,'{"source":"speech"}','Sim, com certeza.',$3,$4,1000,'{}')`,[id,request,help,help?'en-US':'pt-BR']);await db.transaction(tx=>new Rewards(tx,user,clock).recordReply(id,request));return request;}
 async function conversation(user=a,lesson='kicks-v1',clock=now){const id=await session(user,lesson);for(let i=0;i<10;i++)await reply(id,user,false,clock);return id;}
+
+it('remembers the guide on the account across clients, settings changes and learning resets',async()=>{
+  const rewards=new Rewards(db,a,now);
+  expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(false);
+  await rewards.settings(rewardSettingsSchema.parse({walkthrough_seen:true}));
+  await new Rewards(db,a,now).settings({appearance:'dark'}); // Older client omits the new preference.
+  await rewards.reset();
+  expect((await new Rewards(db,a,now).snapshot()).profile.walkthrough_seen).toBe(true);
+  expect((await new Rewards(db,b,now).snapshot()).profile.walkthrough_seen).toBe(false);
+  expect(rewardSettingsSchema.safeParse({walkthrough_seen:false}).success).toBe(false);
+  await pg.exec(await readFile(new URL('../supabase/migrations/202609230001_walkthrough.sql',import.meta.url),'utf8'));
+  expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(true);
+});
+
+it('restores guide dismissal for returning learners from versions that only stored it locally',async()=>{
+  const rewards=new Rewards(db,a,now);
+  expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(false);
+  const id=await session();
+  expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(false); // A first opening still gets its guide.
+  await reply(id);
+  expect((await new Rewards(db,a,now).snapshot()).profile.walkthrough_seen).toBe(true);
+  await db.query('DELETE FROM fala.sessions WHERE id=$1::uuid',[id]);
+  expect((await rewards.snapshot()).profile.walkthrough_seen).toBe(true);
+});
 
 it('awards one first-conversation reward, counts guided practice, and prevents replay/cap farming',async()=>{
   const rewards=new Rewards(db,a,now),id=await session();const key=await reply(id);

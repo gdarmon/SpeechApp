@@ -22,7 +22,10 @@ class SessionApi(private val settings: ConnectionSettings, private val onWait: (
         .callTimeout(55, TimeUnit.SECONDS).connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(50, TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
 
-    suspend fun request(path: String, method: String = "GET", body: JSONObject? = null): String = withContext(Dispatchers.IO) {
+    suspend fun request(path: String, method: String = "GET", body: JSONObject? = null): String {
+        // Bind a background preference sync to the account that started it.
+        val token = settings.token
+        return withContext(Dispatchers.IO) {
         val uri = runCatching { URI(settings.url) }.getOrNull()
         require(uri?.host != null && (uri.scheme == "https" || (BuildConfig.DEBUG && uri.scheme == "http"))) {
             "Fala cannot connect right now. Please try again later."
@@ -30,7 +33,7 @@ class SessionApi(private val settings: ConnectionSettings, private val onWait: (
         require(uri.userInfo == null && uri.query == null && uri.fragment == null) { "Fala cannot connect right now. Please try again later." }
         val payload = if (method == "POST") (body ?: JSONObject()).toString().toRequestBody("application/json".toMediaType()) else null
         val request = Request.Builder().url(settings.url + path)
-            .apply { if (settings.token.isNotBlank()) header("Authorization", "Bearer ${settings.token}") }.method(method, payload).build()
+            .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }.method(method, payload).build()
         try {
             val started = SystemClock.elapsedRealtime()
             for (attempt in 0..1) {
@@ -56,6 +59,7 @@ class SessionApi(private val settings: ConnectionSettings, private val onWait: (
             throw IOException("Request interrupted")
         } catch (_: IOException) {
             throw IOException("Connection interrupted. Check your internet connection and retry.")
+        }
         }
     }
 
