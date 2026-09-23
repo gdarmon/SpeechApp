@@ -1,6 +1,6 @@
 // Original bilingual learning notes. Sources and terminology caveats are recorded
 // in docs/abada-curriculum.md; these are language prompts, not movement tutorials.
-import { beginnerModel, teachingPlan } from "./pedagogy.js";
+import { lessonModel, teachingPlan } from "./pedagogy.js";
 export type CapoeiraTerm = { word: string; en: string; he: string; aliases: string[] };
 const term = (word: string, en: string, he: string, ...aliases: string[]): CapoeiraTerm => ({ word, en, he, aliases });
 export const CAPOEIRA_TERMS: CapoeiraTerm[] = [
@@ -123,7 +123,7 @@ export const CAPOEIRA_LESSONS = [
   lesson("kicks-v1", "Kicks in class", "Discuss which kick the instructor named, choose a familiar one, and ask about an unfamiliar name.", "martelo|queixada|armada|meia-lua de frente"),
   lesson("instruments-v1", "Instruments in the roda", "Get ready for the music: identify, choose and ask for instruments with classmates.", "berimbau|pandeiro|atabaque|agogô"),
   lesson("first-cords-v1", "First cord colors", "Talk with a classmate about their cord and the batizado. Ask which cord they have, without assuming they have one. Cords are awarded, not chosen or ordered.", "corda crua|corda crua e amarela|corda amarela|corda amarela e laranja"),
-  lesson("evasions-v1", "Evasions and transitions", "Understand the names in the instructor's announced sequence and ask what comes next.", "esquiva diagonal|cocorinha|negativa|rolê"),
+  lesson("evasions-v1", "Evasions and transitions", "Ask an instructor to repeat or clarify familiar evasion names. Practise the request, not knowledge of a class sequence. No order has been announced; do not ask which movement comes next.", "esquiva diagonal|cocorinha|negativa|rolê"),
   lesson("exercises-v1", "Warm-up and partner exercises", "Follow a verbal class plan: warm-up, stretching, repetitions and working with a partner. Discuss the plan, not execution mechanics.", "aquecimento|alongamento|repetição|dupla"),
   lesson("sweeps-v1", "Sweeps and takedown names", "Discuss the names in a teacher's demonstration and ask which one was mentioned. No physical execution instructions.", "rasteira|banda|tesoura|vingativa"),
   lesson("berimbau-parts-v1", "Getting the berimbau ready", "Help a classmate identify and find the parts used with a berimbau.", "caxixi|baqueta|dobrão|cabaça"),
@@ -182,6 +182,6 @@ export function lessonContext(choice: LessonChoice | undefined, question = 0, la
     deferred_terms: selected.words.filter(word => !introduced.includes(word)),
     next_prompt: { task: plan.task, phase: plan.phase, format: plan.format, allow_repetition: plan.allow_repetition,
       focus_term: question >= 10 ? undefined : focus,
-      model: plan.target_terms === 2 ? beginnerModel(focus, meaning, question, language) : undefined },
+      model: lessonModel(focus, meaning, question, language, level) },
   };
 }

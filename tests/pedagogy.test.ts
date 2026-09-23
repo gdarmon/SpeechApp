@@ -29,10 +29,10 @@ describe("focused ten-answer lessons", () => {
         focus.push(lesson.next_prompt.focus_term!);
         expect(lesson.deferred_terms.some(term => terms.includes(term))).toBe(false);
         expect(lesson.vocabulary.every(entry => /\p{Script=Hebrew}/u.test(entry.translation))).toBe(true);
-        if (level.level === 1) {
+        {
           const model = lesson.next_prompt.model!;
-          expect(wordCount(model.text)).toBeLessThanOrEqual(7);
-          expect(model.suggested_replies.every(idea => wordCount(idea.text) <= 7)).toBe(true);
+          expect(wordCount(model.text)).toBeLessThanOrEqual(level.turn_words);
+          expect(model.suggested_replies.every(idea => wordCount(idea.text) <= level.idea_words)).toBe(true);
           const generated = replySchema.parse({ ...model, pace: "slow", turn_feedback: round ? feedback : null });
           expect(coachingReplySchema({ action: round ? "continue" : "start", lesson,
             practice: level, support_language: "he-IL" }).safeParse(generated).success).toBe(true);

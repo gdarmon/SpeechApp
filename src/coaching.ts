@@ -82,6 +82,16 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     if (/\b(?:e|mas)\s+(?:quem|quando|onde|como|qual|quais|por que|o que)\b/i.test(spokenQuestion(reply.text))) {
       reject("Ask about one thing, not two joined questions sharing a question mark.");
     }
+    if (lesson && !help && !final) {
+      const afterWhich = termKey(reply.text).replace(/^qual (?:e )?(?:o |a )?/, "");
+      if (/^qual\b/i.test(reply.text) && lesson.vocabulary?.some(entry => afterWhich.startsWith(`${termKey(entry.term)} `))) {
+        reject("Do not ask which variant of an unexplained name. Use the reviewed question model with directly matching answer ideas.");
+      }
+      if (/\b(?:qual|o que)\b.*\b(?:pr[oó]xim[ao]|vem depois|vem ap[oó]s)\b/i.test(reply.text)
+        && !/\b(?:quer|prefere|escolhe|gostaria)\b/i.test(reply.text)) {
+        reject("Do not quiz the order of a capoeira sequence. Ask about the learner's request using the reviewed model.");
+      }
+    }
     if (limits.level === 1 && /^(?:quando|enquanto|se|depois que|antes de)\b[^?]*[,;]/i.test(reply.text.trim())) {
       reject("At level 1 use one short clause. Remove the scene-setting subordinate clause.");
     }
@@ -89,10 +99,6 @@ export function coachingReplySchema(context: Record<string, unknown>) {
       const questionOnly = reply.text.replace(/^(?:oi|olá|bom dia|boa tarde|boa noite)[!.,]\s*/i, "");
       if (/[.!;]\s*\p{L}/u.test(questionOnly) || /[,;]\s*(?:quem|quando|onde|como|qual|quais|o que)\b/i.test(questionOnly)) {
         reject("At level 1 ask just the short question. Put feedback in turn_feedback instead of adding a second spoken sentence or preamble.");
-      }
-      const afterWhich = termKey(reply.text).replace(/^qual (?:e )?(?:o |a )?/, "");
-      if (/^qual\b/i.test(reply.text) && lesson?.vocabulary?.some(entry => afterWhich.startsWith(`${termKey(entry.term)} `))) {
-        reject("Do not ask which variant of an unexplained name or an unstated class sequence. Ask which NAME to hear/repeat, using the reviewed model and matching answer ideas.");
       }
     }
     if (start && reply.pace !== "slow") reject("Start at a gentle speaking pace.");

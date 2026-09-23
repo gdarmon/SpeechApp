@@ -72,3 +72,43 @@ export function beginnerModel(term: string, meaning: string, question: number, l
       { text: "Pode repetir?", translation: he ? "אפשר לחזור?" : "Could you repeat?" },
     ] };
 }
+
+export function lessonModel(term: string, meaning: string, question: number, language: string, levelValue: unknown) {
+  const level = practiceLevel(levelValue).level;
+  if (level === 1) return beginnerModel(term, meaning, question, language);
+  if (question >= 10) return undefined;
+  const he = language === "he-IL";
+  const named = `“${term}”`;
+  const models = [
+    { text: `Como quer repetir ${named}?`, he: `איך תרצה לחזור על ${named}?`, en: `How would you like to repeat ${named}?`,
+      answers: [
+        [`Quero repetir ${named} devagar.`, `אני רוצה לחזור על ${named} לאט.`, `I'd like to repeat ${named} slowly.`],
+        [`Pode repetir ${named} de novo?`, `אפשר לחזור על ${named} שוב?`, `Could you repeat ${named} again?`],
+      ] },
+    { text: `Por que quer repetir ${named}?`, he: `למה תרצה לחזור על ${named}?`, en: `Why would you like to repeat ${named}?`,
+      answers: [
+        [`Quero repetir ${named} porque ainda não lembro desse nome.`, `אני רוצה לחזור על ${named} כי אני עדיין לא זוכר את השם הזה.`, `I'd like to repeat ${named} because I don't remember that name yet.`],
+        [`Quero ouvir ${named} de novo, porque quero lembrar.`, `אני רוצה לשמוע את ${named} שוב, כי אני רוצה לזכור.`, `I'd like to hear ${named} again because I want to remember.`],
+      ] },
+    { text: `Como pediria ajuda com ${named}?`, he: `איך היית מבקש עזרה עם ${named}?`, en: `How would you ask for help with ${named}?`,
+      answers: [
+        [`Não entendi ${named}. Pode explicar esse nome com palavras simples?`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה במילים פשוטות?`, `I didn't understand ${named}. Could you explain that name in simple words?`],
+        [`Não lembro de ${named}. Pode repetir esse nome mais devagar?`, `אני לא זוכר את ${named}. אפשר לחזור על השם הזה לאט יותר?`, `I don't remember ${named}. Could you repeat that name more slowly?`],
+      ] },
+    { text: `Como reformularia seu pedido sobre ${named}?`, he: `איך היית מנסח מחדש את הבקשה שלך לגבי ${named}?`, en: `How would you rephrase your request about ${named}?`,
+      answers: [
+        [`Eu explicaria que quero entender o nome ${named}. Pediria uma explicação curta, porque preciso usar esse nome numa conversa.`, `הייתי מסביר שאני רוצה להבין את השם ${named}. הייתי מבקש הסבר קצר, כי אני צריך להשתמש בשם הזה בשיחה.`, `I'd explain that I want to understand the name ${named}. I'd ask for a short explanation, because I need to use the name in conversation.`],
+        [`Eu diria que preciso ouvir ${named} mais devagar. Se isso não ajudasse, pediria outra explicação para conseguir usar esse nome numa conversa.`, `הייתי אומר שאני צריך לשמוע את ${named} לאט יותר. אם זה לא היה עוזר, הייתי מבקש הסבר אחר כדי להשתמש בשם הזה בשיחה.`, `I'd say I need to hear ${named} more slowly. If that didn't help, I'd ask for another explanation so I could use the name in conversation.`],
+      ] },
+  ];
+  let model = models[level - 2];
+  if (question === 1 || question === 4) {
+    model = { ...models[0], text: `Quer repetir ${named} devagar?`,
+      he: `תרצה לחזור על ${named} לאט?`, en: `Would you like to repeat ${named} slowly?` };
+  } else if (question === 6) {
+    model = { ...models[0], text: `O que ajudaria você a repetir ${named}?`,
+      he: `מה יעזור לך לחזור על ${named}?`, en: `What would help you repeat ${named}?` };
+  }
+  return { text: model.text, translation: model[he ? "he" : "en"],
+    suggested_replies: model.answers.map(answer => ({ text: answer[0], translation: answer[he ? 1 : 2] })) };
+}
