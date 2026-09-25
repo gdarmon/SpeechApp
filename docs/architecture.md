@@ -1,6 +1,6 @@
 # Fala — Brazilian Portuguese conversation practice
 
-Native Android architecture approved on 18 September 2026. Repository inspection found no existing application. The adjacent `chatbot` project supplied the provider configuration convention (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`), not its WhatsApp features or database.
+The project began with a native Android architecture on 18 September 2026 and now includes the web client, rewards, reminders and shared localization. This document retains detailed design rationale; [the current handoff](agent-handoff.md) provides the full source map and [the release record](releases/0.14.0.md) records verified 0.14.0 behavior. The adjacent `chatbot` project supplied a provider configuration convention, not its database or features.
 
 ## A–C. Architecture, stack, and structure
 
@@ -8,6 +8,8 @@ Native Android architecture approved on 18 September 2026. Repository inspection
 flowchart LR
     Mic[Android speech recognizer] --> Client[Kotlin / Compose session controller]
     Client --> API[Netlify TypeScript function]
+    Browser[Web / PWA client] --> API
+    API --> WebAudio[Configured transcription / voice service]
     API --> Coach[Conversation and feedback orchestration]
     Coach --> Provider[Replaceable AI provider]
     Coach <--> DB[(Supabase PostgreSQL)]
@@ -15,7 +17,7 @@ flowchart LR
     Client --> Speech[Android pt-BR text to speech]
 ```
 
-One Android application and one private API function, deployable directly from GitHub to Netlify. Node 22, TypeScript, Zod for validating requests/model output, and PostgreSQL transactions for persistence. Kotlin, Compose, coroutines, and OkHttp on Android. Provider-specific code stays out of session management. A small static landing page is published separately from server code.
+One Android application and one private API function, deployable directly from GitHub to Netlify. Node 22, TypeScript, Zod for validating requests/model output, and PostgreSQL transactions for persistence. Kotlin, Compose, coroutines, and OkHttp on Android. Provider-specific code stays out of session management. Static public pages and the full web/PWA client are published alongside the separately bundled API functions.
 
 ```
 android/app/src/main/java/com/fala/app/
@@ -36,7 +38,7 @@ src/
   database.ts              transaction-pooler-compatible connection
 supabase/migrations/       private schema, constraints, indexes, RLS
 tests/                     PostgreSQL-backed API and provider checks
-public/                    static landing page and logo
+public/                    static pages, branding and the full app/ web client
 docs/
 ```
 
@@ -44,7 +46,7 @@ docs/
 
 MVP: onboarding and microphone permission, a short adaptive spoken assessment, one Talk action, turn-based voice conversation with hold-to-speak capture and explicit sending, remembered English/Hebrew translations, two translated reply ideas, editable recognition results, and English/Hebrew rescue, session history, up to three corrections, personal mistake memory, and progress based on real sessions.
 
-V1 excludes iOS, subscriptions, games, XP, generic flashcards, fully offline conversation, automatic simultaneous barge-in, streaming speech-to-speech, and phoneme-level pronunciation scores. Google Credential Manager sign-in identifies each learner by the signed Google subject, never by email. A one-time server nonce prevents login replay. Device sessions are random, hashed in PostgreSQL, encrypted by Android Keystore, revocable, and expire after 90 days. All learner reads, writes, history, aggregates and AI context are scoped to the authenticated user. Google client IDs and service URLs are public configuration; provider/database/operator secrets remain server-side.
+There is no native iOS client; iPhone users use the web app. Subscriptions, fully offline conversation, automatic simultaneous barge-in, streaming speech-to-speech and phoneme-level pronunciation scores are not implemented. Practice XP, cosmetics and private circles were added after the original MVP; see [gamification](gamification.md). Google Credential Manager sign-in identifies each learner by the signed Google subject, never by email. A one-time server nonce prevents login replay. Device sessions are random, hashed in PostgreSQL, encrypted by Android Keystore, revocable, and expire after 90 days. All learner reads, writes, history, aggregates and AI context are scoped to the authenticated user. Google client IDs and service URLs are public configuration; provider/database/operator secrets remain server-side.
 
 Public signup has per-IP/global login throttles, a 30/minute per-user conversation limit, and configurable per-user/app daily limits. These constrain requests, not monetary spending. The optional operator token accesses only diagnostics and the isolated legacy learner.
 
@@ -56,7 +58,7 @@ State: ready → requesting → speaking → your turn → holding/listening →
 
 Playback waits up to eight seconds for initial TTS readiness, uses media audio and volume controls, and lets the learner hear individual suggestions or summary words. Stopping or backgrounding cancels queued speech.
 
-No application audio files are created or uploaded. Android's selected speech service may send audio to its provider; disclose this before consent. The text backend receives transcripts, not audio. No reliable pronunciation claim can be made from these transcripts. Speech duration is an approximate measurement between recognition speech callbacks, not a precision fluency score.
+The native application creates or uploads no audio files. The web client separately sends its recorded clip to the configured transcription endpoint; see [web behavior](web-app.md). Android's selected speech service may send audio to its provider; disclose this before consent. Native conversation requests contain transcripts, not recordings; separate web audio endpoints handle transcription and generated playback. No reliable pronunciation claim can be made from these transcripts. Speech duration is an approximate measurement between recognition speech callbacks, not a precision fluency score.
 
 Primary risks: recognition errors mistaken for learner errors, unsupported pt-BR voices, cellular latency, platform audio interruptions, and model overcorrection. Initial objective: ten consecutive voice turns on a real Android phone without typing. Measure recognition-to-playback latency on the device; do not promise a latency target before measurement.
 
@@ -64,9 +66,9 @@ Primary risks: recognition errors mistaken for learner errors, unsupported pt-BR
 
 The AI provider accepts a task, bounded session context, current learner profile, and at most three due weaknesses. It returns validated structured data. The initial adapter implements the Chat Completions wire format, matching the existing chatbot's Groq setup. URL, key, and model are runtime server settings. No vendor SDK or provider key is bundled in Android.
 
-Conversation instructions follow a saved practice difficulty from 1 to 5. Level 1 keeps the short eight-word opening, seven-word ideas and sixteen-word follow-ups; later levels invite full sentences, connected answers and multi-sentence explanations within explicitly larger validated limits. Each session freezes its level in request JSON, preserving retry/resume semantics. The learner can choose a challenge or follow the recommendation derived from retained qualifying sessions. The server owns qualification; guided, copied, typed, repeated and demo answers cannot manufacture advancement. See [the exact progression method](learning-progression.md). These are app practice levels, not CEFR grades. Capoeira mode focuses on classroom instruction and clarification, with verbal responses rather than physical coaching. Pronunciation is not scored from text.
+Conversation instructions follow a saved practice difficulty from 1 to 5. Current level 1 questions and ideas are limited to seven words (`src/learning.ts`); later levels invite full sentences, connected answers and multi-sentence explanations within explicitly larger validated limits. Each session freezes its level in request JSON, preserving retry/resume semantics. The learner can choose a challenge or follow the recommendation derived from retained qualifying sessions. The server owns qualification; guided, copied, typed, repeated and demo answers cannot manufacture advancement. See [the exact progression method](learning-progression.md). These are app practice levels, not CEFR grades. Capoeira mode focuses on classroom instruction and clarification, with verbal responses rather than physical coaching. Pronunciation is not scored from text.
 
-The [ABADÁ curriculum](abada-curriculum.md) rotates 19 lesson themes from each learner’s retained non-demo history. A versioned lesson ID and visit number are frozen in request JSON; server-generated topic labels describe the theme. Only the current lesson vocabulary, current speaking task and five recent opening texts supplement the existing context. The model must vary open questions, confirmations and a choice instead of repeating one template. Vocabulary extraction preserves whole known capoeira expressions, and prior exposure matches those phrases and aliases within the learner’s own actual dialogue. No migration or Android update is required.
+The [ABADÁ curriculum](abada-curriculum.md) rotates lesson themes from each learner’s retained non-demo history. A versioned lesson ID and visit number are frozen in request JSON; server-generated topic labels describe the theme. Only the current lesson vocabulary, current speaking task and five recent opening texts supplement the existing context. The model must vary open questions, confirmations and a choice instead of repeating one template. Vocabulary extraction preserves whole known capoeira expressions, and prior exposure matches those phrases and aliases within the learner’s own actual dialogue. No migration or Android update is required.
 
 Help is a distinct turn type. The learner expresses intent in English or Hebrew; the model produces a natural Portuguese sentence, one brief explanation, and an invitation to say it. The next turn is Portuguese practice, not another translation. Assistance is recorded separately from spontaneous production. The support language is saved in the session request, so resumed conversations keep their original language. Turn request JSON records speech/typed source and an assistance marker without new database columns. Typed replies have zero speaking time. Guided answers and exact repetitions of the previous suggestions/practice phrase are excluded from spontaneous assessment evidence; at least five independent spoken replies are required for a CEFR estimate.
 
@@ -111,5 +113,5 @@ Automated server tests can validate orchestration, privacy, persistence, and pro
 - [AGP 8.13 compatibility](https://developer.android.com/build/releases/agp-8-13-0-release-notes)
 - [Structured JSON output](https://developers.openai.com/api/docs/guides/structured-outputs) — application validation remains necessary.
 - [Provider data controls](https://developers.openai.com/api/docs/guides/your-data) — disabling application storage is not a guarantee of zero provider retention.
-- [Groq reasoning configuration](https://console.groq.com/docs/reasoning) — medium reasoning effort supports the current coaching and contextual summaries; the existing request deadline remains enforced. Measure device latency rather than assuming a target.
+- [Groq reasoning configuration](https://console.groq.com/docs/reasoning) — the current adapter requests low reasoning effort for supported models; the existing request deadline remains enforced. Measure device latency rather than assuming a target.
 - [Groq structured outputs](https://console.groq.com/docs/structured-outputs) — strict schema mode is enabled only for the documented GPT-OSS 20B/120B models on the Groq endpoint.

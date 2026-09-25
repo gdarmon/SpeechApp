@@ -1,5 +1,7 @@
 # Validation
 
+For current 0.14.0 checks, publication evidence and unverified phone/latency limits, see [the release record](releases/0.14.0.md). The sections below include historical validation and must not be treated as current-version device evidence.
+
 ## 0.12.3 — conversation reliability, 21 September 2026
 
 - Reproduced Groq's shared 8,000-token/minute limit and the generic Android error it previously caused. Compact, conditional coaching instructions reduced the sampled opening input from 3,278 to 1,725 tokens. Low reasoning and bounded output budgets reduce additional token use; these sample counts are not a guarantee for every lesson.

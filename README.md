@@ -1,6 +1,8 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Web and Android 0.12.4 keep the microphone and reply controls in reach, with compact Portuguese/Hebrew or English cards, spoken answer ideas and shared learner progress. [Setup and browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.0 adds a full Hebrew/English interface, account-saved language choice and default daily reminders around 17:00, alongside spoken answer ideas and shared learner progress. [Release evidence and review state](docs/releases/0.14.0.md), [browser details](docs/web-app.md).
+
+**Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [המדריך בעברית](docs/owner-guide.he.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
@@ -37,7 +39,7 @@ cd android
 
 The result is `android/app/build/outputs/apk/debug/app-debug.apk`. Debug builds use a development signing key. GitHub runners may generate a different key each run; keep your local keystore for upgrade installs. For repeatable CI debug builds, configure `FALA_DEBUG_KEYSTORE_BASE64` with your existing debug key. For Play installs, register the Play app signing certificate instead. [Release signing and upload instructions](docs/google-play.md).
 
-Sign in with Google and choose English or Hebrew for translations. Choose **Capoeira class** or **Everyday life**, then tap **Talk**. Fala speaks first and offers translated answer ideas. **Listen first** keeps the question and ideas hidden until requested. **Try without answer ideas** lets later replies count as your own practice; revealing an idea marks that answer as guided even if you hide it again. **Hold to speak**, wait for **Listening**, speak, release, check the words and **Send**. The microphone never opens automatically. Recognition is unchanged; you can correct its text before sending.
+Sign in with Google and choose English or Hebrew for the interface and new conversation translations. Choose **Capoeira class** or **Everyday life**, then tap **Talk**. Fala speaks first and offers translated answer ideas. **Listen first** keeps the question and ideas hidden until requested. **Try without answer ideas** lets later replies count as your own practice; revealing an idea marks that answer as guided even if you hide it again. **Hold to speak**, wait for **Listening**, speak, release, check the words and **Send**. The microphone never opens automatically. Recognition is unchanged; you can correct its text before sending.
 
 After ten Portuguese answers, Fala gives a short review with **up to five useful words**, favoring relevant words absent from your retained history. Unused answer ideas and common fillers do not fill the list. You can finish early or ask for help in English/Hebrew; help turns do not count toward ten. Old reviews are also displayed compactly.
 
@@ -45,10 +47,10 @@ After ten Portuguese answers, Fala gives a short review with **up to five useful
 
 ## Development and checks
 
-Node 22.22+ (22.x) is required. Automated tests need no cloud account or AI key.
+Node 22.22.2 (see `.nvmrc`) and npm 10.9.7 are used for CI parity. Automated tests need no cloud account or AI key.
 
 ```bash
-npm ci
+npx --yes npm@10.9.7 ci
 npm test
 npm run build
 npx netlify functions:build --src netlify/functions --functions .netlify/functions
@@ -61,7 +63,7 @@ For loopback PostgreSQL only, `FALA_LOCAL_DATABASE=true` disables TLS. Hosted co
 ## Included
 
 - Partner-first Portuguese speech and visible text, remembered English/Hebrew translations, and two translated reply ideas. Hold-to-speak capture, review before sending, editable text fallback, replay, slower playback, and lifecycle pausing.
-- Five visible practice levels with matching prompt and answer lengths, immediate feedback and a ten-answer summary. Level 1 retains the eight-word opening, seven-word ideas and sixteen-word follow-ups; higher levels gradually expand these limits. [ABADÁ capoeira lessons](docs/abada-curriculum.md) rotate through 19 themes covering kicks, movements, instruments, adult cord colors and class exercises. An optional listen-first view and answer-idea controls support independent practice.
+- Five visible practice levels with matching prompt and answer lengths, immediate feedback and a ten-answer summary. Current level 1 questions and ideas are limited to seven words; higher levels gradually expand these limits, as defined in `src/learning.ts`. [ABADÁ capoeira lessons](docs/abada-curriculum.md) rotate through lesson themes covering kicks, movements, instruments, adult cord colors and class exercises. An optional listen-first view and answer-idea controls support independent practice.
 - English/Hebrew rescue, visible current question and answer draft, history, and up to three useful corrections. Invented quotes, no-op corrections, and corrections to valid numeric age statements are discarded.
 - Recurring mistakes counted across distinct conversations, assisted-phrase memory, next-day review context, and up to five review phrases. Word reviews contain at most five useful translated items with actual-dialogue counts and prior-history markers, including when opening an older report. New in Fala does not mean unknown to you.
 - Speaking time, conversations, topics, help requests, and recurring patterns. Individual deletion removes a session's derived memory; delete-all removes retained learner data.
@@ -75,7 +77,7 @@ Build checks do not establish live Portuguese coaching quality or phone audio be
 
 Speech is turn-based, with hold-to-speak and explicit sending; streaming speech-to-speech and automatic simultaneous interruption are future work. Recognition and voice quality depend on the phone's engines. Review uses a next-day schedule, not mastery-based spacing. No audio-based pronunciation score or invented fluency trend is shown.
 
-Fala creates no audio recordings. Android's recognition/TTS provider may process audio remotely. The text AI provider receives conversation text. The configured PostgreSQL host retains transcripts and derived memory until deletion. App deletion cannot erase provider logs or database backups. `.env`, local tools, databases, and build outputs are excluded from Git.
+The native app creates no audio recordings; Android's recognition/TTS provider may process audio remotely. The web client captures temporary audio clips for the configured transcription service; see [web speech and privacy](docs/web-app.md). The text AI provider receives conversation text. The configured PostgreSQL host retains transcripts and derived memory until deletion. App deletion cannot erase provider logs or database backups. `.env`, local tools, databases, and build outputs are excluded from Git.
 
 Practice rewards, friend circles, notification setup and migration details: [Gamification](docs/gamification.md).
 
