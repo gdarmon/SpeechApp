@@ -20,10 +20,12 @@ try {
  await context.addInitScript(() => localStorage.setItem('fala.language','en-US'));
  let loggedIn=true,group=null;
  const rewards=rewardFixture(); let settingsWrites=0;
+ const practice={level:1,title:'First phrases',goal:'Practise familiar words and short phrases for one everyday need.',next_level:2,
+   guidance:'Your recent practice suggests you could try the next level. Stay here or choose a harder level when you feel ready.'};
  await page.route('**/*',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname,send=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   if(path==='/auth/me')return loggedIn?send({email:'fixture@fala.invalid'}):route.fulfill({status:401,body:'{}'});
-  if(path==='/dashboard')return send({status:{demo:false},progress:{practice:{level:1,title:'First phrases',goal:'Simple replies.'}},history:[],rewards});
+  if(path==='/dashboard')return send({status:{demo:false},progress:{practice},history:[],rewards});
   if(path==='/rewards')return send(rewards);
   if(path==='/rewards/settings'){settingsWrites++;Object.assign(rewards.profile,req.postDataJSON());return send(rewards);}
   if(path==='/friends'){
@@ -38,6 +40,10 @@ try {
  assert.equal(rewards.profile.reminder_minute,1020);
  assert.equal(rewards.profile.ui_language,'en-US');
  assert.ok((await page.locator('#start').boundingBox()).y<760,'Talk should be within reach on mobile');
+ assert.equal(await page.locator('#level').inputValue(),'0','A suggested challenge must not change the selection');
+ await page.locator('#practice-challenge').click();
+ assert.equal(await page.locator('#level').inputValue(),'2','Only an explicit choice changes the level');
+ await page.locator('#level').selectOption('0');
  await page.locator('[data-page="rewards-screen"]').click();await page.locator('#theme-list article').first().waitFor();
 
  // Preview never equips a locked partner; saved choices survive reload and topic changes.
@@ -96,6 +102,16 @@ try {
      if (width===390 && destination==='reminders-screen') await page.screenshot({path:'artifacts/fala-0.14.0-settings-he.png',fullPage:true});
    }
  }
+ await page.locator('[data-page="home"]').click();
+ await page.waitForFunction(()=>!document.querySelector('#start').disabled);
+ assert.match(await page.locator('#practice-challenge').innerText(),/רמה 2/);
+ await page.getByText('לומדים בקצב שלכם',{exact:true}).click();
+ assert.match(await page.locator('#home').innerText(),/אין מועד שבו צריך לעלות רמה/);
+ assert.doesNotMatch(await page.locator('#home').innerText(),/two complete|of 2 qualifying|שתי שיחות/);
+ practice.next_level=null;
+ await page.reload(); await page.waitForFunction(()=>!document.querySelector('#start').disabled);
+ assert.equal(await page.locator('#practice-challenge').isHidden(),true);
+ await page.locator('[data-page="reminders-screen"]').click();
  await page.locator('#reminder-enabled').uncheck();
  await page.getByRole('button',{name:'שמירת ההעדפות'}).click();
  await page.waitForFunction(()=>!document.querySelector('#reward-settings button').disabled);

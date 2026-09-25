@@ -15,9 +15,9 @@ internal data class ReplySupport(val textVisible: Boolean, val ideasVisible: Boo
 }
 
 internal val practiceLevels = listOf(
-    "First phrases" to "A short phrase in your own words",
-    "Full sentences" to "One full sentence with a detail",
-    "Connected answers" to "Two connected sentences",
-    "Explain and clarify" to "About three sentences",
-    "Flexible conversations" to "Three or more connected sentences"
+    "First phrases" to "A word or short phrase; reuse familiar patterns",
+    "Simple sentences" to "One simple sentence with a useful detail",
+    "Connected ideas" to "Two ideas linked with because, then or but",
+    "Explain and clarify" to "Explain one point; add detail only when useful",
+    "Flexible conversations" to "Explain a choice or offer an alternative"
 )

@@ -3,7 +3,7 @@ import type { Database, Executor, Parameter } from "./database.js";
 import { AppError, PRACTICE_TURNS, type Session, type Start, type TurnInput, type Reply, type Feedback, type Correction,
   type Assessment, type LearnerContext, type Memory, type Turn } from "./models.js";
 import type { Timing } from "./timing.js";
-import { practiceLevel, practiceProgress } from "./learning.js";
+import { practiceLevel, practiceProgress, type PracticeEvidence } from "./learning.js";
 import { compactFeedback, vocabularyForms } from "./vocabulary.js";
 import type { LessonChoice, LessonHistory } from "./capoeira.js";
 import { Rewards } from './rewards.js';
@@ -35,10 +35,16 @@ SELECT
     FROM fala.sessions WHERE NOT demo AND request->'resolved_lesson'->>'id' IS NOT NULL
     GROUP BY request->'resolved_lesson'->>'id'
   ) l), '[]'::jsonb) AS lessons,
+  COALESCE((SELECT (request->>'resolved_level')::int FROM fala.sessions WHERE NOT demo
+    ORDER BY started_at DESC, id DESC LIMIT 1), 1) AS practice_level,
   COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM (
-    SELECT (feedback->'practice_result'->>'level')::int AS level, count(*)::int AS sessions
-    FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL AND feedback->'practice_result'->>'ready'='true'
-    GROUP BY feedback->'practice_result'->>'level'
+    SELECT (request->>'resolved_level')::int AS level, ended_at,
+      COALESCE(request->'resolved_lesson'->>'id', lower(trim(topic))) AS context,
+      COALESCE(feedback->'practice_result'->>'ready'='true', false) AS ready
+    FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL
+      AND request->>'resolved_level'=(SELECT request->>'resolved_level' FROM fala.sessions WHERE NOT demo
+        ORDER BY started_at DESC, id DESC LIMIT 1)
+    ORDER BY ended_at DESC, id DESC LIMIT 60
   ) p), '[]'::jsonb) AS practice_results
 `;
 
@@ -48,7 +54,7 @@ type SnapshotRow = {
   help_patterns: { natural: string; last_seen: string; occurrences: number; topic: string }[];
   recent_topics: string[];
   recent_openings: string[]; lessons: LessonHistory[];
-  practice_results: { level: number; sessions: number }[];
+  practice_level: number; practice_results: PracticeEvidence[];
 };
 
 const savedTurn = (turn: Turn): Turn => ({ ...turn,
@@ -112,7 +118,7 @@ export class Store {
     const help_patterns: Memory[] = row.help_patterns.map(h => ({ ...h, category: "retrieval", due_at: due(h.last_seen) }));
     return { session: row.session ? { ...row.session, turns: row.turns.map(savedTurn) } : null,
       learner: { assessment: row.assessment, memory, help_patterns, recent_topics: row.recent_topics, recent_openings: row.recent_openings,
-        lessons: row.lessons, practice: practiceProgress(row.practice_results) } };
+        lessons: row.lessons, practice: practiceProgress(row.practice_results, row.practice_level) } };
   }
 
   async session(id: string): Promise<Session> {

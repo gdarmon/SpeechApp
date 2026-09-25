@@ -16,7 +16,6 @@ export function openingFocus(opening: Pick<Reply, "suggested_replies"> | undefin
 const sequences = [
   [0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
   [0, 0, 1, 0, 2, 1, 0, 2, 1, 0],
-  [0, 0, 1, 0, 2, 1, 3, 0, 2, 1],
 ];
 const stages = ["model", "guided", "model", "retrieve", "guided", "retrieve", "apply", "retrieve", "apply", "recall"];
 const tasks = [
@@ -41,11 +40,11 @@ const languageWork = [
 
 export function teachingPlan(levelValue: unknown, question = 0, opening?: Pick<Reply, "suggested_replies">) {
   const level = practiceLevel(levelValue).level;
-  const targetTerms = level === 1 ? 2 : level === 2 ? 3 : 4;
-  const sequence = sequences[Math.min(level - 1, 2)];
+  const targetTerms = level <= 2 ? 2 : 3;
+  const sequence = sequences[level <= 2 ? 0 : 1];
   const index = Math.max(0, Math.min(10, Math.trunc(question) || 0));
   return {
-    revision: "focused-practice-v1",
+    revision: "focused-practice-v2",
     target_terms: targetTerms,
     focus_words: openingFocus(opening, targetTerms),
     language_work: languageWork[level - 1],
@@ -125,13 +124,13 @@ export function lessonModel(term: string, meaning: string, question: number, lan
       ] },
     { text: `Como pediria ajuda com ${named}?`, he: `איך היית מבקש עזרה עם ${named}?`, en: `How would you ask for help with ${named}?`,
       answers: [
-        [`Não entendi ${named}. Pode explicar esse nome com palavras simples? Quero entender melhor para usar na conversa.`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה במילים פשוטות? אני רוצה להבין טוב יותר כדי להשתמש בו בשיחה.`, `I didn't understand ${named}. Could you explain that name in simple words? I'd like to understand it better to use it in conversation.`],
+        [`Não entendi ${named}. Pode explicar esse nome com um exemplo?`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה בעזרת דוגמה?`, `I didn't understand ${named}. Could you explain that name with an example?`],
         [`Não lembro de ${named}. Pode repetir esse nome mais devagar?`, `אני לא זוכר את ${named}. אפשר לחזור על השם הזה לאט יותר?`, `I don't remember ${named}. Could you repeat that name more slowly?`],
       ] },
     { text: `Como reformularia seu pedido sobre ${named}?`, he: `איך היית מנסח מחדש את הבקשה שלך לגבי ${named}?`, en: `How would you rephrase your request about ${named}?`,
       answers: [
-        [`Eu explicaria que quero entender o nome ${named}. Pediria uma explicação curta, porque preciso usar esse nome numa conversa com meus colegas na próxima aula.`, `הייתי מסביר שאני רוצה להבין את השם ${named}. הייתי מבקש הסבר קצר, כי אני צריך להשתמש בשם הזה בשיחה עם חבריי בשיעור הבא.`, `I'd explain that I want to understand the name ${named}. I'd ask for a short explanation, because I need to use the name in a conversation with my classmates at the next class.`],
-        [`Eu diria que preciso ouvir ${named} mais devagar. Se isso não ajudasse, pediria outra explicação para conseguir usar esse nome numa conversa.`, `הייתי אומר שאני צריך לשמוע את ${named} לאט יותר. אם זה לא היה עוזר, הייתי מבקש הסבר אחר כדי להשתמש בשם הזה בשיחה.`, `I'd say I need to hear ${named} more slowly. If that didn't help, I'd ask for another explanation so I could use the name in conversation.`],
+        [`Quero entender ${named} para conversar na aula. Uma explicação curta ou um exemplo pode ajudar.`, `אני רוצה להבין את ${named} כדי לדבר בשיעור. הסבר קצר או דוגמה יכולים לעזור.`, `I want to understand ${named} to talk in class. A short explanation or an example could help.`],
+        [`Preciso ouvir ${named} mais devagar. Se ainda ficar difícil, podemos tentar outro exemplo.`, `אני צריך לשמוע את ${named} לאט יותר. אם עדיין יהיה קשה, אפשר לנסות דוגמה אחרת.`, `I need to hear ${named} more slowly. If it's still difficult, we can try another example.`],
       ] },
   ];
   let model = models[level - 2];

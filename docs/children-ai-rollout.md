@@ -1,46 +1,46 @@
-# Fala: שיחות AI לגיל 8 ומעלה — מסלול הפעלה
+# Fala: AI conversations for ages 8 and up — rollout plan
 
-עודכן: 23 בספטמבר 2026. זהו מפרט לביצוע, לא הודעה שהשירות כבר פתוח לילדים.
+Plan last updated: 23 September 2026. This is an implementation specification, not an announcement that the service is open to children. The English translation preserves recorded findings and status; it is not a new verification of provider terms or account settings.
 
-ההחלטה: שיחות AI מלאות מגיל 8, עם חשבון בניהול הורה. לא תרגול מוגבל למשפטים מוכנים. גרסת 0.13.3 מתקנת השמעת קול; היא אינה מפעילה שימוש מתחת לגיל 13.
+The decision: full AI conversations from age 8 with a parent-managed account, rather than only prepared phrases. Version 0.13.3 fixes playback; it does not enable use under age 13.
 
-## מה חסר לפני שאפשר להפעיל
+## Prerequisites before activation
 
-1. **ספק AI מתאים ופרטיות בפועל.** נבדקו הגדרות השירות החי: שיחות ותמלול משתמשים ב־Groq. לפי התיעוד העדכני שלו, כל לקוח יכול להפעיל ZDR בהגדרות Data Controls; לא נדרש עבורו הליך אישור ZDR של OpenAI. יש לבדוק ולהפעיל את ההגדרה בארגון שמשרת את Fala, ולברר שההסכם החל מכסה משתמשי קצה בגיל 8–12. מצב ההגדרה בפועל טרם אומת. חלופה אפשרית: פרויקט OpenAI נפרד לילדים, עם אישור Zero Data Retention פעיל ובדיקה שהמודל וכל נקודות הקצה שנבחרו מכוסים. אין כרגע ראיה לאישור כזה בחשבון Fala. `store:false` אינו תחליף. במסלול Groq צריך לוודא במפורש שהתנאים החלים על החשבון מתירים משתמשי קצה בגיל 8–12 ולתעד את הגדרות שמירת הנתונים; אין להסתמך על הסכם ישן מארכיון.
-2. **אימות הסכמת הורה.** Google Sign-In מוכיח שליטה בחשבון, לא הורות או הסכמה מאומתת. גם סימון תיבה ואישור התקנה ב־Family Link אינם תחליף אוטומטי להסכמה לעיבוד שיחות. לפיילוט קטן אפשר לבחון תהליך אימות הורה בשיחת וידאו עם צוות שהוכשר לכך; לפני שימוש בו יש להסדיר את הנוהל, ההודעה הישירה להורה והדין החל. לחלופין אפשר לחבר ספק אימות ייעודי, לאחר בחירתו והפעלת חשבון שירות. אין לשמור תעודות זהות או וידאו ב־Fala.
-3. **הפצה ומדינות.** לאחר השלמת המימוש והבדיקות, לעדכן ב־Play Console קהל יעד, פרטיות, Data safety והוראות ביקורת. Google Groups אינו זמין לחשבונות אישיים מתחת לגיל 13. לתכנן מסלול בדיקה נפרד עם רשימת כתובות, ולבדוק בפועל התקנה בחשבון Family Link תקין; לא להבטיח זכאות להתקנה לפני הבדיקה. להשאיר את קבוצת הבודקים הקיימת פעילה.
+1. **Suitable provider and verified privacy settings.** The live settings were checked: conversation and transcription use Groq. Documentation reviewed for this plan said customers could enable ZDR through Data Controls without OpenAI's approval process. Inspect and enable the setting in Fala's organization and verify its applicable agreement covers end users aged 8–12. The actual setting has not been verified. An alternative is a separate OpenAI child project with active Zero Data Retention approval and coverage for every model and endpoint used. There is no evidence of that approval for Fala. `store:false` is not a substitute. Verify Groq's applicable age and retention terms explicitly; do not rely on an archived agreement.
+2. **Verified parental consent.** Google Sign-In proves account control, not parenthood or verified consent. A checkbox or Family Link installation approval does not automatically establish consent to conversation processing. A small pilot could consider a parent-verification video call with trained staff, after establishing the procedure, direct notice and applicable legal requirements. Alternatively select and activate a verification provider. Do not store identity documents or video in Fala.
+3. **Distribution and countries.** After implementation and testing, update Play Console audience, privacy information, Data safety and reviewer instructions. The plan's review found Google Groups unavailable to personal accounts under 13. Plan a separate email-list testing route and test installation with a valid Family Link account before promising eligibility. Preserve the existing tester group.
 
-## ההתנהגות שנבנה באפליקציה
+## Planned app behavior
 
-- מסך גיל ניטרלי לפני כניסה, הקלטה, שירותי AI או טעינת נתוני חשבון. לא להסביר איזו תשובה פותחת יותר תכונות ולא לשמור תאריך לידה מלא כשמספיקה קבוצת גיל.
-- בני 8–12 עוברים למסך הורה. לא מבקשים מהילד חשבון Google, דוא״ל, שם מלא, בית ספר, מיקום או הקלטת דוגמה. מתחת לגיל 8 אין פתיחת חשבון.
-- ההורה נכנס לחשבונו שלו, קורא הודעה שמפרטת מה מעובד, אצל מי, לכמה זמן ואיך מפסיקים, ומשלים אימות והסכמה. פרופיל הילד נפרד מחשבון ההורה, עם כינוי שנבחר מרשימה.
-- מכשיר הילד מצורף באמצעות קוד חד־פעמי קצר־חיים שההורה יוצר. נדרשות הגבלת ניסיונות, אפשרות ביטול וניתוק מכשירים; הקוד אינו נותן גישה לפרופיל ההורה.
-- הילד מנהל שיחות בפורטוגזית עם עזרה בעברית/אנגלית, בקצב ידידותי למתחילים. יש להבהיר שמדובר ב־AI שעלול לטעות. להתאים את הקושי בשפה בלי להניח ידע בקפוארה.
-- ללא חברים, קודי מעגלים, דירוג חברתי או שיתוף חופשי במצב ילד. תזכורות והעברת דוח לתמיכה בשליטת ההורה. אין פרסומות או לחץ לשמור על רצף. אין משלוח אוטומטי של לוגים.
-- במסך הורה: השהיית תרגול, ניתוק מכשירים, עיון במידע שנשמר, מחיקת פרופיל וביטול הסכמה. ביטול חוסם בקשות חדשות מיד, גם ממכשיר שכבר מחובר.
+- A neutral age screen before sign-in, recording, AI services or account loading. Do not reveal which answer unlocks features or retain full birth dates when an age group suffices.
+- Ages 8–12 proceed to a parent screen. Do not request the child's Google account, email, full name, school, location or sample recording. No accounts below age 8.
+- The parent signs in, reads a processing/provider/retention/revocation notice, and completes verification and consent. Use a separate child profile with a nickname chosen from a list.
+- Link a child's device with a short-lived one-time code from the parent. Limit attempts and allow cancellation/disconnection. The code cannot grant access to the parent profile.
+- Portuguese conversation includes Hebrew/English support at a beginner-friendly pace. Explain that the partner is AI and can make mistakes. Keep Portuguese difficulty separate from capoeira knowledge.
+- No friends, circle codes, social rankings or unrestricted sharing in child mode. Parents control reminders and support reports. No advertising, streak pressure or automatic log submission.
+- Parents can pause practice, disconnect devices, review retained information, delete profiles and revoke consent. Revocation immediately blocks requests, including from connected devices.
 
-## דרישות שרת שאי אפשר להחליף בהסבר במסך
+## Server requirements
 
-- מודל נתונים נפרד לפרופיל ילד, בעלות הורה, גרסת הודעת הפרטיות, אסמכתת אימות, היקף ההסכמה ומצבי pending / active / revoked. האסמכתה מגיעה מהליך אימות מאומת, לא מדגל ששולח הטלפון.
-- אימות זכאות בכל בקשת שיחה, תמלול, השמעה, חידוש שיחה, זיכרון, היסטוריה, תזכורות וחיבור מכשיר. מצב לא ידוע או חסר אישור אינו מפעיל AI. טוקן ילד אינו יכול לבחור parent_id/learner_id אחר או להשתמש במסלולי המבוגרים.
-- מסלול ספק מוגדר בנפרד לילדים; אסור fallback לספק המבוגרים במקרה תקלה. מפתחות נשארים בשרת. חסימה לפני איסוף הקלטה כשאין מסלול מאושר.
-- אין להסתמך על ספק זיהוי רשת שרירותי במכשיר הילד. נדרש מסלול תמלול מאושר או זיהוי מקומי שאינו מעביר קול; חלופה בהקלדה כשאינו זמין. השמעה דרך קול מקומי מותקן או שירות מאושר.
-- עיבוד קול קצר ככל האפשר, ללא אחסון הקלטות. להגדיר זמן שמירת תמלילים/זיכרון ולהפעיל מחיקה אוטומטית בפועל לפני הבטחה להורה. זיכרון לימודי בלבד, ללא פרטים אישיים שזוהו בשיחה.
-- בדיקות בטיחות קלט ופלט מותאמות ילדים, סינון בקשות לפרטים אישיים, מניעת תכנים לא מתאימים ומסלול תגובה והסלמה למצבי סיכון. הנחיית מודל בלבד אינה מנגנון בטיחות מספיק.
-- לפני הפעלה: בדיקות הפרדת חשבונות, זיוף גיל/הסכמה, פקיעת קוד, ביטול הסכמה באמצע שימוש, מחיקה, השבתת ספק, מסלולי שירות חלופיים, ומכשיר עם Family Link. בדיקת אנוש לתוכן בעברית ובפורטוגזית.
+- Separate child profiles, parent ownership, notice versions, verification evidence, consent scope and pending / active / revoked states. Evidence comes from a verified process, not a phone-submitted flag.
+- Check eligibility on conversation, transcription, playback, resume, memory, history, reminder and device-link requests. Unknown status or missing approval cannot activate AI. Child tokens cannot choose another parent/learner or access adult routes.
+- A separately configured approved provider route with no fallback to adult providers. Keep keys server-side. Block before recording collection if no approved route exists.
+- No arbitrary network recognition provider on a child's device. Require approved transcription or genuinely local recognition, with typing when unavailable. Playback uses an installed local voice or an approved service.
+- Process audio briefly without retaining recordings. Define transcript/memory retention and implement automatic deletion before promising it. Retain learning memory, excluding detected personal information.
+- Child-appropriate input/output checks, filtering of personal-information requests, inappropriate-content prevention and risk response/escalation. Model instructions alone are insufficient.
+- Test isolation, forged age/consent, code expiry, revocation during use, deletion, provider failure, alternate routes and a Family Link device. Human reviewers check Hebrew and Portuguese content.
 
-## מצב העבודה
+## Work status
 
-- [x] נבחר גיל יעד 8 ומעלה ושיחות AI מלאות.
-- [x] נבדקו מגבלת Google Groups, מדיניות המשפחות ודרישות ספקי AI.
-- [x] מופו ההתחברות, הדיבור, השיתוף ושמירת השיחות הקיימים.
-- [ ] אישור מסלול הספק והגדרות שמירת נתונים בחשבון בפועל.
-- [ ] בחירת הליך אימות הסכמת הורה והפעלתו.
-- [ ] מימוש חשבונות הורים וילדים, ההרשאות, בקרת התוכן ומחיקה.
-- [ ] בדיקות והגשות Play Console. אין לשנות עדיין את ההצהרה הציבורית ל־8+.
+- [x] Selected ages 8 and up and full AI conversations.
+- [x] Reviewed Google Groups restrictions, Families policy and provider requirements.
+- [x] Mapped sign-in, speech, sharing and retention.
+- [ ] Approve provider routing and verify actual retention settings.
+- [ ] Select and activate parental-consent verification.
+- [ ] Implement parent/child accounts, authorization, content controls and deletion.
+- [ ] Complete checks and Play submissions. Do not change the public age statement to 8+ yet.
 
-## מקורות רשמיים
+## Official sources
 
 - [OpenAI — Under-18 guidance](https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance)
 - [OpenAI — Data controls](https://developers.openai.com/api/docs/guides/your-data)
@@ -51,4 +51,4 @@
 - [Google Groups — Join a group](https://support.google.com/groups/answer/1067205?hl=en)
 - [FTC — COPPA FAQs, parental consent](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions)
 
-המקורות מגדירים דרישות וגבולות; הם אינם אישור משפטי או אישור ספק לחשבון המסוים של Fala.
+Sources define requirements and boundaries; they are not legal clearance or provider approval for Fala's specific account.

@@ -36,7 +36,7 @@ describe("focused ten-answer lessons", () => {
       for (let round = 0; round < 10; round++) {
         const lesson = lessonContext({ id: theme.id, visit }, round, "he-IL", level.level)!;
         const terms = lesson.vocabulary.map(entry => entry.term);
-        expect(terms.length).toBeLessThanOrEqual(level.level === 1 ? 2 : level.level === 2 ? 3 : 4);
+        expect(terms.length).toBeLessThanOrEqual(level.level <= 2 ? 2 : 3);
         expect(terms.filter(term => !seen.has(term)).length).toBeLessThanOrEqual(1);
         for (const term of seen) expect(terms).toContain(term);
         terms.forEach(term => seen.add(term));

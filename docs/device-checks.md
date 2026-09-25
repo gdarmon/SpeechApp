@@ -44,7 +44,7 @@ Release readiness also requires deployment/authentication hardening, retention/b
 - Try level 4: prompts and answer examples should invite connected multi-sentence answers without making level 1 harder. Resume an earlier level-1 session; it must still show level 1.
 - Enable Listen first. Initially hear the prompt with its text and answer ideas hidden. Reveal the Portuguese/Hebrew question independently, or show answer ideas when needed. Test Hebrew layout, Talk composer access and scrolling on a small display and with larger fonts.
 - Use Try without answer ideas. Ideas should stay hidden on subsequent questions until requested. Showing then hiding an idea still counts that answer as guided. Speech recognition and hold/release behavior should match the working 0.5.0 behavior.
-- Check the recommended level and roadmap in Progress. Merely choosing a harder level, typing answers, or reading examples should not raise the recommendation. Two qualifying conversations should; deleting the evidence should recompute it. These are practice levels, not capoeira ranks or formal language grades.
+- Check the practice level and supportive guidance in Progress. Two qualifying conversations must not trigger a harder level. A spaced, varied evidence fixture may offer an optional challenge; dismissing it keeps the same level, and only choosing a harder/easier task changes the next session. Resume/retry retains the original level. Verify both Hebrew and English. See learning-progression.md for the evidence rules.
 
 ## Compact conversation UI (0.8.0)
 

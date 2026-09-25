@@ -109,13 +109,16 @@ it("scopes lesson rotation and phrase exposure to a learner's retained history",
 
 it("keeps level evidence scoped to its learner and removes it with practice history", async () => {
   const alice = await login("alice"), bob = await login("bob");
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 5; i++) {
     const saved = (await start(alice)).data;
     await call(`/sessions/${saved.id}/finish`, "POST", alice, {});
-    await db.query("UPDATE fala.sessions SET feedback=jsonb_set(feedback,'{practice_result}',$2::text::jsonb) WHERE id=$1::uuid", [saved.id, JSON.stringify({ level: 3, ready: true, successful_answers: 6, independent_answers: 10 })]);
+    await db.query(`UPDATE fala.sessions SET request=jsonb_set(request,'{resolved_level}','3'::jsonb),
+      topic=$3, ended_at=now()-($4::int * interval '4 days'),
+      feedback=jsonb_set(feedback,'{practice_result}',$2::text::jsonb) WHERE id=$1::uuid`,
+      [saved.id, JSON.stringify({ level: 3, ready: true, successful_answers: 6, independent_answers: 10 }), ["café", "class", "shop"][i % 3], 4 - i]);
   }
-  expect((await call("/progress", "GET", alice)).data.practice.level).toBe(4);
-  expect((await call("/progress", "GET", bob)).data.practice.level).toBe(1);
+  expect((await call("/progress", "GET", alice)).data.practice).toMatchObject({ level: 3, next_level: 4, evidence_days: 5 });
+  expect((await call("/progress", "GET", bob)).data.practice).toMatchObject({ level: 1, next_level: null, evidence_days: 0 });
   await start(bob);
   expect(contexts.at(-1)?.practice).toMatchObject({ level: 1 });
   await call("/learner", "DELETE", alice);

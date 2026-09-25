@@ -5,6 +5,7 @@ Fala has a native Kotlin/Compose Android client, a JavaScript web app, and a Typ
 - Start with [the handoff](docs/agent-handoff.md) for the code map, invariants, checks and open issues. [The documentation index](docs/README.md) routes to feature details.
 - For a release, use [the release skill](.claude/skills/fala-release/SKILL.md) and [the release runbook](docs/releasing.md). Publishing authorization comes from the user's request, not from merely loading a skill. Carry out already-authorized targets without repeatedly asking for the same approval.
 - For a reported problem, use [the debugging skill](.claude/skills/fala-debug/SKILL.md). Distinguish a code finding, a reproduced failure, and a measurement from production.
+- Write maintained documentation, agent instructions and skills in English.
 - Keep user-facing explanations in the user's language; this owner normally uses Hebrew. Keep Portuguese teaching content in Brazilian Portuguese.
 - Keep secrets out of source, logs, screenshots and documentation. Use established account connections and GitHub Actions secrets. A fresh machine needs its own authorized login; do not search unrelated projects for credentials.
 - Before changing shared code, inspect the working tree. Preserve unrelated work. Prefer `codex/` for Codex branches; other agents can follow the repository's current branch convention.

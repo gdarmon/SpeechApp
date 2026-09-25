@@ -1,79 +1,79 @@
-# סקירה דידקטית של Fala — 0.13.6
+# Fala didactic review — 0.13.6
 
-הסקירה כוללת את חמש רמות הפורטוגזית, 28 נושאי הקפואירה, מבנה עשרת התורים, הצעות התשובה, תרגום, משוב, סיכום והתקדמות. זו סקירת תכנון ויישום; אין עדיין מחקר משתמשים שמוכיח שיפור בזכירה או התאמה לדרגת CEFR מסוימת.
+This historical review covers five Portuguese levels, 28 capoeira topics, ten-turn practice, reply ideas, translation, feedback, summaries and progression. It is a design and implementation review; no user study established improved retention or alignment with a CEFR level. For current progression behavior, see [learning progression](learning-progression.md).
 
-## הממצאים והתיקונים
+## Findings and changes
 
-| ממצא | ההשלכה על הלומד | השינוי |
+| Finding | Effect on the learner | Change in 0.13.6 |
 |---|---|---|
-| ברמה 1: עד 8 מילים בפתיחה, אך 16 בהמשך | הקושי מזנק בתוך אותו שיעור | עד 7 מילים בכל שאלה, הצעת תשובה, ביטוי עזרה וביטוי מתוקן |
-| ההנחיה בתור הרביעי שילבה מונח חדש עם שאלה על שותף | מעבר נושא ללא קשר למטרה | תור של שליפה חוזרת של המונח הראשון, לאחר הפסקה קצרה |
-| מניעת חזרה על שאלות ודרישה להרבה שאלות פתוחות | גיוון על חשבון למידה; מתחילים נדרשים להמציא תוכן | חזרה מכוונת בתורים מוגדרים; גם כן/לא ובחירה מותרים |
-| לכל הרמות אותו עומס של 3–4 מונחי קפואירה | שפה ומומחיות בקפואירה מתערבבות | 2 מונחי מטרה ברמה 1, עד 3 ברמה 2 ועד 4 בהמשך; מונח חדש אחד בכל פעם |
-| אורך השאלה גדל עד 65 מילים | השאלה עצמה נעשית מבחן זיכרון | תקרות קבועות של 7 / 12 / 18 / 24 / 32 מילים לפי הרמה |
-| מספר סימני השאלה היה הבדיקה העיקרית לאחדות השאלה | שתי בקשות יכולות להתחבא לפני סימן שאלה אחד | הוראה מפורשת למוקד יחיד ובדיקות לצירופי שאלות ולפתיחות מורכבות ברמה 1 |
-| תרגום מילולי של Quando | פסוקית זמן הופכת לשאלת ״מתי״ נוספת | הנחיה לשמור על משמעות, תפקיד הדובר ומספר השאלות; כש־ לעומת מתי |
-| סיכום העדיף מילים חדשות גם כשהן שוליות למטרת השיעור | החזרה בסיום אינה מתמקדת במה שתורגל | העדפת מונחי השיעור שנאמרו בפועל; עדיין לכל היותר 5 פריטים |
-| קידום חייב שש תשובות שונות וארוכות יחסית | חזרה מוצלחת על תבנית נחשבה פחות מועילה | ברמה 1 נדרשות 6 הצלחות עצמאיות עם לפחות 3 נוסחים שונים; ברמה 2 לפחות 4 נוסחים. מילה בודדת יכולה להיות תשובה תקינה, גם אם אינה ראיה מספקת להתקדמות |
+| Level 1 allowed eight words in the opening but sixteen later | Difficulty increased within the same lesson | At most seven words in each question, reply idea, help phrase and corrected phrase |
+| The fourth-turn instruction combined a new term with a question about a partner | The topic shifted away from the learning goal | Retrieve the first term after a short gap |
+| Repeated questions were discouraged and many open questions required | Variety displaced practice; beginners had to invent content | Intentional repetition at defined stages; allow yes/no and choice questions |
+| All levels introduced three or four terms | Language ability became entangled with capoeira expertise | Two target terms at level 1, up to three at level 2 and four later; introduce one at a time |
+| Questions could grow to 65 words | The question became a memory test | Question limits of 7 / 12 / 18 / 24 / 32 words by level |
+| Question-mark counting was the main single-focus check | Two requests could hide behind one question mark | Explicit single-focus instructions and combined-question checks |
+| Literal translation of Quando | A time clause became another question | Preserve meaning, speaker roles and question count; distinguish a time clause from a separate question |
+| Summaries preferred new words even when peripheral | Review drifted away from practiced material | Prefer lesson terms actually spoken; at most five items |
+| Advancement required six different, relatively long answers | Successful reuse of a pattern counted for less | Six independent successes with at least three formulations at level 1 and four at level 2; one word may be valid without being enough advancement evidence |
 
-המשפט מהדיווח, “Quando usamos a negativa na aula, quem costuma ser seu parceiro?”, אינו בהכרח שתי שאלות מבחינה דקדוקית בפורטוגזית: הפתיחה יכולה להיות פסוקית זמן. עם זאת, הוא ארוך, דורש עיבוד של שני רעיונות ומעביר את המוקד לשותף. התרגום העברי הוסיף גם שגיאה במשמעות. לכן תיקון התרגום בלבד לא היה מספיק.
+The reported sentence, “Quando usamos a negativa na aula, quem costuma ser seu parceiro?”, is not necessarily two grammatical Portuguese questions: its opening can be a time clause. However, it is long, requires processing two ideas and shifts attention to a partner. The Hebrew translation also introduced a meaning error. Correcting only the translation would have been insufficient.
 
-## מדרג הרמות
+## Level progression reviewed at that time
 
-התקרות הן החלטות מוצר, לא גבולות רשמיים של CEFR. תשובה טובה וקצרה נשארת תקינה בכל רמה; לא מוסיפים מילים כדי למלא מכסה.
+Limits are product decisions, not official CEFR boundaries. A good short answer remains valid at every level; do not add words merely to satisfy a quota.
 
-| רמה | מטרה תקשורתית | אורך שאלת המערכת | מונחי מטרה בקפואירה | צורת תשובה שמדגימים |
+| Level | Communicative goal | Question words | Target terms | Modeled answer |
 |---|---|---:|---:|---|
-| 1 — ביטויים ראשונים | לבקש, לזהות צורך או לחזור על שם | עד 7 מילים | 2 | ביטוי קצר; שתי תבניות חוזרות, למשל Quero… / Pode repetir? |
-| 2 — משפט מלא | למסור דבר אחד עם פרט אחד | עד 12 | עד 3 | משפט אחד; משנים בכל פעם רכיב אחד |
-| 3 — תשובה מחוברת | להסביר סיבה או רצף קצר | עד 18 | עד 4 | שני רעיונות עם חיבור מוכר כמו porque או depois |
-| 4 — הסבר והבהרה | להסביר אירוע או לפתור אי־הבנה אחת | עד 24 | עד 4 | שניים–שלושה משפטים בנושא אחד |
-| 5 — שיחה גמישה | לנמק בחירה ולהתאים אותה לשינוי אחד | עד 32 | עד 4 | הסבר תמציתי, סיבה או חלופה; ללא ערימה של דרישות |
+| 1 — First phrases | Request something, identify a need or repeat a name | 7 | 2 | A short phrase; two recurring patterns such as Quero… / Pode repetir? |
+| 2 — Full sentences | Communicate one point with one detail | 12 | Up to 3 | One sentence; change one component at a time |
+| 3 — Connected answers | Explain a reason or short sequence | 18 | Up to 4 | Two ideas with a familiar connector such as porque or depois |
+| 4 — Explain and clarify | Explain an event or resolve one misunderstanding | 24 | Up to 4 | Two or three sentences on one point |
+| 5 — Flexible conversations | Justify a choice and adapt to one change | 32 | Up to 4 | A concise explanation, reason or alternative |
 
-ברמה 1 אין שאלות הגדרה, משפטי תנאי, שאלות ״למה״ או הנחה שהלומד מכיר רצף תנועות שלא הוצג. שם מקצועי ארוך נשמר בשלמותו ומועבר להצעת התשובה כשאין מקום להכניס אותו לשאלה קצרה. מגבלת המילים חלה על פורטוגזית; הסבר בעברית יכול לתת משמעות מועילה בלי ללמד עוד משפט פורטוגזי ארוך.
+Level 1 excludes definition questions, conditional sentences, why questions and assumptions about unintroduced movement sequences. Long technical names remain intact and move into an idea when they cannot fit in a short question. Word limits apply to Portuguese; a support-language explanation can supply meaning without another long Portuguese sentence.
 
-השם ״רמה 1״ מתייחס לפורטוגזית בלבד. מתאמן ותיק בקפואירה יכול להיות מתחיל בפורטוגזית. אין להסיק גיל, יכולת גופנית, דרגת חבל או רמת שפה מהיכרות עם שם תנועה.
+Level 1 refers only to Portuguese. An experienced capoeira practitioner can be a Portuguese beginner. Knowing a movement name does not establish age, physical ability, cord rank or language level.
 
-## מבנה של עשרה תורים
+## Ten-turn structure
 
-1. **דוגמה:** צורך אחד וסיוע באמצעות תבנית קצרה.
-2. **שימוש מודרך:** אותו מונח ואותה תבנית; אפשר שאלת אישור.
-3. **הרחבה קטנה:** מונח נוסף בתוך התבנית המוכרת.
-4. **שליפה חוזרת:** חזרה למונח הראשון לאחר המונח השני.
-5. **תרגול:** שינוי פרט אחד בלבד. ברמה 1 עדיין רק שני מונחי מטרה.
-6. **שליפה חוזרת:** שימוש נוסף בחומר שכבר הופיע.
-7. **יישום:** חילופי דברים קשורים באותה סיטואציה, בלי להחליף תפקידים.
-8. **חזרה לאחר פער:** מותר להשתמש שוב בשאלה מוכרת.
-9. **שימוש נוסף:** אין מילת מטרה חדשה.
-10. **תשובה מסכמת קצרה:** שימוש בתבנית מוכרת, בלי לדרוש סיכום של שיעור שלם.
+1. **Model:** one need supported by a short pattern.
+2. **Guided use:** the same term and pattern; confirmation is allowed.
+3. **Small expansion:** another term within the familiar pattern.
+4. **Retrieval:** revisit the first term after the second.
+5. **Practice:** change one detail. Level 1 still has only two target terms.
+6. **Retrieval:** use previously introduced material again.
+7. **Application:** related exchanges in the same situation without changing roles.
+8. **Review after a gap:** reuse a familiar question.
+9. **Further use:** no new target word.
+10. **Brief concluding answer:** use a familiar pattern without summarizing the entire lesson.
 
-לאחר התשובה העשירית מגיע סיום ללא שאלה חדשה. עזרה אינה צורכת אחד מעשרת תורי התרגול. שאלת הבהרה או בקשה ממשית של המשתמש קודמות לתוכנית; איננו מכריחים אותו לענות לפי תסריט. הצעות התשובה נשארות זמינות לבחירתו גם בסוף, ואין הסתרה כפויה של העזרה.
+After answer ten, close without a new question. Help does not consume a practice turn. A clarification or real learner request takes precedence over the plan. Ideas remain available by choice, including at the end; help is not forcibly hidden.
 
-למשל, בשיעור שמתמקד ב־negativa וב־rolê, אפשר לשאול **Qual nome quer repetir?** — ״על איזה שם תרצה לחזור?״ ולהציע **Quero negativa.** או **Pode repetir?**. בהמשך חוזרים לאותן מילים. לא מוסיפים לפתיחה שאלה על שותף, ולא מבקשים לזהות תנועה שלא הוצגה. אלה מודלים לבקשת שם; אין כאן הוראות לביצוע תנועה.
+For example, with negativa and rolê, ask **Qual nome quer repetir?** — “Which name would you like to repeat?” — and suggest **Quero negativa.** or **Pode repetir?**. Revisit these words later. Do not add an unrelated partner question or ask about an unintroduced movement. These are models for requesting a name, not instructions for performing a movement.
 
-## מה נאכף בקוד ומה עדיין דורש הערכת תוכן
+## Enforcement and content evaluation
 
-- הקוד מגביל אורך, מספר סימני שאלה, עברית בשדות פורטוגזיים, חלק מדפוסי השאלות הכפולות ופתיחות מורכבות למתחילים.
-- בכל תור רגיל של קפואירה נדרשת הופעת מונח המוקד בשאלה או בהצעה; מונחים מהנושא שנדחו לתור או לביקור מאוחר יותר נחסמים. בקשת עזרה או שאלה של הלומד על מונח אחר הן חריג מכוון.
-- בדיקה נכשלת מפעילה את ניסיון התיקון היחיד הקיים, בתוך תקציב הזמן הקיים. לא חותכים משפט או שם תנועה באמצע, ולא מציגים תשובה פסולה לאחר שמוצו הניסיונות.
-- שאלות בכל הרמות מקבלות גם דוגמה ערוכה עם שתי תשובות ותרגומים תואמים. הדוגמה מצמצמת שאלות לא הגיוניות כגון ״איזו קוקוריניה באה עכשיו?״ ללא רצף שהוצג.
-- בשיחה יומיומית פועלת אותה תוכנית שלבים ורמות. מילות עוגן נבחרות מהצעות הפתיחה ונשמרות בתוכנית לאורך השיחה; בתור רגיל נדרשת חזרה על לפחות אחת מהן בשאלה או בהצעה. כך בקפה לא נוטשים מיד את קפה/תה לטובת כריך/עוגה. בחירת העוגנים היא לשונית פשוטה, ואין עדיין קטלוג מונחים אצור כמו בקפואירה; תוספת פרטים ומילים מעבר לעוגנים עדיין מחייבת הערכת תוכן.
-- ברמות 3–5, בשלבי הדגמה ושליפה, לפחות הצעה אחת חייבת להדגים תשובה מחוברת ברמת היעד. בדיקת אורך מינימלי של הדוגמה מונעת מצב שבו כל ההצעות נשארות ביטויי מתחילים. זו דרישה מהמערכת, לא מהתשובה של המשתמש; בשלבי אישור מודרך מותרות דוגמאות קצרות.
-- משמעות מדויקת, טבעיות, התאמה של תשובה לשאלה וטיב המשוב אינם מובטחים רק בספירת מילים. נדרשת גם קריאה של שיחות שנוצרו בפועל. הבדיקה הראשונית אכן חשפה שאלות לא הגיוניות למרות אורך תקין, ובעקבותיה נוספו המודלים הערוכים.
-- התקדמות עדיין נשענת על תמלול, מקור התשובה ועזרה מסומנת; היא אינדיקציה לתרגול, לא מבחן שפה מוסמך. אין הערכת הגייה מתוך טקסט. העתקה, הקלדה ותגובה עם עזרה אינן ראיה לדיבור עצמאי.
+- Code limits length, question marks, Hebrew in Portuguese fields, some combined-question patterns and complex beginner openings.
+- Ordinary capoeira turns include the focus term in the question or an idea and block deferred terms. Help or learner questions about another term are intentional exceptions.
+- Failed validation uses the existing single repair attempt within its deadline. Do not truncate sentences or names, or show invalid responses after attempts are exhausted.
+- Questions receive reviewed models with matching replies and translations to reduce implausible questions about unintroduced variants or sequences.
+- Everyday conversations use the same stages and preserve opening anchor words. Anchor selection is a linguistic heuristic, not a curated catalog; additional content needs evaluation.
+- At levels 3–5, modeling and retrieval require an idea demonstrating connected output. Example-length checks apply to system examples, not learner answers. Short confirmations remain valid during guided stages.
+- Word counts cannot guarantee meaning, naturalness, reply alignment or feedback quality. Reading generated conversations exposed implausible questions and led to the reviewed models.
+- Progress uses transcripts, answer source and recorded help. It is a practice indicator, not certification. Text cannot establish pronunciation; copying, typing and assistance do not establish independent speaking.
 
-## המשך מדידה
+## Further measurement
 
-מומלץ לבדוק אצל מתחילים אם הם מצליחים להשתמש בשתי התבניות ללא קריאת ההצעה בסוף השיעור וביום הבא. החזרה בתוך עשרה תורים אינה תחליף לחזרה לאורך ימים. סדר 28 הנושאים ומנגנון החזרה הקיים בין ביקורים לא שונו בגרסה זו; סקירה זו אינה טוענת שכבר קיים תזמון אישי מיטבי של חזרה בין ימים.
+Check whether beginners can use two patterns without reading an idea at lesson end and the next day. Within-session repetition does not replace practice across days. The 28-topic order and revisit mechanism were unchanged in 0.13.6; this review does not claim an optimal personalized review schedule.
 
-השינויים פועלים בשרת ולכן גם לקוחות מותקנים מקבלים אותם בבקשות חדשות. הודעות שכבר נשמרו בהיסטוריה אינן משוכתבות. מזהי השיעורים, העדפות המשתמש וההתקדמות הקיימת נשמרים.
+Server changes reach installed clients on new requests. Saved messages are not rewritten. Lesson IDs, preferences and existing progress are retained.
 
-## מקורות ושיקול הדעת
+## Sources and design judgment
 
-[תיאורי CEFR של מועצת אירופה](https://www.coe.int/en/web/common-european-framework-reference-languages/cefr-descriptors-search) מתארים ברמות המוקדמות צרכים מוחשיים, ביטויים בסיסיים, משפטים פשוטים ודיבור איטי עם חזרה. מכאן נגזר כיוון התכנון, אך לא מספר המילים המדויק ולא שיוך אוטומטי של חמש רמות האפליקציה ל־CEFR.
+The [Council of Europe CEFR descriptors](https://www.coe.int/en/web/common-european-framework-reference-languages/cefr-descriptors-search) describe concrete needs, basic phrases, simple sentences and clear repeated speech at early levels. They inform the design, not exact word counts or automatic CEFR mapping.
 
-[מדריך IES לארגון הוראה ולמידה](https://ies.ed.gov/ncee/wwc/PracticeGuide/1) ממליץ על חזרה לאורך זמן, שילוב דוגמאות עם תרגול והזדמנויות לשליפה. זו ראיה כללית על למידה, לא ניסוי ספציפי בלימוד פורטוגזית ב־Fala. הבחירה בשני מונחים, שתי תבניות ועשרת התורים היא התאמה מוצרית שיש לבחון עם לומדים.
+The [IES guide to organizing instruction and study](https://ies.ed.gov/ncee/wwc/PracticeGuide/1) recommends review over time, examples alongside practice and retrieval opportunities. This is general learning evidence, not a Fala-specific Portuguese study. Two terms, two patterns and ten turns are product choices to evaluate with learners.
 
-## בדיקת היישום
+## Implementation checks at the time
 
-נבדקו כל הדוגמאות הערוכות בחמש הרמות וב־28 הנושאים, לרבות שמות ארוכים, ביקורים חוזרים, תרגום וסיכום מוגבל. במדגם מול ספק ה-AI נבדקו שיחה מלאה ברמה 1, פתיחה והמשך ברמות 2–5, שיחה יומיומית וארבעה נושאים עם מונחים מורכבים. המדגם הוביל לתיקונים נוספים; בדיקה חיה נוספת של הדוגמאות המורחבות ברמות 4–5 נחסמה במגבלת הקצב של הספק, ולכן אין לראות במדגם אישור ממצה לכל שיחה אפשרית. הדוגמאות עצמן ובדיקות האכיפה עברו בדיקות אוטומטיות.
+Reviewed models across five levels and 28 topics were checked, including long names, revisits, translation and bounded summaries. A live provider sample covered a complete level 1 conversation, openings and continuations at levels 2–5, everyday conversation and four topics with complex names. Findings prompted fixes. A further live check of expanded level 4–5 examples hit provider rate limits, so the sample is not comprehensive approval of every conversation. Models and enforcement passed automated tests.

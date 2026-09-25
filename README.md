@@ -1,8 +1,8 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.0 adds a full Hebrew/English interface, account-saved language choice and default daily reminders around 17:00, alongside spoken answer ideas and shared learner progress. [Release evidence and review state](docs/releases/0.14.0.md), [browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.1 supports learning at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.14.0.md), [browser details](docs/web-app.md).
 
-**Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [המדריך בעברית](docs/owner-guide.he.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
+**Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [the owner guide](docs/owner-guide.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
 
 
 <img src="assets/branding/fala-logo.png" width="160" alt="Fala logo">
@@ -43,7 +43,7 @@ Sign in with Google and choose English or Hebrew for the interface and new conve
 
 After ten Portuguese answers, Fala gives a short review with **up to five useful words**, favoring relevant words absent from your retained history. Unused answer ideas and common fillers do not fill the list. You can finish early or ask for help in English/Hebrew; help turns do not count toward ten. Old reviews are also displayed compactly.
 
-**Five practice levels** progress from short phrases to full sentences, connected answers, roughly three-sentence explanations, and flexible scenarios. Pick an easier or harder level at home, or follow Fala's recommendation. Two completed sessions with at least six varied, relevant spoken answers of the target length, without answer ideas, support a higher recommendation. Typed, copied, guided and demo replies do not advance it. This is a practice heuristic, not a CEFR grade, pronunciation test or guaranteed outcome after a fixed number of days. See [the progression method](docs/learning-progression.md).
+**Five practice levels** move from familiar phrases to simple sentences, connected ideas, explanations and flexible exchanges. Stay at your chosen level as long as you need. Consistent independent practice across different days and situations can support an optional harder task; it never changes the level automatically. Examples, repeated practice and short answers are normal parts of learning. These are practice goals, not CEFR grades or a timetable for progress. See [the progression method](docs/learning-progression.md).
 
 ## Development and checks
 

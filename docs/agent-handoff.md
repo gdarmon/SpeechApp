@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained against release 0.14.0, 25 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.0.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.14.1, 25 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.0.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -113,9 +113,14 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 - Hebrew interface layout is RTL. Portuguese questions, examples and entry remain LTR. User text, server translations and Portuguese phrases are not UI catalog keys.
 - Generate both catalogs after editing `locales/he.json`. Exact English strings are source keys; changing an English label requires updating its key/translation. Keep placeholders intact. `npm run build` checks synchronization.
 - Reminder defaults are enabled at 17:00 in the account time zone. Existing enabled custom times were preserved in the 0.14.0 migration. Subsequent opt-outs survive reruns. Permission, subscription/scheduling, no practice today and account/date deduplication still govern delivery.
+- Difficulty stays at the most recently practised level. `next_level` is optional and never becomes the default automatically. Preserve the spaced-evidence safeguards and avoid session-count promises; see `docs/learning-progression.md`.
 - Practice points are not proficiency. Current rewards cap at 20 XP per ten-answer spoken lesson and 40 per local day; legacy earned unlocks are preserved. Consult `src/rewards.ts` and the gamification document when changing this.
 - Keep separate learners' SQL, memory, reports and AI context isolated. Idempotent retries reuse the original request ID and normalized payload; do not issue a fresh ID simply to retry a lost response.
 - Preserve application ID `com.fala.app`, upload key, Play signing identity and Google OAuth certificate setup. No credential belongs in an app asset or public catalog.
+
+## What changed in 0.14.1
+
+Removed automatic promotion after two conversations and replaced the countdown with supportive guidance and an optional challenge. Readiness requires consistent evidence on different dates and in different contexts. Intermediate goals no longer require a fixed number of sentences. Existing practice and chosen difficulty are retained; no database migration or additional AI call is needed. See [the progression specification](learning-progression.md). All maintained documentation is now in English.
 
 ## What changed in 0.14.0
 

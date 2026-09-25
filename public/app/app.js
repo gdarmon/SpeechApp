@@ -59,9 +59,9 @@ function clearError() { show('error', false); show('retry', false); retryAction 
 function setBusy(value) {
   busy = value;
   document.querySelectorAll('#reward-nav button, #reward-settings input, #reward-settings select, #reward-settings button').forEach(button => { button.disabled = value; });
-  for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin', 'replay-walkthrough', 'conversation-guide']) $(id).disabled = value;
+  for (const id of ['start', 'send', 'finish', 'complete', 'microphone', 'draft', 'help', 'signout', 'login-begin', 'replay-walkthrough', 'conversation-guide', 'practice-challenge']) $(id).disabled = value;
   for (const id of ['microphone', 'draft', 'help']) $(id).disabled = value || !!pendingTurn;
-  for (const id of ['topic', 'level', 'home-language']) $(id).disabled = value || !!pendingStart;
+  for (const id of ['topic', 'level', 'home-language', 'practice-challenge']) $(id).disabled = value || !!pendingStart;
   $('send').disabled = value || recorder.active || !$('draft').value.trim();
   document.querySelectorAll('#ideas button').forEach(button => { button.disabled = value || recorder.active || !!pendingTurn; });
 }
@@ -135,6 +135,11 @@ async function home() {
     transcriptionService = dashboard.status?.speech?.transcription === 'groq' ? 'Groq' : dashboard.status?.speech?.transcription === 'openai' ? 'OpenAI' : 'the configured speech service';
     const progress = dashboard.progress.practice;
     text('progress', progress ? `Level ${progress.level} · ${progress.title}. ${progress.goal}` : 'Start with short, simple replies.');
+    text('practice-guidance', progress?.guidance || 'Repeat familiar practice as often as you need. Use examples, then try a phrase from memory when you feel comfortable.');
+    const nextLevel = progress?.next_level;
+    show('practice-challenge', Number.isInteger(nextLevel) && nextLevel >= 2 && nextLevel <= 5);
+    text('practice-challenge', nextLevel ? `Try level ${nextLevel} when you feel ready` : '');
+    $('practice-challenge').onclick = () => { if (!busy && !pendingStart && nextLevel >= 2 && nextLevel <= 5) $('level').value = String(nextLevel); };
     $('history').replaceChildren();
     for (const item of dashboard.history.slice(0, 12)) {
       const button = document.createElement('button'); button.textContent = `${new Date(item.started_at).toLocaleDateString()} · ${item.topic} · ${item.ended_at ? 'Review' : 'Continue'}`;

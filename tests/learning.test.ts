@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { feedbackSchema, replySchema, type Session } from "../src/models.js";
 import { coachingReplySchema } from "../src/coaching.js";
-import { independentAnswer, practiceProgress, practiceResult } from "../src/learning.js";
+import { independentAnswer, practiceProgress, practiceResult, PRACTICE_GUIDANCE, type PracticeEvidence } from "../src/learning.js";
 import { compactFeedback, focusWords, sessionVocabulary } from "../src/vocabulary.js";
 
 const reply = replySchema.parse({ text: "O que você vai fazer?", translation: "What will you do?", turn_feedback: { kind: "ok", message: "That fits the instruction." },
@@ -34,12 +34,41 @@ describe("practice difficulty", () => {
       expect(practiceResult(s).ready, kind).toBe(false);
     }
   });
-  it("recommends a step up after two qualifying sessions, without time-based promises", () => {
-    expect(practiceProgress([]).level).toBe(1);
-    expect(practiceProgress([{ level: 1, sessions: 1 }])).toMatchObject({ level: 1, ready_sessions: 1 });
-    expect(practiceProgress([{ level: 1, sessions: 2 }, { level: 5, sessions: 1 }]).level).toBe(2);
-    expect(practiceProgress([{ level: 3, sessions: 2 }]).level).toBe(4);
-    expect(practiceProgress([{ level: 5, sessions: 20 }]).level).toBe(5);
+  it("requires spaced, varied, recent evidence and leaves the current level unchanged", () => {
+    const now = Date.parse("2026-09-25T15:00:00Z");
+    const evidence = (daysAgo: number, context = "café", ready = true, level = 1): PracticeEvidence =>
+      ({ level, ended_at: new Date(now - daysAgo * 86400000).toISOString(), context, ready });
+    expect(practiceProgress([])).toMatchObject({ level: 1, next_level: null, guidance: PRACTICE_GUIDANCE.building });
+    expect(practiceProgress([evidence(0), evidence(1)], 1, now).next_level).toBeNull();
+    expect(practiceProgress(Array.from({ length: 40 }, () => evidence(0)), 1, now).next_level).toBeNull();
+    const spaced = [evidence(0), evidence(2, "class"), evidence(4), evidence(8, "class")];
+    expect(practiceProgress(spaced, 1, now)).toMatchObject({ level: 1, next_level: 2, evidence_days: 4, guidance: PRACTICE_GUIDANCE.explore });
+    expect(practiceProgress(spaced.map(row => ({ ...row, context: "same lesson" })), 1, now).next_level).toBeNull();
+    expect(practiceProgress(spaced.slice(0, 3).concat(evidence(6, "class")), 1, now).next_level).toBeNull();
+    expect(practiceProgress([evidence(0, "class", false), ...spaced.slice(1)], 1, now))
+      .toMatchObject({ next_level: null, guidance: PRACTICE_GUIDANCE.revisit });
+    expect(practiceProgress([spaced[0], evidence(1, "class", false), evidence(2, "class", false), ...spaced.slice(1)], 1, now).next_level).toBeNull();
+    expect(practiceProgress(spaced, 1, now + 15 * 86400000).next_level).toBeNull();
+    expect(practiceProgress(spaced, 2, now)).toMatchObject({ level: 2, next_level: null });
+    expect(practiceProgress(spaced, 1, now + 100 * 86400000).evidence_days).toBe(0);
+    expect(practiceProgress([{ ...evidence(0), ended_at: "invalid" }, evidence(-1)], 1, now).evidence_days).toBe(0);
+  });
+  it("gives intermediate learners more consolidation and never invents a sixth level", () => {
+    const now = Date.parse("2026-09-25T15:00:00Z");
+    const rows: PracticeEvidence[] = [0, 3, 6, 10, 15].map((days, i) => ({ level: 3, ready: true,
+      context: ["café", "class", "shop"][i % 3], ended_at: new Date(now - days * 86400000).toISOString() }));
+    expect(practiceProgress(rows, 3, now)).toMatchObject({ level: 3, next_level: 4 });
+    expect(practiceProgress(rows.slice(0, 4), 3, now).next_level).toBeNull();
+    expect(practiceProgress(rows.map(row => ({ ...row, level: 5 })), 5, now))
+      .toMatchObject({ level: 5, next_level: null, guidance: PRACTICE_GUIDANCE.extending });
+  });
+  it("accepts concise intermediate practice without a three-sentence quota", () => {
+    const s = session(); s.request.resolved_level = 4;
+    const clear = ["Não entendi essa palavra, pode explicar mais uma vez?", "Eu quero ouvir o nome porque ainda tenho dúvida.",
+      "Ontem eu fui à aula e pratiquei com calma.", "Eu entendi a pergunta, mas preciso ouvir esse nome.",
+      "Pode falar um pouco mais devagar para eu entender?", "Eu não lembro desse nome, pode dar um exemplo?"];
+    s.turns.slice(0, 6).forEach((turn, index) => { turn.text = clear[index]; });
+    expect(practiceResult(s).ready).toBe(true);
   });
   it("does not penalize a natural answer that happens to match an unseen idea", () => {
     const s = session(); const turn = s.turns[0];

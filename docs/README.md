@@ -6,7 +6,7 @@ This is the entry point for people and coding agents taking over the repository.
 
 | Need | Document |
 |---|---|
-| הסבר לבעל האפליקציה בעברית | [מדריך הבעלים והעברת הפרויקט](owner-guide.he.md) |
+| Owner overview and project handoff | [Owner guide](owner-guide.md) |
 | Continue development in a fresh checkout | [Agent/developer handoff](agent-handoff.md) |
 | Publish the next version, including rollback/retries | [Release runbook](releasing.md) |
 | Switch to Claude Code, Copilot or another agent | [Agent setup and skills](agent-setup.md) |

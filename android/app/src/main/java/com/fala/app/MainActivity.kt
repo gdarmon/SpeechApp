@@ -252,13 +252,18 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("Practice level $level · ${practiceLevels[level - 1].first}"), fontWeight = FontWeight.Bold)
             Text(tr(practiceLevels[level - 1].second))
+            Text(tr("Stay at this level as long as you need. A harder level is always your choice."), style = MaterialTheme.typography.bodySmall)
+            val next = c.progress.optJSONObject("practice")?.optInt("next_level", 0) ?: 0
+            if (next in 2..5 && level == recommended) {
+                TextButton(onClick = { c.chooseLevel(next) }, enabled = !c.busy) { Text(tr("Try level $next when you feel ready")) }
+            }
             TextButton(onClick = { chooseLevel = true }, enabled = !c.busy) { Text(tr("Choose an easier or harder level")) }
         }
     }
     if (chooseLevel) AlertDialog(onDismissRequest = { chooseLevel = false }, title = { Text(tr("Your practice level")) }, text = {
         Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
             Text(tr("A conversation difficulty, not a formal language qualification. You can explore any level."))
-            TextButton(onClick = { c.chooseLevel(0); chooseLevel = false }) { Text(tr("Follow Fala's recommendation · level $recommended")) }
+            TextButton(onClick = { c.chooseLevel(0); chooseLevel = false }) { Text(tr("Continue at my practice level · $recommended")) }
             practiceLevels.forEachIndexed { index, item ->
                 TextButton(onClick = { c.chooseLevel(index + 1); chooseLevel = false }) { Text(tr("${index + 1}. ${item.first}\n${item.second}")) }
             }
@@ -613,13 +618,13 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
 }
 
 @Composable private fun Progress(p: JSONObject) {
-    Title("More of your own words.", "Useful practice, without points or streaks.")
+    Title("More of your own words.", "Your practice, at your pace.")
     val practice = p.optJSONObject("practice")
     val level = practice?.optInt("level", 1)?.coerceIn(1,5) ?: 1
-    Notice("Recommended level $level · ${practiceLevels[level - 1].first}\n${practiceLevels[level - 1].second}")
-    Text(tr("Fala recommends a harder level after two complete conversations with at least six varied, clear spoken answers of the target length, without answer ideas. You can also choose a level yourself."))
-    Text(tr("Use ‘Try without answer ideas’ during a conversation. Reading suggestions and typing are useful guided practice; they don't raise the recommendation."), style = MaterialTheme.typography.bodySmall)
-    if (level < 5) Text(tr("${practice?.optInt("ready_sessions") ?: 0} of 2 qualifying conversations at this level"), style = MaterialTheme.typography.labelLarge)
+    Notice("Practice level $level · ${practiceLevels[level - 1].first}\n${practiceLevels[level - 1].second}")
+    Text(tr("There is no deadline for moving up. Fala looks for consistent independent practice across different days and situations before suggesting an optional challenge."))
+    Text(tr("Examples, listening again and typing are useful practice. When comfortable, try a familiar phrase before opening the ideas. Short answers and mistakes are part of learning."), style = MaterialTheme.typography.bodySmall)
+    Text(tr(practice?.optString("guidance")?.takeIf { it.isNotBlank() } ?: "Repeat familiar practice as often as you need. Use examples, then try a phrase from memory when you feel comfortable."))
     Text(tr("The path ahead"), style = MaterialTheme.typography.titleMedium)
     practiceLevels.forEachIndexed { index, item -> Text(tr("${index + 1}. ${item.first} · ${item.second}")) }
     Text(tr("These are practice goals, not CEFR grades or a promise tied to days studied. Listening without text and speaking aloud both take practice."), style = MaterialTheme.typography.bodySmall)
