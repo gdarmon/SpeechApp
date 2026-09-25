@@ -8,7 +8,8 @@ This documentation lets someone open the project with Claude Code, GitHub Copilo
 - [Developer and agent handoff](agent-handoff.md): code, checks and unresolved issues.
 - [Working with Claude and Copilot](agent-setup.md).
 - [Release runbook](releasing.md): preparing a version and verifying the website and Google Play releases.
-- [What changed and where 0.14.0 was published](releases/0.14.0.md).
+- [Current release: learning at your own pace in 0.14.1](releases/0.14.1.md).
+- [Earlier language and reminder release: 0.14.0](releases/0.14.0.md).
 
 All maintained documentation and agent instructions are written in English.
 
@@ -23,6 +24,12 @@ All maintained documentation and agent instructions are written in English.
 | Google Play | Distribution of the signed app to testers | Upload a new bundle or promote an existing bundle |
 
 Publishing the website alone does not update the Android app installed on a phone.
+
+## Learning at your own pace in 0.14.1
+
+The app keeps the learner at their chosen difficulty and removes the two-session promotion promise. Consistent practice across different days and situations can support an optional challenge, which the learner can choose when ready. Beginners practise fewer new words; intermediate examples are shorter, with no sentence-count quota. Repetition and help are normal parts of learning. See [the progression guide](learning-progression.md) for the rationale and limits.
+
+The website and Internal Testing were verified on 0.14.1, build 104101. Closed Alpha accepted the same build and was in Google review at the time recorded in [the release receipt](releases/0.14.1.md). Update Android to replace the older help text.
 
 ## What changed in 0.14.0
 

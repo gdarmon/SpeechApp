@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.1 supports learning at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.14.0.md), [browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.1 supports learning at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.14.1.md), [browser details](docs/web-app.md).
 
 **Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [the owner guide](docs/owner-guide.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
 
