@@ -28,7 +28,8 @@ const instructorMigration = await readFile(new URL("../supabase/migrations/20260
 const reportMigration = await readFile(new URL("../supabase/migrations/202609210002_content_reports.sql", import.meta.url), "utf8");
 const walkthroughMigration = await readFile(new URL("../supabase/migrations/202609230001_walkthrough.sql", import.meta.url), "utf8");
 const rewardRulesMigration = await readFile(new URL("../supabase/migrations/202609230002_reward_rules.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration;
+const languageMigration = await readFile(new URL("../supabase/migrations/202609250001_language_reminders.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration + languageMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;

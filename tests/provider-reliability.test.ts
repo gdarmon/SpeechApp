@@ -13,6 +13,28 @@ const throttle = (seconds: string) => new Response('private provider details', {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('provider throttling recovery', () => {
+  it('regenerates a copied finta/repeat pair when the next question asks for confirmation', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const opening = { ...reply, text: 'Qual nome quer ouvir?', translation: 'Which name would you like to hear?',
+      suggested_replies: [{ text: 'Quero finta.', translation: 'I want finta.' }, { text: 'Pode repetir?', translation: 'Could you repeat?' }] };
+    const stale = { ...opening, text: 'Quer ouvir esse nome devagar?', translation: 'Would you like to hear that name slowly?',
+      turn_feedback: { kind: 'guided' as const, message: 'You used the example to make a request.', said: '', natural: '' } };
+    const repaired = { ...stale, suggested_replies: [
+      { text: 'Sim, finta, devagar.', translation: 'Yes, finta, slowly.' },
+      { text: 'Não, pode falar normalmente.', translation: 'No, you can speak at a normal pace.' },
+    ] };
+    const bodies: Record<string, any>[] = [];
+    const request = vi.fn(async (_url: unknown, init: RequestInit | undefined) => {
+      bodies.push(JSON.parse(init!.body as string));
+      return ok(bodies.length === 1 ? stale : repaired);
+    });
+    expect(await new CompatibleProvider(settings, new Timing(), request).reply({ action: 'continue',
+      practice: { level: 1 }, opening: { text: opening.text, suggested_replies: opening.suggested_replies.map(idea => idea.text) },
+      input: { text: 'Quero finta.', assisted: true }, support_language: 'en-US' })).toEqual(repaired);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1].messages.at(-1).content).toContain('both answer ideas were copied');
+  });
+
   it('repairs the actual rejected reply without logging the learner or generated text', async () => {
     const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const invalid = { ...reply, turn_feedback: { kind: 'correction' as const, message: 'Use this phrase.', said: 'invented private answer', natural: 'Tudo certo.' } };

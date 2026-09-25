@@ -130,7 +130,7 @@ try {
   assert.equal(await page.locator('#walkthrough').isVisible(), false);
   await page.locator('#send').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#partner-translation').getAttribute('dir'), 'rtl');
-  assert.match(await page.locator('#partner-identity').textContent(), /Bateba/);
+  assert.match(await page.locator('#partner-identity').textContent(), /בטבה/);
   assert.equal(await page.locator('#partner-identity img').count(), 1);
   await page.waitForFunction(() => !document.getElementById('microphone').disabled);
   // Reply controls must remain visible and clickable at small sizes, including keyboard-sized viewports.
@@ -174,9 +174,9 @@ try {
   await page.locator('#draft').fill('');
   await page.locator('#options').click();
   await page.locator('#conversation-options').waitFor({ state: 'visible' });
-  assert.match(await page.locator('#voice-disclosure').textContent(), /sent to Groq for transcription/);
+  assert.match(await page.locator('#voice-disclosure').textContent(), /Groq/);
   await page.locator('#help').check(); await page.locator('#close-options').click();
-  assert.match(await page.locator('#draft').getAttribute('placeholder'), /Hebrew/);
+  assert.match(await page.locator('#draft').getAttribute('placeholder'), /עברית/);
   await page.locator('#options').click(); await page.locator('#help').uncheck(); await page.keyboard.press('Escape');
   for (const index of [0, 1]) {
     const response = page.waitForResponse(res => res.url().endsWith('/speech') && res.request().postDataJSON().suggestion_index === index);
@@ -211,7 +211,7 @@ try {
   await page.locator('#report-category').selectOption('inaccurate');await page.locator('#report-note').fill('Please check this translation.');
   await page.locator('#report-submit').click();await page.locator('#report-result').waitFor({state:'visible'});
   assert.equal(await page.locator('#report-form').isVisible(),true,'A failed submission must stay retryable');
-  await page.locator('#report-submit').click();await page.getByText('Thank you. Your report has been sent to Fala for review.',{exact:true}).waitFor();
+  await page.locator('#report-submit').click();await page.getByText('תודה. הדיווח נשלח לבדיקה ב־Fala.',{exact:true}).waitFor();
   assert.deepEqual(reports[1],{session_id:'session-fixture',target:'opening',turn_id:null,category:'inaccurate',note:'Please check this translation.'});
   assert.equal(postCount,0,'Reporting must not submit a conversational reply');await page.locator('#report-close').click();
   await mic.scrollIntoViewIfNeeded(); const box = await mic.boundingBox();
@@ -233,7 +233,7 @@ try {
   for (let i = 1; i < 10; i++) {
     await page.locator('#draft').fill('Sim, gosto da ginga.'); await page.locator('#send').click();
     if (i === 1) {
-      await page.getByText('The conversation service is busy. Retrying in 1 second…', { exact: true }).waitFor();
+      await page.getByText('שירות השיחה עמוס. ניסיון נוסף בעוד 1 שנייה…', { exact: true }).waitFor();
       assert.equal(await page.locator('#draft').inputValue(), 'Sim, gosto da ginga.');
       assert.equal(await page.locator('#retry').isVisible(), false);
     }
@@ -243,11 +243,11 @@ try {
   assert.equal(saved.turns.length, 10); assert.equal(await page.locator('#microphone').isVisible(), false);
   await page.locator('#complete').click(); await page.locator('#review').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.word').count(), 1);
-  await page.getByText('Vesoura unlocked',{exact:true}).waitFor();
+  await page.getByText('וסורה נפתח',{exact:true}).waitFor();
   assert.equal(await page.locator('.partner-finish .partner-art').evaluate(el=>getComputedStyle(el).animationName),'none');
   assert.equal(rewards.profile.instructor,'bateba','Unlocking must not change the saved selection');
   await page.locator('#reward-celebration').screenshot({path:'artifacts/fala-0.12.0-unlock.png'});
-  await page.locator('#report-summary').click();await page.locator('#report-submit').click();await page.getByText('Thank you. Your report has been sent to Fala for review.',{exact:true}).waitFor();assert.equal(reports.at(-1).target,'summary');await page.locator('#report-close').click();
+  await page.locator('#report-summary').click();await page.locator('#report-submit').click();await page.getByText('תודה. הדיווח נשלח לבדיקה ב־Fala.',{exact:true}).waitFor();assert.equal(reports.at(-1).target,'summary');await page.locator('#report-close').click();
   await page.locator('#again').click(); await page.locator('#home').waitFor({state:'visible'});
   await page.locator('#topic').selectOption('everyday life'); await page.locator('#start').click();
   await page.locator('#conversation').waitFor({state:'visible'}); assert.equal(await page.locator('#partner-identity img').count(),0);

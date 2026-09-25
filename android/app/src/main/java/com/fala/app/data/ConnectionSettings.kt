@@ -60,6 +60,9 @@ class ConnectionSettings(context: Context) {
     var networkRecognition: Boolean
         get() = prefs.getBoolean("networkRecognition", false)
         set(value) { prefs.edit().putBoolean("networkRecognition", value).apply() }
+    var notificationPermissionAsked: Boolean
+        get() = prefs.getBoolean("notificationPermissionAsked", false)
+        set(value) { prefs.edit().putBoolean("notificationPermissionAsked", value).apply() }
     var practiceTopic: String
         get() = prefs.getString("practiceTopic", "capoeira class") ?: "capoeira class"
         set(value) { prefs.edit().putString("practiceTopic", value).apply() }

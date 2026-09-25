@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAPOEIRA_LESSONS, lessonContext } from "../src/capoeira.js";
-import { openingFocus, teachingPlan } from "../src/pedagogy.js";
+import { beginnerModel, openingFocus, teachingPlan } from "../src/pedagogy.js";
 import { coachingReplySchema, wordCount } from "../src/coaching.js";
 import { PRACTICE_LEVELS, practiceResult } from "../src/learning.js";
 import { replySchema, type Session } from "../src/models.js";
@@ -32,6 +32,7 @@ describe("focused ten-answer lessons", () => {
     for (const level of PRACTICE_LEVELS) for (const theme of CAPOEIRA_LESSONS) for (const visit of [1, 2, 5]) {
       const seen = new Set<string>();
       const focus: string[] = [];
+      const history: { reply: { text: string; suggested_replies: string[] } }[] = [];
       for (let round = 0; round < 10; round++) {
         const lesson = lessonContext({ id: theme.id, visit }, round, "he-IL", level.level)!;
         const terms = lesson.vocabulary.map(entry => entry.term);
@@ -48,8 +49,11 @@ describe("focused ten-answer lessons", () => {
           expect(wordCount(model.text)).toBeLessThanOrEqual(level.turn_words);
           expect(model.suggested_replies.every(idea => wordCount(idea.text) <= level.idea_words)).toBe(true);
           const generated = replySchema.parse({ ...model, pace: "slow", turn_feedback: round ? feedback : null });
-          expect(coachingReplySchema({ action: round ? "continue" : "start", lesson,
-            practice: level, support_language: "he-IL" }).safeParse(generated).success).toBe(true);
+          const result = coachingReplySchema({ action: round ? "continue" : "start", lesson,
+            teaching: teachingPlan(level.level, round), turns: history,
+            practice: level, support_language: "he-IL" }).safeParse(generated);
+          expect(result.success, `${theme.id}, level ${level.level}, visit ${visit}, round ${round}: ${result.error?.message}`).toBe(true);
+          history.push({ reply: { text: model.text, suggested_replies: model.suggested_replies.map(idea => idea.text) } });
         }
       }
       expect(focus[0]).toBe(focus[1]);
@@ -58,6 +62,42 @@ describe("focused ten-answer lessons", () => {
       expect(seen.has(focus[9])).toBe(true);
       expect(lessonContext({ id: theme.id, visit }, 10, "he-IL", level.level)!.next_prompt.focus_term).toBeUndefined();
     }
+  });
+
+  it("changes beginner ideas with the question's intent instead of offering a fixed request and repetition pair", () => {
+    for (const language of ["en-US", "he-IL"]) {
+      const choice = beginnerModel("martelo", "martelo", 0, language)!;
+      const confirmation = beginnerModel("martelo", "martelo", 1, language)!;
+      const repeat = beginnerModel("martelo", "martelo", 3, language)!;
+      const again = beginnerModel("martelo", "martelo", 8, language)!;
+      expect(confirmation.suggested_replies[0].text).toMatch(/^Sim,/);
+      expect(confirmation.suggested_replies[1].text).toMatch(/^Não,/);
+      expect(repeat.suggested_replies[1].text).toBe("Quero repetir esse nome.");
+      expect(new Set([choice, confirmation, repeat, again].map(model => model.suggested_replies.map(idea => idea.text).join("|"))).size).toBe(4);
+      for (let round = 0; round < 10; round++) {
+        expect(beginnerModel("martelo", "martelo", round, language)!.suggested_replies.map(idea => idea.text)).not.toContain("Pode repetir?");
+      }
+    }
+  });
+
+  it("rejects stale answer pairs on changed questions, while allowing one familiar frame, retrieval and repair", () => {
+    const opening = replySchema.parse({ text: "O que quer beber?", translation: "What would you like to drink?", suggested_replies: [
+      { text: "Quero café.", translation: "I'd like coffee." }, { text: "Quero chá.", translation: "I'd like tea." },
+    ] });
+    const next = { ...opening, text: "Quer café com leite?", translation: "Want coffee with milk?",
+      turn_feedback: { kind: "ok", message: "A clear request.", said: "", natural: "" } };
+    const context = { action: "continue", practice: { level: 1 }, opening,
+      teaching: teachingPlan(1, 1, opening), input: { text: "Quero café." } };
+    expect(coachingReplySchema(context).safeParse(next).success).toBe(false);
+    expect(coachingReplySchema(context).safeParse({ ...next, suggested_replies: [...next.suggested_replies].reverse() }).success).toBe(false);
+    const adapted = { ...next, suggested_replies: [{ text: "Sim, com leite.", translation: "Yes, with milk." }, opening.suggested_replies[1]] };
+    expect(coachingReplySchema(context).safeParse(adapted).success).toBe(true);
+    const turns = [{ reply: { text: opening.text, suggested_replies: opening.suggested_replies.map(idea => idea.text) } }];
+    expect(coachingReplySchema({ ...context, opening: undefined, turns }).safeParse(next).success).toBe(false);
+    expect(coachingReplySchema({ ...context, turns: [{ reply: adapted }], teaching: teachingPlan(1, 3, opening) })
+      .safeParse({ ...opening, turn_feedback: next.turn_feedback }).success).toBe(true);
+    expect(coachingReplySchema({ ...context, input: { text: "Pode repetir?" } }).safeParse(next).success).toBe(true);
+    expect(coachingReplySchema({ ...context, action: "help" }).safeParse({ ...next, turn_feedback: null }).success).toBe(true);
   });
 
   it("limits every level-one spoken field to seven words, including help and corrections", () => {

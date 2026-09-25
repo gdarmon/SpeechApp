@@ -50,9 +50,9 @@ internal fun Modifier.walkthroughTarget(step: Int): Modifier = composed {
 }
 
 internal fun walkthroughCopy(hebrew: Boolean): List<Pair<String, String>> = if (hebrew) listOf(
-    "מתחילים בהקשבה" to "לחצו על Listen כדי לשמוע את השאלה בפורטוגזית. Slower משמיע לאט יותר. אפשר להציג גם את המילים והתרגום.",
+    "מתחילים בהקשבה" to "לחצו על ״האזנה״ כדי לשמוע את השאלה בפורטוגזית. ״לאט יותר״ משמיע לאט יותר. אפשר להציג גם את המילים והתרגום.",
     "מוצאים מילים לתשובה" to "צריכים עזרה? פתחו את הרעיונות לתשובה. לחיצה על רעיון מעתיקה אותו לעריכה. ליד כל רעיון יש השמעה רגילה והשמעה איטית — בחרו בקצב שנוח לכם.",
-    "לוחצים, מדברים, משחררים" to "בפעם הראשונה אשרו גישה למיקרופון. החזיקו את הכפתור, חכו ל־Listening ודברו. שחררו בסיום; Fala תקשיב עוד שנייה להשלמת המילים.",
+    "לוחצים, מדברים, משחררים" to "בפעם הראשונה אשרו גישה למיקרופון. החזיקו את הכפתור, חכו ל״מקשיבים״ ודברו. שחררו בסיום; Fala תקשיב עוד שנייה להשלמת המילים.",
     "בודקים ורק אז שולחים" to "המילים שלכם יופיעו כאן. אפשר לתקן אותן ואז ללחוץ על חץ השליחה. הדיבור לא שולח תשובה אוטומטית.",
     "תשובה אחת בכל פעם" to "אחרי 10 תשובות תקבלו משוב ומילים לחזרה. אין צורך למהר. אפשר לפתוח את ההדרכה שוב בהגדרות."
 ) else listOf(
@@ -68,7 +68,7 @@ internal fun Walkthrough(c: SessionController, targets: Map<Int, WalkthroughAnch
     val step = c.walkthroughStep ?: return
     val anchor = targets[step]
     LaunchedEffect(step, anchor?.requester) { anchor?.requester?.bringIntoView() }
-    val hebrew = c.conversationLanguage == "he-IL"
+    val hebrew = c.supportLanguage == "he-IL"
     val copy = walkthroughCopy(hebrew)
     Dialog(onDismissRequest = c::closeWalkthrough,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)) {
@@ -97,22 +97,22 @@ internal fun Walkthrough(c: SessionController, targets: Map<Int, WalkthroughAnch
                         shape = RoundedCornerShape(22.dp), shadowElevation = 12.dp) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("${step + 1} / ${copy.size}", style = MaterialTheme.typography.labelLarge.copy(textDirection = TextDirection.Ltr), color = MaterialTheme.colorScheme.primary)
-                                TextButton(onClick = c::closeWalkthrough) { Text(if (hebrew) "דלגו על ההדרכה" else "Skip tour") }
+                                Text(tr("${step + 1} / ${copy.size}"), style = MaterialTheme.typography.labelLarge.copy(textDirection = TextDirection.Ltr), color = MaterialTheme.colorScheme.primary)
+                                TextButton(onClick = c::closeWalkthrough) { Text(tr(if (hebrew) "דלגו על ההדרכה" else "Skip tour")) }
                             }
                             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(copy[step].first, style = MaterialTheme.typography.titleLarge)
-                                Text(copy[step].second.replace("10", c.targetTurns.toString()), style = MaterialTheme.typography.bodyMedium)
+                                Text(tr(copy[step].first), style = MaterialTheme.typography.titleLarge)
+                                Text(tr(copy[step].second.replace("10", c.targetTurns.toString())), style = MaterialTheme.typography.bodyMedium)
                                 if (step == 2) {
                                     HorizontalDivider()
                                     OnlineSpeechChoice(hebrew, c.networkRecognition, c::chooseNetworkRecognition, enabled = !c.busy)
-                                    TextButton(onClick = microphoneHelp) { Text(if (hebrew) "בדיקת המיקרופון והגדרות" else "Microphone help & settings") }
+                                    TextButton(onClick = microphoneHelp) { Text(tr(if (hebrew) "בדיקת המיקרופון והגדרות" else "Microphone help & settings")) }
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                if (step > 0) TextButton(onClick = c::previousWalkthroughStep) { Text(if (hebrew) "הקודם" else "Back") }
+                                if (step > 0) TextButton(onClick = c::previousWalkthroughStep) { Text(tr(if (hebrew) "הקודם" else "Back")) }
                                 Button(onClick = c::nextWalkthroughStep) {
-                                    Text(if (step == copy.lastIndex) { if (hebrew) "בואו נתחיל" else "Let’s try it" } else { if (hebrew) "הבא" else "Next" })
+                                    Text(tr(if (step == copy.lastIndex) { if (hebrew) "בואו נתחיל" else "Let’s try it" } else { if (hebrew) "הבא" else "Next" }))
                                 }
                             }
                         }

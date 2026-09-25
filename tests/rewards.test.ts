@@ -13,7 +13,7 @@ beforeAll(async()=>{
   pg=new PGlite();const wrap=(client:Pick<PGlite,'query'>):Executor=>({query:async<T>(sql:string,values:Parameter[]=[]) => (await client.query<T>(sql,values)).rows});
   db={...wrap(pg),transaction:fn=>pg.transaction(tx=>fn(wrap(tx))),close:()=>pg.close()};
   await pg.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
-  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql', '202609230001_walkthrough.sql', '202609230002_reward_rules.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['202609180001_fala.sql','202609180002_google_sign_in.sql','202609200001_rewards.sql', '202609210001_instructors.sql', '202609210002_content_reports.sql', '202609230001_walkthrough.sql', '202609230002_reward_rules.sql', '202609250001_language_reminders.sql'])await pg.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
 },30000);
 afterAll(async()=>{await db.close();});
 beforeEach(async()=>{
@@ -29,6 +29,36 @@ async function earnedPoints(xp:number,rules=2,user=a){
     SELECT $1::uuid,$2 || n,'reply',LEAST(20,$3-(n-1)*20),'2026-09-18','2026-09-18T12:00:00Z',$4
     FROM generate_series(1,($3+19)/20) AS n`,[user,randomUUID(),xp,rules]);
 }
+
+it('enables 17:00 reminders by default and shares the chosen UI language across clients',async()=>{
+  const rewards=new Rewards(db,a,now);
+  expect((await rewards.snapshot()).profile).toMatchObject({reminder_enabled:true,reminder_minute:1020,ui_language:null});
+  await rewards.settings({ui_language:'he-IL',reminder_enabled:false});
+  await new Rewards(db,a,now).settings({appearance:'dark'});
+  expect((await new Rewards(db,a,now).snapshot()).profile).toMatchObject({ui_language:'he-IL',reminder_enabled:false});
+  expect((await new Rewards(db,b,now).snapshot()).profile).toMatchObject({ui_language:null,reminder_enabled:true});
+  expect(rewardSettingsSchema.safeParse({ui_language:'pt-BR'}).success).toBe(false);
+});
+
+it('applies reminder defaults once to returning users and preserves later opt-outs and custom times on reruns',async()=>{
+  const rewards=new Rewards(db,a,now);
+  await rewards.profile(); await new Rewards(db,b,now).settings({reminder_minute:1080});
+  await db.query('UPDATE fala.reward_profiles SET reminder_defaults_applied=false,reminder_enabled=false,reminder_minute=900 WHERE user_id=$1::uuid',[a]);
+  const migration=await readFile(new URL('../supabase/migrations/202609250001_language_reminders.sql',import.meta.url),'utf8');
+  await pg.exec(migration);
+  expect((await rewards.profile())).toMatchObject({reminder_enabled:true,reminder_minute:1020});
+  expect((await new Rewards(db,b,now).profile()).reminder_minute).toBe(1080);
+  await rewards.settings({reminder_enabled:false,reminder_minute:1110,ui_language:'en-US'});
+  await pg.exec(migration);
+  expect((await rewards.profile())).toMatchObject({reminder_enabled:false,reminder_minute:1110,ui_language:'en-US'});
+});
+
+it('uses the account language for reminders before the first conversation',async()=>{
+  const rewards=new Rewards(db,a,new Date('2026-09-20T17:00:00Z'));
+  await rewards.settings({ui_language:'he-IL'});
+  expect(await rewards.claimReminder()).toMatchObject({notify:true,title:'יש זמן לקצת פורטוגזית?'});
+  expect(await rewards.claimReminder()).toEqual({notify:false});
+});
 
 it('remembers the guide on the account across clients, settings changes and learning resets',async()=>{
   const rewards=new Rewards(db,a,now);

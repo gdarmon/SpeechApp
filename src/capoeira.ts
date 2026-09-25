@@ -169,7 +169,7 @@ export function lessonContext(choice: LessonChoice | undefined, question = 0, la
   const introduced = words.slice(0, plan.introduced_terms);
   const focus = words[plan.focus_index % words.length];
   const meaning = capoeiraTerm(focus)![language === "he-IL" ? "he" : "en"];
-  const patterns = plan.target_terms === 2 ? ["Quero ...", "Pode repetir?"]
+  const patterns = plan.target_terms === 2 ? ["Quero ...", "Sim / Não, ..."]
     : /cords|ceremony/.test(selected.id) ? ["Tenho ...", "É ..."]
     : /birthday/.test(selected.id) ? ["Parabéns!", "Obrigado / Obrigada."]
     : /song-phrases/.test(selected.id) ? ["Entro ...", "Pode repetir?"]

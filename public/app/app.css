@@ -254,3 +254,10 @@ progress::-moz-progress-bar {background:var(--green)}
 #walkthrough-title:focus { outline:none; }
 .walkthrough-actions { display:flex; justify-content:flex-end; gap:10px; }
 #walkthrough-hint { margin:12px 0 0; }
+
+/* The interface follows the selected language; Portuguese practice stays LTR. */
+html[dir="rtl"] body { text-align: start; }
+html[dir="rtl"] #back .icon { transform: scaleX(-1); }
+html[dir="rtl"] .conversation-title, html[dir="rtl"] .partner-home-copy { text-align: right; }
+[lang="pt-BR"] { direction: ltr; text-align: left; unicode-bidi: plaintext; }
+input[type="time"], input[type="email"], #reward-timezone, #account-email { direction: ltr; }

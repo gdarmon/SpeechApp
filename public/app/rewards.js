@@ -1,12 +1,15 @@
 import { createPartners } from './partners.js';
+import { t, setText, localizeTree, uiLanguage } from './i18n.js';
 const $=id=>document.getElementById(id);
-const node=(tag,text,className='')=>{const el=document.createElement(tag);el.textContent=text;el.className=className;return el;};
+const node=(tag,text,className='')=>{const el=document.createElement(tag);setText(el,text);el.className=className;return el;};
 const button=(label,action,className='secondary')=>{const b=node('button',label,className);b.type='button';b.onclick=action;return b;};
 const minuteText=n=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
 function meter(value,max,label){const p=document.createElement('progress');p.max=max;p.value=Math.min(max,value);p.setAttribute('aria-label',label);return p;}
 
 export function createRewards({api,post,task,screen,home}) {
   let state=null, generation=0, previewTheme=null;
+  const preference = { get:key=>{try{return localStorage.getItem(`fala.${key}`);}catch{return null;}}, set:(key,value)=>{try{localStorage.setItem(`fala.${key}`,value);}catch{}} };
+  let connectingPush = null, pushConnected = false;
   const partners=createPartners({choose:instructor=>save({instructor}),openCollection:()=>navigate('rewards-screen')});
   let pendingInvite='';
   const match=location.hash.match(/^#join=([A-Za-z0-9_-]{24})$/);
@@ -25,7 +28,7 @@ export function createRewards({api,post,task,screen,home}) {
     const card=node('article','','reward-overview'), row=node('div','','row');
     row.append(node('h2',`${data.streak.days}-day streak`),node('span',`${data.xp} XP`,'badge'));card.append(row);
     const days=node('div','','reward-days');
-    for(const day of data.streak.calendar){const item=node('div','','reward-day '+day.status);item.append(node('span',day.status==='practised'?'✓':day.status==='protected'?'◇':'·'),node('small',new Date(day.day+'T12:00:00').toLocaleDateString(undefined,{weekday:'narrow'})));item.setAttribute('aria-label',`${day.day}: ${day.status}`);days.append(item);}
+    for(const day of data.streak.calendar){const item=node('div','','reward-day '+day.status), label=node('small',new Date(day.day+'T12:00:00').toLocaleDateString(uiLanguage(),{weekday:'narrow'}));label.dataset.weekday=day.day;item.append(node('span',day.status==='practised'?'✓':day.status==='protected'?'◇':'·'),label);item.setAttribute('aria-label',`${day.day}: ${t(day.status)}`);days.append(item);}
     card.append(days,node('p',data.daily_complete?'Daily goal complete. Nice work!':`${Math.min(3,data.today_replies)} of 3 replies for today's goal`,'fine'));
     if(data.streak.protected_days.length)card.append(node('p','◇ Protected rest day · no points earned','fine'));
     const next=data.themes.find(t=>!t.unlocked);
@@ -40,6 +43,7 @@ export function createRewards({api,post,task,screen,home}) {
     const supported='Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
     $('connect-push').disabled=!supported||!data.web_push_key;
     $('push-state').textContent=!supported?'This browser cannot receive reminders here. On iPhone, use the Home Screen app.':!data.web_push_key?'Browser reminders are being configured.':Notification.permission==='denied'?'Notifications are blocked. You can allow Fala in browser or device settings.':'Connect once to receive a reminder here, even when Fala is closed.';
+    localizeTree();
   }
   function renderLooks(id,items,field){
     $(id).replaceChildren();
@@ -47,7 +51,7 @@ export function createRewards({api,post,task,screen,home}) {
       const card=node('article','','reward-look');card.dataset.theme=item.id;
       const sample=node('div',field==='theme'?'Fala · Olá!':item.id==='rhythm'?'♪  Hold to speak':item.id==='wave'?'≈  Hold to speak':'Hold to speak','look-swatch');
       card.append(sample,node('h2',item.name),node('p',item.unlocked?'Unlocked':`${item.xp} XP to unlock`,'fine'));
-      if(field==='theme')card.append(button('Preview',()=>{previewTheme=item.id;apply();$('reward-total').textContent=`Previewing ${item.name}${item.unlocked?'':' · locked'}. Your saved theme is unchanged.`;},'text-button'));
+      if(field==='theme')card.append(button('Preview',()=>{previewTheme=item.id;apply();setText($('reward-total'),`Previewing ${item.name}${item.unlocked?'':' · locked'}. Your saved theme is unchanged.`);},'text-button'));
       const use=button(state.profile[field]===item.id?'Selected':'Use '+(field==='theme'?'theme':'skin'),()=>save({[field]:item.id}));use.disabled=!item.unlocked||state.profile[field]===item.id;card.append(use);$(id).append(card);
     }
   }
@@ -75,25 +79,49 @@ export function createRewards({api,post,task,screen,home}) {
     const invite=node('input');invite.readOnly=true;invite.value=`${location.origin}/app/#join=${c.invite_code}`;invite.setAttribute('aria-label','Circle invitation link');box.append(invite);
     box.append(button('Copy invitation',async()=>{try{await navigator.clipboard.writeText(invite.value);}catch{invite.select();} }));
     if(c.owner)box.append(button('Replace invitation',()=>social({action:'rotate'}),'text-button'));
-    box.append(button(c.owner?'Close this circle':'Leave this circle',()=>{if(confirm(c.owner?'Close this circle for every member? Everyone keeps their own points.':'Leave this circle? Your points and rewards stay yours.'))social({action:'leave'});},'text-button'));
+    box.append(button(c.owner?'Close this circle':'Leave this circle',()=>{if(confirm(t(c.owner?'Close this circle for every member? Everyone keeps their own points.':'Leave this circle? Your points and rewards stay yours.')))social({action:'leave'});},'text-button'));
     const mission=state?.weekly_mission;
     if(mission){const card=node('article');card.append(node('h2','Your weekly mission'),node('p',mission.title),node('p',`${mission.progress}/${mission.target}${mission.xp>0?` · +${mission.xp} XP`:" · Practice milestone"}`));box.append(card);}
   }
   function social(input){void task(async()=>{const own=generation;const next=await post('/friends',input);if(own===generation)renderCircle(next);});}
   $('reward-nav').querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
   $('reward-settings').onsubmit=e=>{e.preventDefault();const [h,m]=$('reminder-time').value.split(':').map(Number);save({nickname:$('nickname').value,appearance:$('appearance').value,reduce_motion:$('reduce-motion').checked,timezone:$('reward-timezone').value,reminder_minute:h*60+m,reminder_enabled:$('reminder-enabled').checked});};
-  $('connect-push').onclick=()=>{void task(async()=>{
+  async function connectPush() {
+    const own = generation;
     if(!state?.web_push_key)throw Error('Browser reminders are not ready. Please try again later.');
-    const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Notifications remain off. You can enable them later in device settings.');
-    const registration=await navigator.serviceWorker.ready;
+    preference.set('notificationPermissionAsked','true');
+    const permission=Notification.permission==='granted'?'granted':await Notification.requestPermission();if(permission!=='granted')throw Error('Notifications remain off. You can enable them later in device settings.');
+    if (own !== generation) return;
+    const registration=await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(Error('Browser reminders are not ready. Please try again later.')),3000);
+      navigator.serviceWorker.ready.then(value=>{clearTimeout(timer);resolve(value);},error=>{clearTimeout(timer);reject(error);});
+    });
+    if (own !== generation) return;
     const bytes=Uint8Array.from(atob(state.web_push_key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
     const subscription=await registration.pushManager.getSubscription()||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
-    await post('/rewards/push',subscription.toJSON());render(await post('/rewards/settings',{reminder_enabled:true}));$('push-state').textContent='Connected. You will be reminded here only if you haven’t practised that day.';
+    if (own !== generation) return;
+    await post('/rewards/push',subscription.toJSON());
+    if (own !== generation) return;
+    pushConnected = true;
+    setText($('push-state'),'Connected. You will be reminded here only if you haven’t practised that day.');
+  }
+  $('connect-push').onclick=()=>{void task(async()=>{
+    preference.set('pushDisconnected','false'); await connectPush(); render(await post('/rewards/settings',{reminder_enabled:true}));
   });};
-  async function disconnect(){if(!('serviceWorker' in navigator))return;const registration=await navigator.serviceWorker.getRegistration('/app/');const subscription=await registration?.pushManager?.getSubscription();if(subscription){try{await post('/rewards/push/remove',{endpoint:subscription.endpoint});}finally{await subscription.unsubscribe();}}}
-  $('disconnect-push').onclick=()=>{void task(async()=>{await disconnect();$('push-state').textContent='This browser is disconnected. Other connected devices keep their settings.';});};
-  return {render,disconnect,conversation:partners.conversation,reset(){generation++;state=null;previewTheme=null;partners.reset();apply();$('reward-home').hidden=true;$('reward-celebration').hidden=true;},
+  async function requestDefaultNotifications() {
+    if (pushConnected || !state?.profile?.reminder_enabled || !state.web_push_key || preference.get('pushDisconnected')==='true'
+      || !('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)
+      || Notification.permission==='denied' || Notification.permission==='default' && preference.get('notificationPermissionAsked')==='true') return;
+    if (connectingPush) return connectingPush;
+    const own=generation;
+    connectingPush=connectPush().catch(()=>{localizeTree();}).finally(()=>{if(own===generation)connectingPush=null;});
+    return connectingPush;
+  }
+  async function disconnect(){pushConnected=false;if(!('serviceWorker' in navigator))return;const registration=await navigator.serviceWorker.getRegistration('/app/');const subscription=await registration?.pushManager?.getSubscription();if(subscription){try{await post('/rewards/push/remove',{endpoint:subscription.endpoint});}finally{await subscription.unsubscribe();}}}
+  $('disconnect-push').onclick=()=>{void task(async()=>{await disconnect();preference.set('pushDisconnected','true');setText($('push-state'),'This browser is disconnected. Other connected devices keep their settings.');});};
+  return {render,disconnect,requestDefaultNotifications,conversation:partners.conversation,reset(){generation++;connectingPush=null;pushConnected=false;state=null;previewTheme=null;partners.reset();apply();$('reward-home').hidden=true;$('reward-celebration').hidden=true;},
     async initialize(data){if(!data)return;render(data);if(!data.profile.timezone_confirmed){const own=generation;try{const next=await post('/rewards/settings',{timezone:Intl.DateTimeFormat().resolvedOptions().timeZone});if(own===generation)render(next);}catch{/* Keep the explicit timezone control available. */}}
+      if ('Notification' in window && Notification.permission==='granted') void requestDefaultNotifications();
       if(pendingInvite)$('reward-home').append(button('Open your circle invitation',()=>navigate('friends-screen')));
     },
     async celebrate(){const own=generation,prior=state;try{const next=await refresh();if(own!==generation)return;const el=$('reward-celebration');el.replaceChildren(node('strong',next.daily_complete?'Daily goal complete!':'A little more practice.'),node('p',`${next.today_xp} XP today · ${next.xp} XP total`));

@@ -17,6 +17,7 @@ const browser=await chromium.launch({executablePath:process.env.FALA_TEST_CHROME
 try {
  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
+ await context.addInitScript(() => localStorage.setItem('fala.language','en-US'));
  let loggedIn=true,group=null;
  const rewards=rewardFixture(); let settingsWrites=0;
  await page.route('**/*',async route=>{
@@ -33,6 +34,9 @@ try {
   return route.continue();
  });
  await page.goto(base+'/app/');await page.locator('#reward-home').waitFor({state:'visible'});
+ assert.equal(rewards.profile.reminder_enabled,true);
+ assert.equal(rewards.profile.reminder_minute,1020);
+ assert.equal(rewards.profile.ui_language,'en-US');
  assert.ok((await page.locator('#start').boundingBox()).y<760,'Talk should be within reach on mobile');
  await page.locator('[data-page="rewards-screen"]').click();await page.locator('#theme-list article').first().waitFor();
 
@@ -66,6 +70,45 @@ try {
  await page.locator('[data-page="reminders-screen"]').click();await page.locator('#nickname').fill('Gilad');await page.locator('#appearance').selectOption('dark');await page.locator('#reduce-motion').check();await page.locator('#reminder-time').fill('17:15');await page.locator('#reminder-enabled').check();await page.getByRole('button',{name:'Save preferences'}).click();
  await page.waitForFunction(()=>document.documentElement.classList.contains('reduce-motion'));
  assert.equal(rewards.profile.reminder_minute,1035);assert.equal(rewards.profile.reminder_enabled,true);assert.equal(await page.locator('#connect-push').isDisabled(),true);
+ // All screens switch immediately, persist on the account and reverse cleanly.
+ await page.locator('#settings-language').selectOption('he-IL');
+ await page.waitForFunction(()=>document.documentElement.lang==='he');
+ assert.equal(await page.locator('html').getAttribute('dir'),'rtl');
+ assert.equal(await page.locator('#reward-settings button').innerText(),'שמירת ההעדפות');
+ for(const width of [320,390,1024]) {
+   await page.setViewportSize({width,height:844});
+   for(const destination of ['home','rewards-screen','friends-screen','reminders-screen']) {
+     await page.locator(`[data-page="${destination}"]`).click();
+     await page.waitForFunction(()=>!document.querySelector('[data-page="home"]').disabled);
+     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Hebrew ${destination} overflows at ${width}`);
+     const untranslated = await page.evaluate(() => {
+       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), missing=[];
+       while(walker.nextNode()) {
+         const node=walker.currentNode, parent=node.parentElement, value=node.textContent.trim();
+         if(parent?.getClientRects().length && !parent.closest('[hidden], [lang="pt-BR"], [translate="no"], script, style, option')
+           && /[A-Za-z]{3}/.test(value) && !/[\u0590-\u05ff]/.test(value)
+           && !/^(Fala|English|PT–BR|Fala · Olá!|fixture@fala.invalid)$/.test(value)) missing.push(value);
+       }
+       return missing;
+     });
+     assert.deepEqual(untranslated, [], `Untranslated Hebrew ${destination}`);
+     if (width===390 && destination==='home') await page.screenshot({path:'artifacts/fala-0.14.0-home-he.png',fullPage:true});
+     if (width===390 && destination==='reminders-screen') await page.screenshot({path:'artifacts/fala-0.14.0-settings-he.png',fullPage:true});
+   }
+ }
+ await page.locator('#reminder-enabled').uncheck();
+ await page.getByRole('button',{name:'שמירת ההעדפות'}).click();
+ await page.waitForFunction(()=>!document.querySelector('#reward-settings button').disabled);
+ await page.reload(); await page.locator('#reward-home').waitFor({state:'visible'});
+ assert.equal(await page.locator('html').getAttribute('lang'),'he','Account language wins after reload on a device with a different local preference');
+ assert.equal(await page.locator('#start').innerText(),'מתחילים לדבר');
+ assert.equal(rewards.profile.reminder_enabled,false,'An explicit opt-out survives reload');
+ await page.locator('[data-page="reminders-screen"]').click();
+ await page.waitForFunction(()=>!document.querySelector('#reward-settings button').disabled);
+ await page.locator('#settings-language').selectOption('en-US');
+ assert.equal(await page.locator('html').getAttribute('dir'),'ltr');
+ assert.equal(await page.locator('#reward-settings button').innerText(),'Save preferences');
+ assert.equal(await page.locator('#start').innerText(),'Talk');
  await page.locator('[data-page="friends-screen"]').click();await page.waitForFunction(()=>!document.querySelector('[data-page="friends-screen"]').disabled);await page.getByLabel('New circle name').fill('Our roda');await page.getByRole('button',{name:'Create my circle'}).click();await page.getByText('Gilad (you)',{exact:true}).waitFor();
  assert.ok((await page.getByLabel('Circle invitation link').inputValue()).includes('/app/#join='));
  for(const width of [320,390,1024]){await page.setViewportSize({width,height:844});for(const name of ['home','rewards-screen','friends-screen','reminders-screen']){await page.locator(`[data-page="${name}"]`).click();await page.waitForFunction(()=>!document.getElementById('notice').textContent||document.getElementById('notice').hidden);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${name} overflows at ${width}`);}}

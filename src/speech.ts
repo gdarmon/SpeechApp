@@ -62,7 +62,7 @@ export class Speech {
   }
   async speak(reply: Reply) {
     const response = await this.send("speech", JSON.stringify({ model: "gpt-4o-mini-tts", voice: "coral", input: spokenReply(reply),
-      instructions: "Speak in Brazilian Portuguese, warmly and clearly, at a slow beginner-friendly pace. Read the supplied Portuguese exactly.", response_format: "mp3" }), { "Content-Type": "application/json" });
+      instructions: "Speak in Brazilian Portuguese, warmly and clearly, at a natural conversational pace. Use clear pronunciation and natural pauses, without stretching syllables or adding long pauses between words. Read the supplied Portuguese exactly.", response_format: "mp3" }), { "Content-Type": "application/json" });
     return response.arrayBuffer();
   }
 }

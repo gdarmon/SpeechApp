@@ -1,5 +1,8 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { checkRelease } from "./release.mjs";
+import { execFileSync } from "node:child_process";
+
+execFileSync(process.execPath, ['scripts/localization.mjs', '--check'], { stdio: 'inherit' });
 
 const release = await checkRelease();
 

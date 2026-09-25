@@ -152,7 +152,7 @@ class SessionController(application: Application) : AndroidViewModel(application
             permissionMissing = true
             playbackTrouble = false
             voiceTrouble = true
-            voiceNotice = SpeechFailure(9).message(conversationLanguage == "he-IL", networkRecognition)
+            voiceNotice = SpeechFailure(9).message(supportLanguage == "he-IL", networkRecognition)
         } else refreshMicrophonePermission()
     }
     var voiceLevel by mutableStateOf(0f)
@@ -212,6 +212,8 @@ class SessionController(application: Application) : AndroidViewModel(application
     fun chooseSupportLanguage(language: String) {
         if (busy) return
         settings.supportLanguage = language; supportLanguage = language
+        if (settings.signedIn && rewards.optJSONObject("profile")?.has("ui_language") == true)
+            saveRewardPreferences(JSONObject().put("ui_language", language))
     }
 
     fun chooseTopic(topic: String) { if (!busy) { practiceTopic = topic; settings.practiceTopic = topic } }
@@ -239,11 +241,13 @@ class SessionController(application: Application) : AndroidViewModel(application
 
     fun signIn(network: Boolean, credential: suspend (String, String) -> String) {
         if (supportLanguage.isBlank()) return
+        val chosenLanguage = supportLanguage
         execute(retryable = false) {
             val challenge = api.post("/auth/google/challenge")
             val idToken = credential(challenge.getString("google_client_id"), challenge.getString("nonce"))
             val result = api.post("/auth/google", JSONObject().put("challenge_id", challenge.getString("challenge_id")).put("id_token", idToken))
             settings.saveSession(result)
+            api.post("/rewards/settings", JSONObject().put("ui_language", chosenLanguage))
             settings.networkRecognition = network; networkRecognition = network; settings.consent = true
             screen = "home"
             loadProgress()
@@ -280,10 +284,19 @@ class SessionController(application: Application) : AndroidViewModel(application
         history = dashboard.getJSONArray("history")
         demo = dashboard.getJSONObject("status").optBoolean("demo")
         dashboard.optJSONObject("rewards")?.let { updateRewards(it) }
-        syncWalkthrough()
+        val profile = rewards.optJSONObject("profile")
+        if (profile?.has("ui_language") == true) {
+            val savedLanguage = profile.optString("ui_language")
+            if (savedLanguage in listOf("he-IL", "en-US")) {
+                settings.supportLanguage = savedLanguage; supportLanguage = savedLanguage
+            } else if (supportLanguage.isNotBlank()) {
+                updateRewards(api.post("/rewards/settings", JSONObject().put("ui_language", supportLanguage)))
+            }
+        }
         if (rewards.has("profile") && !rewards.getJSONObject("profile").optBoolean("timezone_confirmed")) {
             updateRewards(api.post("/rewards/settings", JSONObject().put("timezone", java.time.ZoneId.systemDefault().id)))
         }
+        syncWalkthrough()
     }
 
     private fun updateRewards(value: JSONObject) {
@@ -382,7 +395,9 @@ class SessionController(application: Application) : AndroidViewModel(application
         playReply(slowPlayback)
     }
 
-    private fun playReply(slowPlayback: Boolean = slow || reply.optString("pace") == "slow") {
+    // Only the learner's playback choice enables Slower. Generated pace hints
+    // must not silently apply the explicit 45% replay rate to every question.
+    private fun playReply(slowPlayback: Boolean = slow) {
         if (screen != "talk" || walkthroughStep != null) return
         val feedback = reply.optJSONObject("turn_feedback")
         speakPortuguese(replySpeech(reply.optString("text"), feedback?.optString("kind").orEmpty(), feedback?.optString("natural").orEmpty()), slowPlayback)
@@ -406,7 +421,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         celebratePractice()
     }
 
-    private fun speakPortuguese(text: String, slowPlayback: Boolean = slow || reply.optString("pace") == "slow") {
+    private fun speakPortuguese(text: String, slowPlayback: Boolean) {
         stopVoice()
         voiceTrouble = false; playbackTrouble = false; permissionMissing = false
         if (!audioEnabled || !foreground) { phase = "Your turn"; return }
@@ -416,7 +431,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         output.speak(text, slowPlayback, done = {
             if (generation == voiceGeneration) { phase = "Your turn"; showSummaryWhenReady() }
         }, error = { message ->
-            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message.message(conversationLanguage == "he-IL"); playbackTrouble = true; voiceTrouble = false; showSummaryWhenReady() }
+            if (generation == voiceGeneration) { phase = "Your turn"; voiceNotice = message.message(supportLanguage == "he-IL"); playbackTrouble = true; voiceTrouble = false; showSummaryWhenReady() }
         })
     }
 
@@ -520,7 +535,7 @@ class SessionController(application: Application) : AndroidViewModel(application
                     if (partial.isNotBlank()) draft = draft.edited(listOf(draft.text, partial).filter { it.isNotBlank() }.joinToString(" "))
                     phase = "Your turn"; voiceTrouble = true
                     permissionMissing = message.code == 9
-                    voiceNotice = message.message(conversationLanguage == "he-IL", networkRecognition)
+                    voiceNotice = message.message(supportLanguage == "he-IL", networkRecognition)
                 }
             })
     }

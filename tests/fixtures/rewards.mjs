@@ -12,7 +12,8 @@ export const rewardFixture = () => ({
     "instructor": "bananera",
     "appearance": "system",
     "reduce_motion": false,
-    "reminder_enabled": false,
+    "reminder_enabled": true,
+    "ui_language": null,
     "reminder_minute": 1020
   },
   "streak": {

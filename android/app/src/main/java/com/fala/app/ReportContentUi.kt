@@ -13,18 +13,18 @@ import androidx.compose.ui.unit.dp
     var sent by remember { mutableStateOf(false) }
     var category by remember { mutableStateOf("inappropriate") }
     var note by remember { mutableStateOf("") }
-    TextButton(onClick = { sent=false;note="";open=true;c.pause() }, enabled = !c.busy && !c.recording) { Text(if (summary) "Report this AI review" else "Report this AI reply") }
-    if (open) AlertDialog(onDismissRequest = { if (!c.busy) open=false }, title = { Text(if (sent) "Report received" else "Report AI content") }, text = {
-        if (sent) Text("Thank you. Your report has been sent to Fala for review.")
+    TextButton(onClick = { sent=false;note="";open=true;c.pause() }, enabled = !c.busy && !c.recording) { Text(tr(if (summary) "Report this AI review" else "Report this AI reply")) }
+    if (open) AlertDialog(onDismissRequest = { if (!c.busy) open=false }, title = { Text(tr(if (sent) "Report received" else "Report AI content")) }, text = {
+        if (sent) Text(tr("Thank you. Your report has been sent to Fala for review."))
         else Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("The selected AI content and your note will be sent to Fala for review. Please leave out personal details.")
+            Text(tr("The selected AI content and your note will be sent to Fala for review. Please leave out personal details."))
             listOf("inappropriate" to "Inappropriate or offensive", "unsafe" to "Unsafe advice", "inaccurate" to "Incorrect teaching", "other" to "Other concern").forEach { (value,label) ->
-                FilterChip(selected=category==value,onClick={category=value},enabled=!c.busy,label={Text(label)})
+                FilterChip(selected=category==value,onClick={category=value},enabled=!c.busy,label={Text(tr(label))})
             }
-            OutlinedTextField(value=note,onValueChange={note=it.take(1000)},label={Text("Optional details")},enabled=!c.busy,modifier=Modifier.fillMaxWidth())
-            if (c.error.isNotBlank()) Text(c.error,color=MaterialTheme.colorScheme.error)
+            OutlinedTextField(value=note,onValueChange={note=it.take(1000)},label={Text(tr("Optional details"))},enabled=!c.busy,modifier=Modifier.fillMaxWidth())
+            if (c.error.isNotBlank()) Text(tr(c.error),color=MaterialTheme.colorScheme.error)
         }
     }, confirmButton = {
-        TextButton(onClick = { if (sent) open=false else c.submitContentReport(summary,category,note) { sent=true } }, enabled=!c.busy) { Text(if (sent) "Done" else if (c.busy) "Sending…" else "Send report") }
-    }, dismissButton = { if (!sent) TextButton(onClick={open=false},enabled=!c.busy) {Text("Cancel")} })
+        TextButton(onClick = { if (sent) open=false else c.submitContentReport(summary,category,note) { sent=true } }, enabled=!c.busy) { Text(tr(if (sent) "Done" else if (c.busy) "Sending…" else "Send report")) }
+    }, dismissButton = { if (!sent) TextButton(onClick={open=false},enabled=!c.busy) {Text(tr("Cancel"))} })
 }

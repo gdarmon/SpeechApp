@@ -24,7 +24,7 @@ internal fun PhrasePlaybackControls(text: String, language: String, enabled: Boo
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Icon(painterResource(if (slow) R.drawable.ic_play_slow else R.drawable.ic_play), null, Modifier.size(22.dp))
-                    Text(label, style = MaterialTheme.typography.labelSmall)
+                    Text(tr(label), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

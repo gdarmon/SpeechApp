@@ -50,7 +50,7 @@ class ReminderWorker(context: Context, parameters: WorkerParameters) : Coroutine
                 val reminder = api.post("/rewards/reminder?language=${settings.supportLanguage.ifBlank { "en-US" }}")
                 if (reminder.optBoolean("notify")) {
                     val manager = applicationContext.getSystemService(NotificationManager::class.java)
-                    manager.createNotificationChannel(NotificationChannel("practice", "Practice reminders", NotificationManager.IMPORTANCE_DEFAULT))
+                    manager.createNotificationChannel(NotificationChannel("practice", uiText("Practice reminders", settings.supportLanguage), NotificationManager.IMPORTANCE_DEFAULT))
                     val intent = PendingIntent.getActivity(applicationContext, 0,
                         Intent(applicationContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

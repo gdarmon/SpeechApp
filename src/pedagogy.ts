@@ -32,7 +32,7 @@ const tasks = [
   "Invite one final answer using a learned pattern. Keep ideas available as optional help; do not demand a summary of the whole lesson.",
 ];
 const languageWork = [
-  "One concrete phrase, present tense, one clause. Reuse TWO answer frames (e.g. Quero ... / Pode repetir?). Accept one-word answers when they answer the question. No subordinate clauses, explanations, or hypothetical situations.",
+  "One concrete phrase, present tense, one clause. Reuse familiar answer frames, adapting them to the current question (e.g. Quero ... for a choice, Sim / Não for a confirmation). Accept one-word answers when they answer the question. No subordinate clauses, explanations, or hypothetical situations.",
   "One short sentence with ONE useful detail. Reuse TWO answer frames, then vary one slot. Familiar present tense or vou + infinitive; do not demand a reason and another detail together.",
   "Link two short thoughts with one familiar connector (e.g. porque or depois). Reuse TWO or THREE answer frames. Practise a short reason OR sequence, one at a time.",
   "Explain one event or resolve one misunderstanding. Reuse THREE frames for a past event, clarification and its reason. Ask one focused follow-up; never combine two independent requests.",
@@ -79,11 +79,31 @@ export function beginnerModel(term: string, meaning: string, question: number, l
   const model = models[question];
   if (!model) return undefined;
   const he = language === "he-IL";
+  const name = `״${term}״ (${meaning})`;
+  let answers = [
+    [`Quero ${term}.`, `אני רוצה לשמוע את ${name}.`, `I'd like to hear “${term}” (${meaning}).`],
+    ["Pode falar esse nome?", "אפשר לומר את השם הזה?", "Could you say that name?"],
+  ];
+  if ([3, 6, 7].includes(question)) {
+    answers = [
+      [`${term}.`, name, `“${term}” (${meaning}).`],
+      ["Quero repetir esse nome.", "אני רוצה לחזור על השם הזה.", "I'd like to repeat that name."],
+    ];
+  } else if (question === 1 || question === 4) {
+    const hearing = question === 1;
+    answers = [
+      [`Sim, ${term}, devagar.`, `כן, ${name}, לאט.`, `Yes, “${term}” (${meaning}), slowly.`],
+      hearing ? ["Não, pode falar normalmente.", "לא, אפשר לדבר בקצב רגיל.", "No, you can speak at a normal pace."]
+        : ["Não, quero repetir normalmente.", "לא, אני רוצה לחזור בקצב רגיל.", "No, I'd like to repeat it at a normal pace."],
+    ];
+  } else if (question === 8) {
+    answers = [
+      [`Sim, ${term}.`, `כן, ${name}.`, `Yes, “${term}” (${meaning}).`],
+      ["Não, já ouvi esse nome.", "לא, כבר שמעתי את השם הזה.", "No, I've already heard that name."],
+    ];
+  }
   return { text: model[0], translation: model[he ? 1 : 2],
-    suggested_replies: [
-      { text: `Quero ${term}.`, translation: he ? `אני רוצה את השם ״${term}״ (${meaning}).` : `I'd like “${term}” (${meaning}).` },
-      { text: "Pode repetir?", translation: he ? "אפשר לחזור?" : "Could you repeat?" },
-    ] };
+    suggested_replies: answers.map(answer => ({ text: answer[0], translation: answer[he ? 1 : 2] })) };
 }
 
 export function lessonModel(term: string, meaning: string, question: number, language: string, levelValue: unknown) {
@@ -117,7 +137,11 @@ export function lessonModel(term: string, meaning: string, question: number, lan
   let model = models[level - 2];
   if (question === 1 || question === 4) {
     model = { ...models[0], text: `Quer repetir ${named} devagar?`,
-      he: `תרצה לחזור על ${named} לאט?`, en: `Would you like to repeat ${named} slowly?` };
+      he: `תרצה לחזור על ${named} לאט?`, en: `Would you like to repeat ${named} slowly?`,
+      answers: [
+        [`Sim, quero repetir ${named} devagar.`, `כן, אני רוצה לחזור על ${named} לאט.`, `Yes, I'd like to repeat ${named} slowly.`],
+        ["Não, prefiro repetir normalmente.", "לא, אני מעדיף לחזור בקצב רגיל.", "No, I'd prefer to repeat it at a normal pace."],
+      ] };
   } else if (question === 6) {
     model = { ...models[0], text: `O que ajudaria você a repetir ${named}?`,
       he: `מה יעזור לך לחזור על ${named}?`, en: `What would help you repeat ${named}?` };

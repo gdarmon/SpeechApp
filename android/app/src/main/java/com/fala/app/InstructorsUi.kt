@@ -53,10 +53,10 @@ internal fun capoeiraSession(session: JSONObject) = session.optBoolean("capoeira
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             selected?.let { InstructorArt(it.getString("id"), portrait = true) }
             Column(Modifier.weight(1f)) {
-                Text("YOUR CAPOEIRA PARTNER", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                Text(selected?.getString("name") ?: "Fala only", fontWeight = FontWeight.SemiBold)
+                Text(tr("YOUR CAPOEIRA PARTNER"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(tr(selected?.getString("name") ?: "Fala only"), fontWeight = FontWeight.SemiBold)
             }
-            TextButton(onClick = { c.navigate("rewards") }, enabled = !c.busy) { Text("Change") }
+            TextButton(onClick = { c.navigate("rewards") }, enabled = !c.busy) { Text(tr("Change")) }
         }
     }
 }
@@ -66,8 +66,8 @@ internal fun capoeiraSession(session: JSONObject) = session.optBoolean("capoeira
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         selected?.let { InstructorArt(it.getString("id"), portrait = true) }
         Column {
-            Text(if (c.phase == "Speaking") "FALA · SPEAKING" else if (selected != null) "FALA · CAPOEIRA" else "YOUR CONVERSATION PARTNER", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            selected?.let { Text(it.getString("name"), style = MaterialTheme.typography.titleMedium) }
+            Text(tr(if (c.phase == "Speaking") "FALA · SPEAKING" else if (selected != null) "FALA · CAPOEIRA" else "YOUR CONVERSATION PARTNER"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            selected?.let { Text(tr(it.getString("name")), style = MaterialTheme.typography.titleMedium) }
         }
     }
 }
@@ -77,8 +77,8 @@ internal fun capoeiraSession(session: JSONObject) = session.optBoolean("capoeira
     if (items.isEmpty()) return
     val chosen = c.rewards.optJSONObject("profile")?.optString("instructor")
     var preview by remember { mutableStateOf<JSONObject?>(null) }
-    Text("Choose your capoeira partner.", style = MaterialTheme.typography.titleLarge)
-    Text("Unlock a familiar face through practice, at any speaking level.")
+    Text(tr("Choose your capoeira partner."), style = MaterialTheme.typography.titleLarge)
+    Text(tr("Unlock a familiar face through practice, at any speaking level."))
     items.forEach { item ->
         val id = item.getString("id")
         val selected = chosen == id
@@ -86,33 +86,33 @@ internal fun capoeiraSession(session: JSONObject) = session.optBoolean("capoeira
         val remaining = (item.optInt("xp") - c.rewards.optInt("xp")).coerceAtLeast(0)
         OutlinedCard(Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(Modifier.width(96.dp).height(172.dp).semantics { contentDescription = "Preview ${item.getString("name")}" }.clickable(enabled = !c.busy) { preview = item }) {
+                Box(Modifier.width(96.dp).height(172.dp).semantics { contentDescription = uiText("Preview ${item.getString("name")}", c.supportLanguage) }.clickable(enabled = !c.busy) { preview = item }) {
                     InstructorArt(id, Modifier.fillMaxSize())
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(item.getString("name"), style = MaterialTheme.typography.titleLarge)
-                    Text(item.optString("color"), style = MaterialTheme.typography.bodySmall)
-                    Text(if (!unlocked) "${item.optInt("xp")} XP · $remaining to go" else if (item.optInt("xp") == 0) "Ready from day one" else "Unlocked through practice", style = MaterialTheme.typography.bodySmall)
+                    Text(tr(item.getString("name")), style = MaterialTheme.typography.titleLarge)
+                    Text(tr(item.optString("color")), style = MaterialTheme.typography.bodySmall)
+                    Text(tr(if (!unlocked) "${item.optInt("xp")} XP · $remaining to go" else if (item.optInt("xp") == 0) "Ready from day one" else "Unlocked through practice"), style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = { if (unlocked) c.saveRewardPreferences(JSONObject().put("instructor", id)) else preview = item }, enabled = !c.busy && !selected) {
-                        Text(if (selected) "Selected" else if (unlocked) "Use ${item.getString("name")}" else "Preview")
+                        Text(tr(if (selected) "Selected" else if (unlocked) "Use ${item.getString("name")}" else "Preview"))
                     }
                 }
             }
         }
     }
     TextButton(onClick = { c.saveRewardPreferences(JSONObject().put("instructor", "none")) }, enabled = !c.busy && chosen != "none") {
-        Text(if (chosen == "none") "Fala only selected" else "Use Fala without a character")
+        Text(tr(if (chosen == "none") "Fala only selected" else "Use Fala without a character"))
     }
-    Text("Character skins share Fala’s voice and coaching. Your speaking level and lessons stay yours.", style = MaterialTheme.typography.bodySmall)
+    Text(tr("Character skins share Fala’s voice and coaching. Your speaking level and lessons stay yours."), style = MaterialTheme.typography.bodySmall)
     preview?.let { item ->
-        AlertDialog(onDismissRequest = { preview = null }, title = { Text(item.getString("name")) }, text = {
+        AlertDialog(onDismissRequest = { preview = null }, title = { Text(tr(item.getString("name"))) }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 InstructorArt(item.getString("id"), Modifier.fillMaxWidth().height(220.dp))
-                Text(if (item.optBoolean("unlocked")) "Ready for your next capoeira conversation." else "${(item.optInt("xp") - c.rewards.optInt("xp")).coerceAtLeast(0)} more XP to unlock. Keep practising at your own pace.")
+                Text(tr(if (item.optBoolean("unlocked")) "Ready for your next capoeira conversation." else "${(item.optInt("xp") - c.rewards.optInt("xp")).coerceAtLeast(0)} more XP to unlock. Keep practising at your own pace."))
             }
         }, confirmButton = {
-            TextButton(onClick = { preview = null; c.saveRewardPreferences(JSONObject().put("instructor", item.getString("id"))) }, enabled = !c.busy && item.optBoolean("unlocked") && chosen != item.getString("id")) { Text("Use ${item.getString("name")}") }
-        }, dismissButton = { TextButton(onClick = { preview = null }) { Text("Close") } })
+            TextButton(onClick = { preview = null; c.saveRewardPreferences(JSONObject().put("instructor", item.getString("id"))) }, enabled = !c.busy && item.optBoolean("unlocked") && chosen != item.getString("id")) { Text(tr("Use ${item.getString("name")}")) }
+        }, dismissButton = { TextButton(onClick = { preview = null }) { Text(tr("Close")) } })
     }
 }
 
@@ -123,9 +123,9 @@ internal fun capoeiraSession(session: JSONObject) = session.optBoolean("capoeira
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         InstructorArt(selected.getString("id"), Modifier.width(76.dp).height(140.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (unlocked.isNotEmpty()) "${unlocked.joinToString(" & ") { it.getString("name") }} unlocked" else "Boa! One conversation further.", style = MaterialTheme.typography.titleMedium)
-            Text(if (unlocked.isNotEmpty()) "A new look for your next capoeira conversation." else "${selected.getString("name")} will be here for your next capoeira practice.", style = MaterialTheme.typography.bodySmall)
-            if (unlocked.isNotEmpty()) TextButton(onClick = { c.navigate("rewards") }, enabled = !c.busy) { Text("Choose a partner") }
+            Text(tr(if (unlocked.isNotEmpty()) "${unlocked.joinToString(" & ") { it.getString("name") }} unlocked" else "Boa! One conversation further."), style = MaterialTheme.typography.titleMedium)
+            Text(tr(if (unlocked.isNotEmpty()) "A new look for your next capoeira conversation." else "${selected.getString("name")} will be here for your next capoeira practice."), style = MaterialTheme.typography.bodySmall)
+            if (unlocked.isNotEmpty()) TextButton(onClick = { c.navigate("rewards") }, enabled = !c.busy) { Text(tr("Choose a partner")) }
         }
     }
 }

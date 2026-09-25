@@ -30,7 +30,10 @@ it('speaks the saved Portuguese reply with a Brazilian voice and no arbitrary pr
     expect(url).toBe('https://api.openai.com/v1/audio/speech');
     const body = JSON.parse(init!.body as string);
     expect(body).toMatchObject({ model: 'gpt-4o-mini-tts', voice: 'coral', input: spokenReply(reply), response_format: 'mp3' });
-    expect(body.instructions).toContain('Brazilian Portuguese'); return new Response(new Uint8Array([1, 2, 3]));
+    expect(body.instructions).toContain('Brazilian Portuguese');
+    expect(body.instructions).toContain('natural conversational pace');
+    expect(body.instructions).not.toContain('slow beginner-friendly');
+    return new Response(new Uint8Array([1, 2, 3]));
   });
   expect(new Uint8Array(await speech.speak(reply))).toEqual(new Uint8Array([1, 2, 3]));
 });

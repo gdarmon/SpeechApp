@@ -21,6 +21,40 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class PhrasePlaybackTest {
+    @Test fun automaticQuestionsRespectNormalPlaybackDespiteGeneratedSlowPace() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val c = ViewModelProvider(activity)[SessionController::class.java]
+                val screen = SessionController::class.java.getDeclaredField("screen\$delegate").apply { isAccessible = true }
+                @Suppress("UNCHECKED_CAST")
+                (screen.get(c) as MutableState<String>).value = "talk"
+                val played = mutableListOf<Boolean>()
+                val output = SessionController::class.java.getDeclaredField("output").apply { isAccessible = true }
+                (output.get(c) as SpeechOutput).close()
+                output.set(c, object : SpeechOutput {
+                    override fun speak(text: String, slow: Boolean, done: () -> Unit, error: (PlaybackFailure) -> Unit) {
+                        played.add(slow); done()
+                    }
+                    override fun stop() {}
+                    override fun close() {}
+                })
+                c.setForeground(true)
+                c.reply.put("text", "Quer ouvir esse nome?").put("pace", "slow")
+                // Exercise the same default-argument path used after start/turn responses.
+                val autoplay = SessionController::class.java.getDeclaredMethod("playReply\$default",
+                    SessionController::class.java, Boolean::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType, Any::class.java).apply { isAccessible = true }
+                c.play(false)
+                autoplay.invoke(null, c, false, 1, null)
+                c.play(true)
+                autoplay.invoke(null, c, false, 1, null)
+                c.play(false)
+                autoplay.invoke(null, c, false, 1, null)
+                assertEquals(listOf(false, false, true, true, false, false), played)
+            }
+        }
+    }
+
     @Test fun questionAndPhraseButtonsSendDifferentRatesEvenWhenTheLessonAlreadyRequestsSlowSpeech() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val rates = mutableListOf<Float>()

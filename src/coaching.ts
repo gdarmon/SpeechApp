@@ -28,6 +28,16 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     // occurrence of a word we deliberately teach throughout this curriculum.
     const repetitionRequest = /^(?:(?:voce )?pode(?:ria)?(?: voce)? (?:repetir|falar de novo|dizer novamente)|repete|repita|de novo|novamente)\b/.test(termKey(input?.text ?? ""));
     const repair = help || reply.turn_feedback?.kind === "clarify" || repetitionRequest;
+    if (!start && !final && !repair && !respondsToNewTerm) {
+      type PriorReply = { text?: string; suggested_replies?: (string | { text: string })[] };
+      const previous = (context.turns as { reply?: PriorReply }[] | undefined)?.at(-1)?.reply
+        ?? context.opening as PriorReply | undefined;
+      const priorIdeas = previous?.suggested_replies?.map(idea => normalized(typeof idea === "string" ? idea : idea.text));
+      if (priorIdeas?.length === 2 && normalized(previous?.text ?? "") !== normalized(reply.text)
+        && reply.suggested_replies.length === 2 && reply.suggested_replies.every(idea => priorIdeas.includes(normalized(idea.text)))) {
+        reject("The question changed but both answer ideas were copied from the previous question. Adapt the ideas to answer the current question; keep familiar vocabulary, not a fixed pair of answers.");
+      }
+    }
     if (!lesson && !help && !final && !repair && teaching?.focus_words?.length) {
       const exposure = normalized([reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" ")).split(" ");
       const retained = teaching.focus_words.some(word => exposure.some(token => token === word

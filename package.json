@@ -1,6 +1,6 @@
 {
   "name": "fala-speech-app",
-  "version": "0.13.7",
+  "version": "0.14.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,7 +12,7 @@
     "test": "vitest run",
     "dev": "netlify dev",
     "benchmark": "node --env-file-if-exists=.env scripts/benchmark.mjs",
-    "test:web": "node tests/web-browser.mjs && node tests/web-rewards.mjs"
+    "test:web": "node tests/web-browser.mjs && node tests/web-rewards.mjs && node tests/web-reminders.mjs"
   },
   "dependencies": {
     "@netlify/functions": "6.0.0",

@@ -2,13 +2,15 @@ import { Recorder, Voice } from './voice.js';
 import { createRewards } from './rewards.js';
 import { apiRequest } from './api.js';
 import { createWalkthrough } from './walkthrough.js';
+import { t, setText, setUiLanguage, localizeTree } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, visible = true) => { $(id).hidden = !visible; };
-const text = (id, value) => { $(id).textContent = value ?? ''; };
+const text = (id, value) => { setText($(id), value); };
 const preferences = { get: key => { try { return localStorage.getItem(`fala.${key}`); } catch { return null; } }, set: (key, value) => { try { localStorage.setItem(`fala.${key}`, value); } catch { /* Private browsing may disallow storage. */ } } };
 let language = preferences.get('language') === 'en-US' ? 'en-US' : 'he-IL';
 let user = null, session = null, reply = null;
+const conversationLanguage = () => session?.support_language || language;
 let transcriptionService = "the configured speech service";
 let busy = false, epoch = 0, retryAction = null, recordingUrl = null, recorded = null, speechMs = 0;
 let ideasHidden = preferences.get('hideIdeas') === 'true', assisted = !ideasHidden, pendingTurn = null, pendingStart = null;
@@ -35,7 +37,7 @@ function rememberWalkthrough() {
     .finally(() => { if (walkthroughSyncAccount === account) walkthroughSyncAccount = ''; });
 }
 function guideHint() {
-  translated($('walkthrough-hint'), language === 'he-IL' ? 'לחצו על Talk כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה.' : 'Tap Talk to start. A short guide will show you how to listen, speak and send your reply.');
+  translated($('walkthrough-hint'), language === 'he-IL' ? 'לחצו על ״מתחילים לדבר״ כדי להתחיל. הדרכה קצרה תראה לכם איך להקשיב, לדבר ולשלוח תשובה.' : 'Tap Talk to start. A short guide will show you how to listen, speak and send your reply.', language);
   show('walkthrough-hint', walkthrough.needed());
   text('replay-walkthrough', language === 'he-IL' ? 'הצגת הדרכת השיחה שוב' : 'Show the conversation guide again');
 }
@@ -72,7 +74,7 @@ async function task(action, status = '') {
       if (error.status === 401) { leave(); user = null; rewards.reset(); screen('welcome'); failure(new Error('Please sign in again. Saved conversations will be waiting in your history.')); }
       else failure(error, () => task(action, status));
     }
-  } finally { if (current === epoch) { setBusy(false); show('notice', false); } }
+  } finally { if (current === epoch) { setBusy(false); show('notice', false); localizeTree(); } }
 }
 function screen(id) {
   document.querySelectorAll('.screen').forEach(element => { element.hidden = element.id !== id; });
@@ -83,6 +85,7 @@ function screen(id) {
   $('conversation-content').scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'instant' });
   fitViewport();
+  localizeTree();
 }
 function fitViewport() {
   const viewport = window.visualViewport;
@@ -97,12 +100,15 @@ function updateDraft() {
   $('draft').style.height = `${Math.max(48, Math.min(76, $('draft').scrollHeight + 2))}px`;
   $('send').disabled = busy || recorder.active || !$('draft').value.trim();
 }
-function translated(element, value) { element.textContent = value || ''; element.lang = language === 'he-IL' ? 'he' : 'en'; element.dir = language === 'he-IL' ? 'rtl' : 'ltr'; }
-function setLanguage(value) {
-  language = value; preferences.set('language', language); $('language').value = $('home-language').value = language; guideHint();
+function translated(element, value, locale = conversationLanguage()) { element.textContent = value || ''; element.translate = false; element.lang = locale === 'he-IL' ? 'he' : 'en'; element.dir = locale === 'he-IL' ? 'rtl' : 'ltr'; }
+function setLanguage(value, save = false) {
+  language = value; preferences.set('language', language);
+  for (const id of ['language', 'home-language', 'settings-language']) $(id).value = language;
+  setUiLanguage(language); guideHint();
+  if (save && user) void post('/rewards/settings', { ui_language: language }).catch(error => failure(error));
 }
 setLanguage(language);
-for (const id of ['language', 'home-language']) $(id).onchange = event => setLanguage(event.target.value);
+for (const id of ['language', 'home-language', 'settings-language']) $(id).onchange = event => setLanguage(event.target.value, true);
 function discardRecording() {
   $('recording').pause(); $('recording').removeAttribute('src'); $('recording').load(); show('recording', false);
   if (recordingUrl) URL.revokeObjectURL(recordingUrl); recordingUrl = null; recorded = null; speechMs = 0;
@@ -119,6 +125,9 @@ async function home() {
   screen('home'); text('account-email', user.email); guideHint();
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
+    const profile = dashboard.rewards?.profile;
+    if (['he-IL', 'en-US'].includes(profile?.ui_language)) setLanguage(profile.ui_language);
+    else if (profile && Object.hasOwn(profile, 'ui_language')) await post('/rewards/settings', { ui_language: language });
     await rewards.initialize(dashboard.rewards); if(current!==epoch)return;
     walkthroughAccount = typeof dashboard.rewards?.profile?.walkthrough_seen === 'boolean' ? user.email : '';
     if (walkthroughAccount) walkthrough.restore(dashboard.rewards.profile.walkthrough_seen);
@@ -131,7 +140,7 @@ async function home() {
       const button = document.createElement('button'); button.textContent = `${new Date(item.started_at).toLocaleDateString()} · ${item.topic} · ${item.ended_at ? 'Review' : 'Continue'}`;
       button.onclick = () => { voice.unlock(); void task(async current => {
         const saved = await api(`/sessions/${item.id}`); if (current !== epoch) return;
-        session = saved; setLanguage(saved.support_language || language);
+        session = saved;
         if (saved.feedback) review(saved.feedback); else { renderSession(); if (saved.turns.filter(turn => !turn.help).length >= 10 || !walkthrough.open()) listen(); }
       }, 'Opening your conversation…'); };
       $('history').append(button);
@@ -157,21 +166,24 @@ $('login-begin').onclick = () => {
     google.accounts.id.initialize({ client_id: challenge.google_client_id, nonce: challenge.nonce, auto_select: false,
       callback: credential => { void task(async current => {
         const account = await post('/auth/web/google', { challenge_id: challenge.challenge_id, id_token: credential.credential, age_eligible: true });
-        if (current !== epoch) return; user = account; await home();
+        if (current !== epoch) return; user = account; await post('/rewards/settings', {ui_language: language}); await home();
       }, 'Signing you in…'); } });
     $('google-sign-in').replaceChildren();
-    google.accounts.id.renderButton($('google-sign-in'), { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', width: Math.min(320, $('google-sign-in').clientWidth) });
+    google.accounts.id.renderButton($('google-sign-in'), { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', locale: language === 'he-IL' ? 'he' : 'en', width: Math.min(320, $('google-sign-in').clientWidth) });
   }, 'Preparing Google sign-in…');
 };
 $('signout').onclick = () => { void task(async current => { try{await rewards.disconnect();}catch{} await post('/auth/logout'); if (current !== epoch) return; user = null; rewards.reset(); leave(); screen('welcome'); }); };
 $('start').onclick = () => {
   voice.unlock();
+  const reminderSetup = rewards.requestDefaultNotifications();
   if (!pendingStart) {
     pendingStart = { request_id: crypto.randomUUID(), topic: $('topic').value, support_language: language };
     if (+$('level').value) pendingStart.practice_level = +$('level').value;
   }
   const input = pendingStart;
   void task(async current => {
+    // Finish the first device registration before starting another account mutation.
+    await reminderSetup; if (current !== epoch) return;
     const saved = await post('/sessions', input); if (current !== epoch) return;
     pendingStart = null; session = saved; renderSession(); if (!walkthrough.open()) listen();
   }, 'Fala is starting a conversation…');
@@ -199,7 +211,7 @@ function renderReply(round, topic, complete = false) {
     phrase.onclick = () => {
       if (busy || recorder.active || pendingTurn) return;
       voice.stop(); $('recording').pause(); speechMs = 0; assisted = true;
-      $('help').checked = false; $('draft').lang = 'pt-BR'; $('draft').placeholder = 'Your reply… speak or type';
+      $('help').checked = false; $('draft').lang = 'pt-BR'; $('draft').placeholder = t('Your reply… speak or type');
       $('draft').value = idea.text; updateDraft();
       text('voice-state', 'Make it your own, then send. Or hold the microphone to say it.');
     };
@@ -215,7 +227,7 @@ function renderReply(round, topic, complete = false) {
       path.setAttribute('d', slow ? 'M3 6 11 12 3 18ZM13 6 21 12 13 18Z' : 'M8 5 19 12 8 19Z');
       icon.append(path);
       const label = document.createElement('span');
-      label.textContent = slow ? (language === 'he-IL' ? 'איטי' : 'Slow') : (language === 'he-IL' ? 'רגיל' : 'Normal');
+      setText(label, slow ? 'Slow' : 'Normal');
       button.append(icon, label);
       button.title = slow ? 'Listen slowly' : 'Listen to this answer';
       button.setAttribute('aria-label', `${slow ? 'Slowly listen' : 'Listen'} to suggested answer ${index + 1}: ${idea.text}`);
@@ -268,7 +280,7 @@ $('microphone').onkeyup = event => { if ([' ', 'Enter'].includes(event.key)) { e
 $('microphone').onblur = () => { if (recorder.active) recorder.cancel(); };
 async function recordedAnswer(recording) {
   discardRecording(); recorded = recording; recordingUrl = URL.createObjectURL(recording.blob); $('recording').src = recordingUrl; show('recording');
-  const requestedLanguage = $('help').checked ? language.slice(0, 2) : 'pt';
+  const requestedLanguage = $('help').checked ? conversationLanguage().slice(0, 2) : 'pt';
   await task(async current => {
     const result = await api(`/speech/transcribe?language=${requestedLanguage}`, { method: 'POST', headers: { 'Content-Type': recording.blob.type }, body: recording.blob });
     if (current !== epoch) return; $('draft').value = result.text; speechMs = recording.duration; updateDraft();
@@ -277,8 +289,8 @@ async function recordedAnswer(recording) {
 }
 $('draft').oninput = () => { speechMs = 0; pendingTurn = null; clearError(); updateDraft(); };
 $('help').onchange = () => {
-  pendingTurn = null; clearError(); $('draft').lang = $('help').checked ? language : 'pt-BR';
-  $('draft').placeholder = $('help').checked ? `Say it in ${language === 'he-IL' ? 'Hebrew' : 'English'} first…` : 'Your reply… speak or type';
+  pendingTurn = null; clearError(); $('draft').lang = $('help').checked ? conversationLanguage() : 'pt-BR';
+  $('draft').placeholder = t($('help').checked ? `Say it in ${conversationLanguage() === 'he-IL' ? 'Hebrew' : 'English'} first…` : 'Your reply… speak or type');
 };
 $('options').onclick = () => { voice.stop(); $('conversation-options').showModal(); };
 $('close-options').onclick = () => $('conversation-options').close();
@@ -287,7 +299,7 @@ $('send').onclick = () => {
   if (recorder.active) return;
   if (!$('draft').value.trim()) { failure(new Error('Record or type a short answer first.')); return; }
   voice.unlock();
-  pendingTurn ??= { request_id: crypto.randomUUID(), text: $('draft').value.trim(), help: $('help').checked, language: $('help').checked ? language : 'pt-BR',
+  pendingTurn ??= { request_id: crypto.randomUUID(), text: $('draft').value.trim(), help: $('help').checked, language: $('help').checked ? conversationLanguage() : 'pt-BR',
     speech_ms: speechMs, source: speechMs ? 'speech' : 'typed', assisted, ideas_hidden: !assisted && ideasHidden };
   const input = pendingTurn, id = session.id;
   $('draft').blur(); voice.stop();
@@ -336,7 +348,7 @@ function openReport(summary) {
   const last = session.turns.at(-1);
   reportInput = { session_id: session.id, target: summary ? 'summary' : last ? 'reply' : 'opening', turn_id: summary ? null : last?.id ?? null };
   $('report-form').hidden = false; $('report-note').value = ''; $('report-category').value = 'inappropriate';
-  $('report-result').hidden = true; $('report-close').textContent = 'Cancel'; $('report-dialog').showModal();
+  $('report-result').hidden = true; text('report-close', 'Cancel'); $('report-dialog').showModal();
 }
 $('report-reply').onclick = () => openReport(false);
 $('report-summary').onclick = () => openReport(true);

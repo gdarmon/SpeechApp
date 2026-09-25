@@ -1,5 +1,6 @@
+import { setText, localizeTree } from './i18n.js';
 const $ = id => document.getElementById(id);
-const el = (tag, text = '', className = '') => { const node = document.createElement(tag); node.textContent = text; node.className = className; return node; };
+const el = (tag, text = '', className = '') => { const node = document.createElement(tag); setText(node, text); node.className = className; return node; };
 const ids = new Set(['bananera', 'bateba', 'vesoura']);
 function art(id, full = false) {
   const box = el('span', '', full ? 'partner-art' : 'partner-portrait'); box.dataset.partner = id;
@@ -40,6 +41,7 @@ export function createPartners({ choose, openCollection }) {
     use.disabled = !item.unlocked || state.profile.instructor === item.id;
     use.onclick = () => { dialog.close(); choose(item.id); };
     dialog.showModal();
+    localizeTree(dialog);
   }
   function render(data) {
     state = data; home(); conversation();

@@ -39,9 +39,10 @@ export const rewardSettingsSchema = z.strictObject({
   reduce_motion: z.boolean().optional(), reminder_enabled: z.boolean().optional(),
   reminder_minute: z.number().int().min(0).max(1439).multipleOf(15).optional(),
   walkthrough_seen: z.literal(true).optional(),
+  ui_language: z.enum(['en-US','he-IL']).optional(),
 });
 type Profile = { nickname: string; timezone: string; timezone_confirmed: boolean; theme: string; skin: string; instructor: string;
-  appearance: string; reduce_motion: boolean; reminder_enabled: boolean; reminder_minute: number; zone_changed_at: string | null; walkthrough_seen: boolean };
+  appearance: string; reduce_motion: boolean; reminder_enabled: boolean; reminder_minute: number; zone_changed_at: string | null; walkthrough_seen: boolean; ui_language: 'en-US' | 'he-IL' | null };
 const dateKey = (date: Date) => date.toISOString().slice(0,10);
 export const dayOffset = (date: string, days: number) => dateKey(new Date(Date.parse(date+'T12:00:00Z')+days*86400000));
 export const weekOf = (date: string) => dayOffset(date,-((new Date(date+'T12:00:00Z').getUTCDay()+6)%7));
@@ -78,7 +79,7 @@ export class Rewards {
       VALUES($1::uuid,EXISTS(SELECT 1 FROM fala.sessions s JOIN fala.turns t ON t.session_id=s.id WHERE s.user_id=$1::uuid))
       ON CONFLICT(user_id) DO UPDATE SET walkthrough_seen=true
       WHERE EXCLUDED.walkthrough_seen AND NOT fala.reward_profiles.walkthrough_seen`,[this.user]);
-    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,instructor,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at,walkthrough_seen FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
+    const [profile]=await this.db.query<Profile>('SELECT nickname,timezone,timezone_confirmed,theme,skin,instructor,appearance,reduce_motion,reminder_enabled,reminder_minute,zone_changed_at,walkthrough_seen,ui_language FROM fala.reward_profiles WHERE user_id=$1::uuid',[this.user]);
     return profile;
   }
   async snapshot() {
@@ -146,8 +147,8 @@ export class Rewards {
     await this.db.query(`UPDATE fala.reward_profiles SET nickname=$2,timezone=$3,theme=$4,skin=$5,appearance=$6,reduce_motion=$7,
       reminder_enabled=$8,reminder_minute=$9,timezone_confirmed=timezone_confirmed OR $10,
       zone_changed_at=CASE WHEN $10 AND timezone_confirmed AND timezone<>$3 THEN $11::timestamptz ELSE zone_changed_at END,instructor=$12,
-      walkthrough_seen=walkthrough_seen OR $13 WHERE user_id=$1::uuid`,
-      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString(),next.instructor,input.walkthrough_seen===true]);
+      walkthrough_seen=walkthrough_seen OR $13,ui_language=$14 WHERE user_id=$1::uuid`,
+      [this.user,next.nickname,next.timezone,next.theme,next.skin,next.appearance,next.reduce_motion,next.reminder_enabled,next.reminder_minute,!!input.timezone,this.now.toISOString(),next.instructor,input.walkthrough_seen===true,next.ui_language]);
     return this.snapshot();
   }
   async social() {
@@ -207,6 +208,7 @@ export class Rewards {
       AND occurred_at >= ($2::date::timestamp AT TIME ZONE $3)
       AND occurred_at < (($2::date+1)::timestamp AT TIME ZONE $3) LIMIT 1`,[this.user,day,profile.timezone]);
     if(practised.length)return {notify:false};
+    language ??= profile.ui_language ?? undefined;
     if(!language) {
       const [last]=await this.db.query<{language:string}>(`SELECT request->>'support_language' AS language
         FROM fala.sessions WHERE user_id=$1::uuid AND NOT demo ORDER BY started_at DESC LIMIT 1`,[this.user]);

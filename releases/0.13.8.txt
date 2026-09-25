@@ -1,0 +1,1 @@
+Answer ideas now follow the current question instead of repeating the same pair. Beginner lessons offer matching choices and confirmations while revisiting familiar words. Android respects your playback speed choice instead of automatically slowing each question to 45%. Web speech uses a natural pace; slower playback remains available.
