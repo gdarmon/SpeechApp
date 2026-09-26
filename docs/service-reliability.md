@@ -66,3 +66,38 @@ The optional full-session script uses ordinary learner APIs, which personalize f
 Read every generated conversation, not just the pass count. Record completed/failed requests, p50/p95/max and the number below three seconds; distinguish AI time, DB time, network/cold-start time and phone speech. Synthetic probes do not measure microphone recognition, device playback, diverse learner behavior or sustained service under load. Partial results are failures to complete, not a passing quality evaluation. Keep transcripts in ignored artifacts; preserve sanitized conclusions in the release receipt.
 
 If billing/model access fails, use the existing provider console and authorized configuration. Do not add free accounts to evade quotas, retry forever, return scripted teaching as if it were AI, or claim that removing the warning solved capacity. No user account, saved answer or history is deleted by recovery.
+
+## Detailed latency investigation
+
+The [26 September investigation](latency-investigation-2026-09-26.md) matched the reproduced long tail to delayed hosting invocation, including requests whose platform execution was only a few milliseconds longer than Fala's handler. Raising AI quotas alone does not address that evidence. The following maintained checks separate network, handler and provider time without changing a learner's history:
+
+```bash
+# Public baseline: three sequential requests, then read-only authenticated SQL.
+node scripts/check-latency.mjs
+FALA_LATENCY_TARGET=diagnostics node --env-file=.env scripts/check-latency.mjs
+
+# Fixed synthetic content only; paid and explicitly enabled. Start small.
+FALA_RUN_AI_PROBE=true FALA_LATENCY_TARGET=ai \
+  FALA_LATENCY_CONCURRENCY=10 FALA_LATENCY_WAVES=3 \
+  node --env-file=.env scripts/check-latency.mjs
+
+# Two bounded fifty-request waves. Do not loop in production.
+FALA_RUN_AI_PROBE=true FALA_LATENCY_TARGET=ai \
+  FALA_LATENCY_CONCURRENCY=50 FALA_LATENCY_WAVES=2 \
+  node --env-file=.env scripts/check-latency.mjs
+
+# Independent HTTP/2 comparison using one established, multiplexed connection.
+FALA_RUN_AI_PROBE=true FALA_LATENCY_TARGET=ai FALA_LATENCY_TRANSPORT=http2 \
+  FALA_LATENCY_CONCURRENCY=10 FALA_LATENCY_WAVES=2 \
+  node --env-file=.env scripts/check-latency.mjs
+
+# Match only the resulting request IDs to hosting logs using the existing
+# authorized Netlify CLI login. Substitute the report filename just printed.
+node scripts/check-hosting-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
+```
+
+`FALA_PROBE_ROUTE` defaults to `primary` in the detailed harness, isolating the provider from hedging; use `active` to include configured recovery. `FALA_URL` defaults to the production Fala host. The token is sent only to that explicitly configured HTTPS origin, and redirects are never followed. Reports contain timing/request IDs and numeric provider observations, never learner or generated text. HTTP/2 reports connection setup separately and excludes it from request-wave timings. First wave is not proof of a cold function, and later waves do not guarantee warm server instances.
+
+Limits are 1–50 concurrent requests, 1–3 waves and at most 100 requests per invocation. The existing 120-request/minute operator flood guard and provider token capacity still apply across separate invocations; leave appropriate time between large runs. A run exits **1** on HTTP/transport/response validation failures, **2** when any wave misses the p95 target (default `<3000 ms`, configurable through `FALA_LATENCY_MAX_P95_MS`), and **0** only when all waves pass. Small sample percentiles are descriptive, not an SLA.
+
+Hosting logs can take minutes to arrive. Their correlator exits **2** on incomplete coverage; rerun that read-only correlation later without repeating AI calls. It uses the repository's pinned Netlify CLI modules and existing login, and never writes unrelated log messages. `NETLIFY_SITE_ID` defaults to the documented Fala site. Timestamp offsets use separate clocks; platform duration can overlap initialization, so avoid summing overlapping spans or labeling every residual as queue time.
