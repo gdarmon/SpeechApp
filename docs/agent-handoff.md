@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained for release 0.14.2, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the last recorded release](releases/0.14.1.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.14.2, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.2.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -140,8 +140,8 @@ The local 0.13.8 notes represent the initial answer/playback fix prepared during
 
 - The owner reported roughly five seconds waiting after sending an answer. Code shows DB work, AI generation and possible validation repair; it does not prove which component caused that particular delay. No fixed five-second delay was found. This release does not claim a measured latency improvement.
 - For that investigation, measure request duration and `Server-Timing` (`src/timing.ts`), provider/repair paths and speech startup separately. `npm run benchmark` performs authenticated read-only diagnostics, not an AI-turn benchmark. Production log access must be authorized and use the established connection; retain no learner transcript in a report.
-- 0.14.1 native unit/build/lint checks passed; instrumentation was compiled. No physical device was connected for a new 0.14.1 phone audio, notification-delivery or Play-install test. Existing older device captures are historical evidence only.
-- The 0.14.1 closed release was committed successfully but was `IN_REVIEW` at its recorded verification time. Recheck before claiming Google approval or tester availability.
+- 0.14.2 native unit/build/lint checks passed; instrumentation was compiled. No physical device was connected for a new 0.14.2 phone audio, notification-delivery or Play-install test. Existing older device captures are historical evidence only.
+- The 0.14.2 closed release (104201) was committed successfully but was `IN_REVIEW` at its recorded verification time. The prior 0.14.1 release was `PUBLISHED`. Recheck before claiming Google approval or tester availability.
 - Scheduled reminders are best effort. The current scheduler processes bounded batches; review capacity before expanding the audience. There is no promise of an alarm exactly at 17:00.
 - Hebrew UI does not establish eligibility for young children. Keep existing access/consent behavior and consult the separate children/provider rollout work before changing it.
 

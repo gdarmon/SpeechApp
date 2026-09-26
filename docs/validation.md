@@ -1,6 +1,6 @@
 # Validation
 
-For current 0.14.0 checks, publication evidence and unverified phone/latency limits, see [the release record](releases/0.14.0.md). The sections below include historical validation and must not be treated as current-version device evidence.
+For current 0.14.2 checks, publication evidence and unverified live-content/phone/latency limits, see [the release record](releases/0.14.2.md). The sections below include historical validation and must not be treated as current-version device evidence.
 
 ## 0.12.3 — conversation reliability, 21 September 2026
 
