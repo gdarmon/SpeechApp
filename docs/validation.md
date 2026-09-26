@@ -1,14 +1,14 @@
 # Validation
 
-For the last verified publication, see [the 0.14.2 release record](releases/0.14.2.md). The sections below distinguish local preparation from deployment evidence; historical checks must not be treated as current-version device evidence.
+For verified publication and measurements, see [the 0.14.3 release record](releases/0.14.3.md). The sections below distinguish local checks from deployment evidence; historical checks must not be treated as current-version device evidence.
 
-## 0.14.3 preparation — conversation capacity and recovery, 26 September 2026
+## 0.14.3 — conversation capacity and recovery, 26 September 2026
 
 - 173 backend tests passed, including immediate failure recovery, delayed backup, first-valid-result selection, cancellation, one shared deadline, route/credential isolation, account-scoped budgets and operator-only synthetic diagnostics. The live-probe teaching regression is covered by learner-fact continuity and provider repair tests.
 - Clean npm 10.9.7 installation, TypeScript/site build, Netlify function packaging and all three web browser suites passed. Native Android unit tests, debug build and lint passed; changed instrumentation test sources compiled. No physical-device test was performed.
-- The owner requested capacity for 50 concurrent learners. The code and [measurement tools](service-reliability.md) are prepared; no 50-request production result is claimed. The owner explicitly approved paid OpenAI conversations/web transcription, Groq conversation backup and disabled daily app allowances, retaining flood protection. Production activation and measurements must be verified in the release receipt.
+- The owner approved paid OpenAI conversations/web transcription, Groq conversation backup and disabled daily app allowances, retaining flood protection. Authorized runtime diagnostics verified these settings. A corrected synthetic burst returned 50/50 replies, median 3.674 seconds / p95 6.943 seconds; the below-three-second target remains unmet. The existing provider quotas are insufficient for the documented sustained 50-learner planning assumption. See the release receipt for actual limits and measurements.
 - The fixed operator probe uses no saved learner context. Optional full-session checks require a separate test-only learner account because ordinary session endpoints personalize from account history and retain aggregate rewards after conversation deletion.
-- No 0.14.3 website, internal or closed-testing publication is claimed by these local checks. Update this section and add a dated release receipt after the authorized production configuration and deployment are verified.
+- Final-source CI passed against PostgreSQL and built the Android release bundle. Website, internal and closed-testing publication evidence belongs in the release receipt; local checks alone do not establish distribution or Google review approval.
 
 ## 0.12.3 — conversation reliability, 21 September 2026
 

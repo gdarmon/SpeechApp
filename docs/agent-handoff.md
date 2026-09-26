@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained for release 0.14.3, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.2.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.14.3, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.3.md) for dated deployment/capacity evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -31,7 +31,7 @@ flowchart LR
 | Identity | `src/auth.ts`: Google challenges/token verification, account ownership, hashed/revocable device sessions; browser HttpOnly cookies |
 | Persistence | `src/database.ts`, `src/store.ts`: SQL, user-scoped reads, transactions, advisory locks, request-ID idempotency |
 | Conversation flow | `src/service.ts`, `src/models.ts`: start/turn/help/finish contracts and orchestration |
-| AI boundary | `src/provider.ts`, `src/config.ts`: provider selection, deadlines, structured responses, retry/error handling |
+| AI boundary | `src/provider.ts`, `src/ai-routing.ts`, `src/config.ts`: provider selection, hedging, cancellation, deadlines, structured responses and error handling |
 | Teaching | `src/prompts.ts`, `src/coaching.ts`, `src/pedagogy.ts`: instructions, validation, reviewed question/reply models |
 | Content/progress | `src/capoeira.ts`, `src/learning.ts`, `src/vocabulary.ts`: lessons, speaking-level qualification, grounded word reviews |
 | Rewards/social | `src/rewards.ts`: account settings, XP, unlocks, circles, streaks, reminder claims |
@@ -47,7 +47,7 @@ flowchart LR
 | Distribution | `.github/workflows/`, `scripts/play-*.mjs`, `scripts/release.mjs`, `netlify.toml` |
 | Database changes | `supabase/migrations/*.sql`, applied in filename order to the confirmed database |
 
-Release 0.14.3 is being prepared for paid OpenAI conversation/transcription, OpenAI web voice and an explicitly configured Groq conversation backup; verify the deployed settings and release receipt. Native speech uses Android's selected services. Inspect current authorized environment settings before asserting a live provider/model: defaults in code are not proof of deployed settings. Provider fallback is opt-in through `FALA_AI_FALLBACK_PROVIDER`; never add a route or move credentials between providers implicitly.
+Release 0.14.3 runtime diagnostics verified paid OpenAI GPT-5.6 Luna conversation, OpenAI web transcription/voice and an explicitly configured Groq GPT-OSS 120B conversation backup. Daily app/user allowances are disabled; the per-account flood guard remains. Native speech uses Android's selected services. Inspect current authorized environment settings before asserting a live provider/model: defaults in code are not proof of deployed settings. Provider fallback is opt-in through `FALA_AI_FALLBACK_PROVIDER`; never add a route or move credentials between providers implicitly.
 
 ## Set up a fresh checkout
 
@@ -120,7 +120,7 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 
 ## What changed in 0.14.3
 
-Removed same-provider quota sleeps and native/web quota countdowns. Explicitly configured primary/backup generation uses one deadline and returns the first validated reply, cancelling the loser. The owner authorized paid services and requested capacity for 50 concurrent learners. Daily request allowances can be disabled with `0`; per-user flood protection remains. An operator-only, fixed synthetic probe supports capacity checks without accessing learner history. See [service reliability](service-reliability.md) for configuration, billing/throughput planning and reproducible checks. Do not treat the target of 50 users as a verified load-test result until the release receipt records measurements.
+Removed same-provider quota sleeps and native/web quota countdowns. Explicitly configured primary/backup generation uses one deadline and returns the first validated reply, cancelling the loser. The owner authorized paid services and requested capacity for 50 concurrent learners. Daily request allowances can be disabled with `0`; per-user flood protection remains. An operator-only, fixed synthetic probe supports capacity checks without accessing learner history. A real probe exposed inappropriate cord/rank offers; the final fix retains an explicit no-cord learner fact until a later personal update. See [service reliability](service-reliability.md) for configuration, billing/throughput planning and reproducible checks, and the release receipt for measured results. A passing 50-request burst is not sustained 50-learner voice capacity.
 
 ## What changed in 0.14.2
 
@@ -142,10 +142,11 @@ The local 0.13.8 notes represent the initial answer/playback fix prepared during
 
 ## Open issues and limits
 
-- The owner reported roughly five seconds waiting after sending an answer. Code shows DB work, AI generation and possible validation repair; it does not prove which component caused that particular delay. No fixed five-second delay was found. This release does not claim a measured latency improvement.
-- For that investigation, measure request duration and `Server-Timing` (`src/timing.ts`), provider/repair paths and speech startup separately. `npm run benchmark` performs authenticated read-only diagnostics, not an AI-turn benchmark. Production log access must be authorized and use the established connection; retain no learner transcript in a report.
-- 0.14.2 native unit/build/lint checks passed; instrumentation was compiled. No physical device was connected for a new 0.14.2 phone audio, notification-delivery or Play-install test. Existing older device captures are historical evidence only.
-- The 0.14.2 closed release (104201) was committed successfully but was `IN_REVIEW` at its recorded verification time. The prior 0.14.1 release was `PUBLISHED`. Recheck before claiming Google approval or tester availability.
+- The corrected 0.14.3 fixed synthetic burst returned 50/50 replies; end-to-end median was 3.674 seconds and p95 6.943 seconds. The below-three-second target was not met. AI time was 1.617 seconds median / 1.810 seconds p95; do not confuse handler timing with user latency. Transport, cold initialization and platform queuing still need separate measurement.
+- Actual OpenAI limits were 500 RPM / 500,000 TPM. Groq backup remained at 8,000 TPM / 1,000 RPD and returned 24 observed 429s in the corrected burst. Paid access and disabled daily app allowances do not establish sustained capacity or a backup capable of carrying all 50 learners. The release receipt documents the existing-account capacity upgrade required from the owner.
+- `npm run benchmark` measures authenticated read-only endpoints. Use the explicitly enabled fixed operator probe for actual AI capacity without extracting provider secrets. The optional full-session check requires a dedicated test-only learner account; it must not use the operator's legacy history or a real learner account. Physical speech and the changed web transcription route were not tested with real audio.
+- 0.14.3 native unit/build/lint checks passed; instrumentation was compiled. No physical device was connected for new phone audio, notification-delivery or Play-install checks. Older captures remain historical evidence only.
+- Read the latest release receipt and current Play state before claiming tester availability. A completed track transaction can still have a separate `IN_REVIEW` lifecycle.
 - Scheduled reminders are best effort. The current scheduler processes bounded batches; review capacity before expanding the audience. There is no promise of an alarm exactly at 17:00.
 - Hebrew UI does not establish eligibility for young children. Keep existing access/consent behavior and consult the separate children/provider rollout work before changing it.
 
