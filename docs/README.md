@@ -10,6 +10,7 @@ This is the entry point for people and coding agents taking over the repository.
 | Continue development in a fresh checkout | [Agent/developer handoff](agent-handoff.md) |
 | Publish the next version, including rollback/retries | [Release runbook](releasing.md) |
 | Switch to Claude Code, Copilot or another agent | [Agent setup and skills](agent-setup.md) |
+| Service capacity, paid routing and latency | [Recovery and measurement](service-reliability.md) |
 | Current lesson-quality correction | [Meaningful conversations and evaluation](lesson-quality.md) |
 | Latest recorded publication evidence | [0.14.2 release record](releases/0.14.2.md) |
 | Earlier language/reminder release | [0.14.0 release record](releases/0.14.0.md) |

@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained for release 0.14.2, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.2.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.14.3, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.2.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -47,7 +47,7 @@ flowchart LR
 | Distribution | `.github/workflows/`, `scripts/play-*.mjs`, `scripts/release.mjs`, `netlify.toml` |
 | Database changes | `supabase/migrations/*.sql`, applied in filename order to the confirmed database |
 
-The configured economical route is Groq conversation/transcription plus OpenAI web voice. Native speech uses Android's selected services. Inspect current authorized environment settings before asserting a live provider/model: defaults in code are not proof of deployed settings. Do not silently switch providers when one fails.
+Release 0.14.3 is being prepared for paid OpenAI conversation/transcription, OpenAI web voice and an explicitly configured Groq conversation backup; verify the deployed settings and release receipt. Native speech uses Android's selected services. Inspect current authorized environment settings before asserting a live provider/model: defaults in code are not proof of deployed settings. Provider fallback is opt-in through `FALA_AI_FALLBACK_PROVIDER`; never add a route or move credentials between providers implicitly.
 
 ## Set up a fresh checkout
 
@@ -61,7 +61,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 161 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 171 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 
@@ -117,6 +117,10 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 - Practice points are not proficiency. Current rewards cap at 20 XP per ten-answer spoken lesson and 40 per local day; legacy earned unlocks are preserved. Consult `src/rewards.ts` and the gamification document when changing this.
 - Keep separate learners' SQL, memory, reports and AI context isolated. Idempotent retries reuse the original request ID and normalized payload; do not issue a fresh ID simply to retry a lost response.
 - Preserve application ID `com.fala.app`, upload key, Play signing identity and Google OAuth certificate setup. No credential belongs in an app asset or public catalog.
+
+## What changed in 0.14.3
+
+Removed same-provider quota sleeps and native/web quota countdowns. Explicitly configured primary/backup generation uses one deadline and returns the first validated reply, cancelling the loser. The owner authorized paid services and requested capacity for 50 concurrent learners. Daily request allowances can be disabled with `0`; per-user flood protection remains. An operator-only, fixed synthetic probe supports capacity checks without accessing learner history. See [service reliability](service-reliability.md) for configuration, billing/throughput planning and reproducible checks. Do not treat the target of 50 users as a verified load-test result until the release receipt records measurements.
 
 ## What changed in 0.14.2
 

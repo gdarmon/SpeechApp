@@ -1,25 +1,27 @@
 import { AppError } from "./models.js";
 
+export interface AIRoute { apiKey: string; baseUrl: string; model: string }
 export interface Settings {
   token: string; databaseUrl: string; apiKey: string; baseUrl: string; model: string;
   demo: boolean; aiTimeoutMs: number; databaseCa: string; localDatabase: boolean;
   transcription: { provider: "openai" | "groq" | "none"; apiKey: string }; voiceApiKey: string;
   googleClientId: string; dailyUserLimit: number; dailyAppLimit: number;
+  fallback?: AIRoute; aiHedgeMs: number;
 }
 
 export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings {
-  const timeout = Number(env.AI_TIMEOUT_MS ?? 25000);
+  const timeout = Number(env.AI_TIMEOUT_MS ?? 8000);
   const googleClientId = (env.GOOGLE_WEB_CLIENT_ID || "").trim();
   if (googleClientId && !/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(googleClientId)) throw new AppError(503, "The Google web client ID is invalid.");
   const dailyUserLimit = Number(env.FALA_DAILY_USER_LIMIT || 200);
   const dailyAppLimit = Number(env.FALA_DAILY_APP_LIMIT || 2000);
-  if (![dailyUserLimit, dailyAppLimit].every(n => Number.isInteger(n) && n > 0 && n <= 1000000)) {
-    throw new AppError(503, "Daily conversation limits must be positive integers up to 1000000.");
+  if (![dailyUserLimit, dailyAppLimit].every(n => Number.isInteger(n) && n >= 0 && n <= 1000000)) {
+    throw new AppError(503, "Daily conversation limits must be integers from 0 (disabled) to 1000000.");
   }
   const token = env.FALA_TOKEN || "";
   if (!googleClientId && token.length < 32) throw new AppError(503, "Google sign-in is not configured on the service yet.");
   if (!env.DATABASE_URL) throw new AppError(503, "Set the Supabase transaction-pooler DATABASE_URL on the server.");
-  if (!Number.isInteger(timeout) || timeout < 5000 || timeout > 35000) throw new AppError(503, "AI_TIMEOUT_MS must be between 5000 and 35000.");
+  if (!Number.isInteger(timeout) || timeout < 5000 || timeout > 15000) throw new AppError(503, "AI_TIMEOUT_MS must be between 5000 and 15000.");
   // Conversation and audio credentials are routed independently to fixed provider hosts.
   const openaiKey = (env.FALA_OPENAI_API_KEY || "").trim();
   const selected = env.FALA_AI_PROVIDER || (openaiKey ? "openai" : "compatible");
@@ -44,8 +46,18 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings 
   const transcription: Settings["transcription"] = { provider: transcriptionProvider as Settings["transcription"]["provider"], apiKey: transcriptionProvider === "groq" ? groqKey : transcriptionProvider === "openai" ? voiceApiKey : "" };
   const apiKey = selected === "groq" ? groqKey : selected === "openai" ? voiceApiKey : (env.OPENAI_API_KEY || "");
   const model = selected === "groq" ? (env.FALA_GROQ_MODEL || "openai/gpt-oss-120b") : selected === "openai" ? (env.FALA_OPENAI_MODEL || "gpt-5.6-terra") : (env.OPENAI_MODEL || (provider.hostname === "api.openai.com" ? "gpt-5.6-terra" : "openai/gpt-oss-120b"));
+  const fallbackProvider = env.FALA_AI_FALLBACK_PROVIDER || "none";
+  if (!["none", "openai", "groq"].includes(fallbackProvider)) throw new AppError(503, "Choose none, openai or groq for FALA_AI_FALLBACK_PROVIDER.");
+  const fallback = fallbackProvider === "none" ? undefined : fallbackProvider === "openai"
+    ? { baseUrl: "https://api.openai.com/v1", apiKey: voiceApiKey, model: env.FALA_OPENAI_MODEL || "gpt-5.6-terra" }
+    : { baseUrl: "https://api.groq.com/openai/v1", apiKey: groqKey, model: env.FALA_GROQ_MODEL || "openai/gpt-oss-120b" };
+  if (fallback && (!fallback.apiKey || new URL(fallback.baseUrl).hostname === provider.hostname && fallback.model === model)) {
+    throw new AppError(503, "Configure a separate provider and its own credential for conversation fallback.");
+  }
+  const aiHedgeMs = Number(env.FALA_AI_HEDGE_MS ?? 1200);
+  if (!Number.isInteger(aiHedgeMs) || aiHedgeMs < 100 || aiHedgeMs > 5000) throw new AppError(503, "FALA_AI_HEDGE_MS must be between 100 and 5000.");
   const localDatabase = env.FALA_LOCAL_DATABASE === "true";
   if (localDatabase && (!loopback(database) || env.NETLIFY)) throw new AppError(503, "Unencrypted database connections are allowed only for local development.");
-  return { token: token.length >= 32 ? token : "", googleClientId, dailyUserLimit, dailyAppLimit, databaseUrl: env.DATABASE_URL, apiKey, baseUrl, model, transcription, voiceApiKey, demo: env.FALA_DEMO === "true", aiTimeoutMs: timeout,
+  return { token: token.length >= 32 ? token : "", googleClientId, dailyUserLimit, dailyAppLimit, databaseUrl: env.DATABASE_URL, apiKey, baseUrl, model, fallback, aiHedgeMs, transcription, voiceApiKey, demo: env.FALA_DEMO === "true", aiTimeoutMs: timeout,
     databaseCa: (env.DATABASE_CA_CERT || "").replace(/\\n/g, "\n"), localDatabase };
 }

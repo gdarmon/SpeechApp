@@ -44,12 +44,8 @@ function guideHint() {
 $('replay-walkthrough').onclick = () => { if (!busy) { walkthrough.request(); void home(); } };
 $('conversation-guide').onclick = () => { if (!busy && !recorder.active && !pendingTurn) { $('conversation-options').close(); walkthrough.open(true); } };
 
-async function api(path, options = {}) {
-  return apiRequest(path, options, seconds => {
-    text('notice', seconds ? `The conversation service is busy. Retrying in ${seconds} second${seconds === 1 ? '' : 's'}…` : 'Preparing your reply…');
-    show('notice');
-  });
-}
+const api = apiRequest;
+
 const post = (path, body = {}, options = {}) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), ...options });
 const rewards = createRewards({api,post,task,screen,home});
 function failure(error, retry = null) {

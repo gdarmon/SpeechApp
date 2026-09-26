@@ -233,9 +233,11 @@ try {
   for (let i = 1; i < 10; i++) {
     await page.locator('#draft').fill('Sim, gosto da ginga.'); await page.locator('#send').click();
     if (i === 1) {
-      await page.getByText('שירות השיחה עמוס. ניסיון נוסף בעוד 1 שנייה…', { exact: true }).waitFor();
+      await page.locator('#retry').waitFor({ state: 'visible' });
+      await page.getByText('לא הצלחנו לקבל תשובה. מה שכתבתם נשמר. נסו שוב.', { exact: true }).waitFor();
       assert.equal(await page.locator('#draft').inputValue(), 'Sim, gosto da ginga.');
-      assert.equal(await page.locator('#retry').isVisible(), false);
+      assert.equal(postCount, 3, 'Capacity errors must not start an automatic wait or replay');
+      await page.locator('#retry').click();
     }
     await page.waitForFunction(() => !document.getElementById('microphone').disabled);
     if (i === 1) { assert.equal(ids[2], ids[3]); assert.equal(saved.turns.length, 2); }

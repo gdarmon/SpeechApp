@@ -87,6 +87,29 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("restricts provider probes to fixed synthetic input and never saves them as learner practice", async () => {
+    expect(netlifyRoutes.path).toContain("/diagnostics/ai");
+    expect((await call("/diagnostics/ai", "POST", {}, handler, "wrong")).status).toBe(401);
+    expect((await call("/diagnostics/ai", "POST", { prompt: "private input" })).status).toBe(422);
+    expect((await call("/diagnostics/ai", "POST", { route: "fallback" })).status).toBe(409);
+    const result = await call("/diagnostics/ai", "POST", {});
+    expect(result.status).toBe(200);
+    expect(result.data).toMatchObject({ synthetic: true, observations: [] });
+    expect(coach.calls).toHaveLength(1);
+    expect(coach.calls[0].input).toMatchObject({ text: "Ainda não tenho corda." });
+    expect(coach.calls[0]).not.toHaveProperty("profile");
+    expect((await pg.query("SELECT id FROM fala.sessions")).rows).toHaveLength(0);
+  });
+
+  it("can disable daily allowances while preserving a per-account anti-flood limit", async () => {
+    const target = createHandler({ settings: () => ({ ...settings, dailyUserLimit: 0, dailyAppLimit: 0 }),
+      database: () => db, provider: () => coach });
+    await call("/sessions", "POST", { request_id: randomUUID() }, target);
+    await pg.exec("UPDATE fala.usage_limits SET requests=99999 WHERE bucket LIKE 'day:%'");
+    expect((await call("/sessions", "POST", { request_id: randomUUID() }, target)).status).toBe(200);
+    await pg.exec("UPDATE fala.usage_limits SET requests=120 WHERE bucket LIKE 'minute:%'");
+    expect((await call("/sessions", "POST", { request_id: randomUUID() }, target)).status).toBe(429);
+  });
   it("routes AI reports on Netlify and stores a JSON object with the production database driver", async () => {
     expect(netlifyRoutes.path).toContain('/content-reports');
     const session=(await start()).data;
@@ -426,7 +449,7 @@ describe("Netlify API against PostgreSQL", () => {
     const session = (await start()).data;
     expect((await turn(session.id, { language: "he-IL", help: false })).status).toBe(422);
     expect((await turn(session.id, { speech_ms: -1 })).status).toBe(422);
-    await pg.exec("UPDATE fala.usage_limits SET requests=30");
+    await pg.exec("UPDATE fala.usage_limits SET requests=120");
     const limited = await call("/sessions", "POST", { request_id: randomUUID() }, instance());
     expect(limited.status).toBe(429); expect(limited.headers.get("Retry-After")).toBe("60");
     expect((await call("/sessions")).status).toBe(200);
@@ -434,24 +457,25 @@ describe("Netlify API against PostgreSQL", () => {
 });
 
 describe("provider contract and configuration", () => {
-  it("retries a brief provider throttle without changing the prompt and returns long quota limits as 429", async () => {
-    const reply = replySchema.parse({ text: "Oi! Tudo bem?", translation: "Hi! How are you?", pace: "slow",
-      suggested_replies: [{ text: "Tudo bem.", translation: "I'm well." }, { text: "Mais ou menos.", translation: "So-so." }] });
+  it("requires explicit fallback configuration and keeps each credential on its own host", () => {
+    const env = { FALA_TOKEN: settings.token, DATABASE_URL: settings.databaseUrl,
+      FALA_AI_PROVIDER: "openai", FALA_OPENAI_API_KEY: "paid-key", GROQ_API_KEY: "groq-key" };
+    expect(settingsFromEnv(env).fallback).toBeUndefined();
+    const routed = settingsFromEnv({ ...env, FALA_AI_FALLBACK_PROVIDER: "groq", FALA_DAILY_USER_LIMIT: "0", FALA_DAILY_APP_LIMIT: "0" });
+    expect(routed).toMatchObject({ apiKey: "paid-key", baseUrl: "https://api.openai.com/v1", dailyUserLimit: 0, dailyAppLimit: 0,
+      fallback: { apiKey: "groq-key", baseUrl: "https://api.groq.com/openai/v1" } });
+    for (const extra of [{ FALA_AI_FALLBACK_PROVIDER: "openai" }, { FALA_AI_FALLBACK_PROVIDER: "unknown" },
+      { FALA_AI_FALLBACK_PROVIDER: "groq", GROQ_API_KEY: "" }, { FALA_AI_HEDGE_MS: "-1" }, { FALA_DAILY_USER_LIMIT: "-1" }]) {
+      expect(() => settingsFromEnv({ ...env, ...extra })).toThrow(AppError);
+    }
+  });
+  it("returns provider throttles immediately instead of waiting for token refills", async () => {
     for (const retryAfter of ["0", "120", null]) {
-      const bodies: string[] = [];
-      const ai = new CompatibleProvider(settings, new Timing(), async (_url, init) => {
-        bodies.push(init!.body as string);
-        if (bodies.length === 1) return new Response("", { status: 429, headers: retryAfter === null ? {} : { "Retry-After": retryAfter } });
-        return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(reply) } }] });
-      });
-      if (retryAfter === "0") {
-        expect(await ai.reply({ action: "start" })).toEqual(reply);
-        expect(bodies).toHaveLength(2);
-        expect(bodies[0]).toBe(bodies[1]);
-      } else {
-        await expect(ai.reply({ action: "start" })).rejects.toMatchObject({ status: 429, code: "ai_rate_limited" });
-        expect(bodies).toHaveLength(1);
-      }
+      const request = vi.fn(async () => new Response("", { status: 429,
+        headers: retryAfter === null ? {} : { "Retry-After": retryAfter } }));
+      const ai = new CompatibleProvider(settings, new Timing(), request);
+      await expect(ai.reply({ action: "start" })).rejects.toMatchObject({ status: 429, code: "ai_rate_limited" });
+      expect(request).toHaveBeenCalledTimes(1);
     }
   });
   it("uses strict coaching output for Groq and OpenAI while leaving other providers compatible", async () => {

@@ -579,5 +579,6 @@ internal val hebrewUi = mapOf(
     "Stay at this level as long as you need. A harder level is always your choice." to "נשארים ברמה הזאת כמה שצריך. מעבר לרמה קשה יותר תמיד תלוי בבחירה שלכם.",
     "Learning at your pace" to "לומדים בקצב שלכם",
     "Your practice, at your pace." to "התרגול שלכם, בקצב שלכם.",
-    "Practice points unlock permanent looks. Independent practice helps Fala suggest optional challenges. One missed day per week can protect a streak, and is marked ◇. Protected days earn no points." to "נקודות תרגול פותחות עיצובים לתמיד. תרגול עצמאי עוזר ל־Fala להציע אתגרים לבחירה. יום חסר אחד בשבוע יכול לשמור על הרצף ומסומן ב־◇. ימים מוגנים לא מקנים נקודות."
+    "Practice points unlock permanent looks. Independent practice helps Fala suggest optional challenges. One missed day per week can protect a streak, and is marked ◇. Protected days earn no points." to "נקודות תרגול פותחות עיצובים לתמיד. תרגול עצמאי עוזר ל־Fala להציע אתגרים לבחירה. יום חסר אחד בשבוע יכול לשמור על הרצף ומסומן ב־◇. ימים מוגנים לא מקנים נקודות.",
+    "We couldn't get a reply. Your answer is still here. Please try again." to "לא הצלחנו לקבל תשובה. מה שכתבתם נשמר. נסו שוב."
 )

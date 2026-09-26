@@ -11,6 +11,9 @@ import { Timing } from "./timing.js";
 import { Speech, readRecording, speechAvailable, speechSchema } from "./speech.js";
 import { Rewards, rewardSettingsSchema } from './rewards.js';
 import { saveSubscription, subscriptionSchema } from './reminders.js';
+import { lessonContext } from "./capoeira.js";
+import { practiceLevel } from "./learning.js";
+import { teachingPlan } from "./pedagogy.js";
 
 type Dependencies = {
   settings: () => Settings;
@@ -107,6 +110,23 @@ export function createHandler(dependencies: Dependencies) {
         await store.mutate(tx => tx.deleteAccount()); return respond({ deleted: true });
       }
       const ai = dependencies.provider?.(settings, timing) || (settings.demo ? new DemoProvider() : new CompatibleProvider(settings, timing));
+      if (path === "/diagnostics/ai" && request.method === "POST") {
+        if (!user.operator) throw new AppError(403, "Operator access required.");
+        const input = z.strictObject({ route: z.enum(["active", "primary", "fallback"]).default("active") }).parse(await body(request));
+        if (settings.demo) throw new AppError(409, "Synthetic provider checks require live mode.");
+        if (input.route === "fallback" && !settings.fallback) throw new AppError(409, "No fallback is configured.");
+        await store.budget();
+        const probeSettings = input.route === "active" ? settings : { ...settings,
+          ...(input.route === "fallback" ? settings.fallback : {}), fallback: undefined };
+        const probe = dependencies.provider?.(probeSettings, timing) ?? new CompatibleProvider(probeSettings, timing);
+        // Fixed, synthetic data only: no learner context, arbitrary prompt or URL.
+        const reply = await probe.reply({ action: "continue", kind: "conversation", topic: "capoeira class",
+          support_language: "he-IL", practice: practiceLevel(1), practice_round: 1, practice_target: 10,
+          lesson: lessonContext({ id: "graduated-cords-v1", visit: 2 }, 1, "he-IL", 1), teaching: teachingPlan(1, 1),
+          opening: { text: "Qual é a sua corda?", suggested_replies: ["Tenho corda verde e roxa.", "Ainda não tenho corda."] },
+          turns: [], input: { text: "Ainda não tenho corda.", source: "typed", assisted: false, help: false, language: "pt-BR" } });
+        return respond({ synthetic: true, reply, observations: probe instanceof CompatibleProvider ? probe.observations : [] });
+      }
       const sessions = new Sessions(store, ai);
       const speech = dependencies.speech?.(settings) ?? new Speech(settings);
       if (path === "/speech/status" && request.method === "GET") return respond({ available: speechAvailable(settings) });
@@ -116,7 +136,7 @@ export function createHandler(dependencies: Dependencies) {
         await store.budget();
         return respond(await speech.transcribe(recording, language));
       }
-      const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey) || ai.demo, speech: { transcription: settings.transcription.provider, voice: settings.voiceApiKey ? "openai" : "none" } };
+      const status = { demo: ai.demo, ai_configured: Boolean(settings.apiKey || settings.fallback?.apiKey) || ai.demo, speech: { transcription: settings.transcription.provider, voice: settings.voiceApiKey ? "openai" : "none" } };
       if (request.method === "GET") {
         if (path === "/status") { await store.ping(); return respond(status); }
         if (path === "/diagnostics") {
@@ -125,7 +145,10 @@ export function createHandler(dependencies: Dependencies) {
           const host = new URL(settings.databaseUrl).hostname;
           return respond({ ...status, database_ready: true, function_region: dependencies.region?.() || "local/unknown",
             database_region_hint: host.match(/aws-\d+-([a-z]+-[a-z]+-\d+)\.pooler\.supabase\.com/)?.[1] || null,
-            model: settings.model });
+            model: settings.model, provider: new URL(settings.baseUrl).hostname,
+            fallback: settings.fallback ? { provider: new URL(settings.fallback.baseUrl).hostname, model: settings.fallback.model } : null,
+            ai_hedge_ms: settings.aiHedgeMs, ai_timeout_ms: settings.aiTimeoutMs,
+            daily_user_limit: settings.dailyUserLimit, daily_app_limit: settings.dailyAppLimit });
         }
         if (path === "/dashboard") return respond({ status, progress: await store.progress(), history: await store.history(), rewards: await rewards.snapshot() });
         if (path === "/progress") return respond(await store.progress());

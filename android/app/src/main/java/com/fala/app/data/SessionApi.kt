@@ -1,9 +1,7 @@
 package com.fala.app.data
 
 import com.fala.app.BuildConfig
-import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -17,10 +15,10 @@ import java.util.concurrent.TimeUnit
 
 class ServerFailure(val status: Int, message: String) : Exception(message)
 
-class SessionApi(private val settings: ConnectionSettings, private val onWait: (Int) -> Unit = {}) {
+class SessionApi(private val settings: ConnectionSettings) {
     private val client = OkHttpClient.Builder()
-        .callTimeout(55, TimeUnit.SECONDS).connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(50, TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
+        .callTimeout(20, TimeUnit.SECONDS).connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
 
     suspend fun request(path: String, method: String = "GET", body: JSONObject? = null): String {
         // Bind a background preference sync to the account that started it.
@@ -35,28 +33,15 @@ class SessionApi(private val settings: ConnectionSettings, private val onWait: (
         val request = Request.Builder().url(settings.url + path)
             .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }.method(method, payload).build()
         try {
-            val started = SystemClock.elapsedRealtime()
-            for (attempt in 0..1) {
-                var waitSeconds = 0
-                val call = client.newCall(request)
-                call.timeout().timeout((90000L - (SystemClock.elapsedRealtime() - started)).coerceIn(1, 55000), TimeUnit.MILLISECONDS)
-                call.execute().use { response ->
-                    val raw = response.body?.string().orEmpty()
-                    if (response.isSuccessful) return@withContext raw
-                    val error = runCatching { JSONObject(raw) }.getOrNull()
-                    val retry = providerRetryDelaySeconds(response.code, error?.optString("code").orEmpty(),
-                        error?.optInt("retry_after_seconds", -1) ?: -1, attempt, SystemClock.elapsedRealtime() - started,
-                        path, method, !body?.optString("request_id").isNullOrBlank())
-                    if (retry != null) waitSeconds = retry else {
-                        val message = serverErrorMessage(response.code, path, error?.optString("detail").orEmpty(), error?.optString("code").orEmpty())
-                        throw ServerFailure(response.code, message)
-                    }
-                }
-                withContext(Dispatchers.Main) { onWait(waitSeconds) }
-                delay(waitSeconds * 1000L + 250)
-                withContext(Dispatchers.Main) { onWait(0) }
+            // Failover is server-owned. An explicit Retry reuses the pending
+            // request ID; this transport never adds a quota countdown.
+            client.newCall(request).execute().use { response ->
+                val raw = response.body?.string().orEmpty()
+                if (response.isSuccessful) return@withContext raw
+                val error = runCatching { JSONObject(raw) }.getOrNull()
+                throw ServerFailure(response.code, serverErrorMessage(response.code, path,
+                    error?.optString("detail").orEmpty(), error?.optString("code").orEmpty()))
             }
-            throw IOException("Request interrupted")
         } catch (_: IOException) {
             throw IOException("Connection interrupted. Check your internet connection and retry.")
         }

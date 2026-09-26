@@ -1,0 +1,1 @@
+Conversation requests can use an explicitly configured backup service when the main service is slow or busy. Removed long automatic quota countdowns. Failed requests keep your answer for Retry. Added bounded recovery, optional removal of daily practice allowances, and private service-capacity checks.

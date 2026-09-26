@@ -61,6 +61,8 @@ it("signs in arbitrary verified Google accounts, hashes device secrets, and pers
   expect(saved.token_hash).toBe(hash(token)); expect(saved.token_hash).not.toContain(token);
   expect((await call("/dashboard", "GET", token)).status).toBe(200);
   expect((await call("/diagnostics", "GET", token)).status).toBe(403);
+  expect((await call("/diagnostics/ai", "POST", token, {})).status).toBe(403);
+  expect(contexts).toHaveLength(0);
   expect((await call("/dashboard")).status).toBe(401);
   const sameUser = await login("alice", "new-address@gmail.com");
   expect((await db.query("SELECT id FROM fala.users WHERE google_subject='alice'")).length).toBe(1);

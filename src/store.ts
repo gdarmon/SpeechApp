@@ -105,8 +105,8 @@ export class Store {
           THEN now() ELSE fala.usage_limits.window_start END
       RETURNING bucket,requests`, [`minute:${this.userId}`, `day:${this.userId}`, "day:app"]);
     for (const row of rows) {
-      const limit = row.bucket.startsWith("minute:") ? 30 : row.bucket === "day:app" ? this.dailyAppLimit : this.dailyUserLimit;
-      if (row.requests > limit) throw new AppError(429, row.bucket.startsWith("minute:")
+      const limit = row.bucket.startsWith("minute:") ? 120 : row.bucket === "day:app" ? this.dailyAppLimit : this.dailyUserLimit;
+      if (limit > 0 && row.requests > limit) throw new AppError(429, row.bucket.startsWith("minute:")
         ? "Too many requests. Wait a minute and try again." : "Today's conversation allowance has been used. Please try again tomorrow.");
     }
   }

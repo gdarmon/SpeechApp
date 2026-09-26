@@ -65,61 +65,144 @@ describe('provider throttling recovery', () => {
     expect(properties.translation.minLength).toBe(1);
   });
 
-  it('waits for a normal token refill and repairs a malformed reply without dropping either retry', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
-    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const bodies: string[] = [];
-    const request = vi.fn(async (_url: unknown, init: RequestInit | undefined) => {
-      bodies.push(init!.body as string);
-      if (bodies.length === 1) return ok({ ...reply, translation: '' });
-      if (bodies.length === 2) return throttle('14');
-      return ok();
-    });
-    const promise = new CompatibleProvider(settings, new Timing(), request).reply({ action: 'start' });
-    await vi.advanceTimersByTimeAsync(14249);
-    expect(request).toHaveBeenCalledTimes(2);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(await promise).toEqual(reply);
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(bodies[1]).toBe(bodies[2]);
-    expect(log.mock.calls.flat().join(' ')).not.toContain('private provider details');
-  });
-
-  it.each(['31', '120', '86400', 'invalid', '-5'])('does not hammer long or invalid limits (%s)', async header => {
+  it.each(['0', '14', '26', '32', 'invalid'])('never waits on the same limited service (%s)', async header => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const request = vi.fn(async () => throttle(header));
     await expect(new CompatibleProvider(settings, new Timing(), request).reply({ action: 'start' }))
-      .rejects.toMatchObject({ status: 429, code: 'ai_rate_limited', retryAfterSeconds: Number(header) > 0 ? Number(header) : 60 });
+      .rejects.toMatchObject({ status: 429, code: 'ai_rate_limited' });
     expect(request).toHaveBeenCalledTimes(1);
   });
+});
 
-  it('leaves time to generate and save a reply instead of waiting past its deadline', async () => {
+let credentialNumber = 0;
+function withBackup() {
+  return { ...settings, apiKey: `primary-${++credentialNumber}`, aiHedgeMs: 1200, aiTimeoutMs: 8000,
+    fallback: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-luna', apiKey: `backup-${credentialNumber}` } };
+}
+const hanging = (signal: AbortSignal) => new Promise<Response>((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+
+describe('validated provider failover', () => {
+  it.each([429, 503, 401])('uses the other configured credential immediately on HTTP %s', async status => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const request = vi.fn(async () => throttle('14'));
-    await expect(new CompatibleProvider({ ...settings, aiTimeoutMs: 18000 }, new Timing(), request).reply({ action: 'start' }))
-      .rejects.toMatchObject({ status: 429, retryAfterSeconds: 14 });
+    const config = withBackup();
+    const bodies: any[] = [];
+    const request = vi.fn(async (url, init) => {
+      bodies.push(JSON.parse(init.body as string));
+      expect(init.redirect).toBe('error');
+      if (String(url).includes('groq')) {
+        expect(init.headers.Authorization).toBe(`Bearer ${config.apiKey}`);
+        return new Response('private provider error', { status, headers: { 'Retry-After': '26' } });
+      }
+      expect(init.headers.Authorization).toBe(`Bearer ${config.fallback.apiKey}`);
+      expect(bodies.at(-1).reasoning_effort).toBe('none');
+      expect(bodies.at(-1).store).toBe(false);
+      return ok();
+    });
+    expect(await new CompatibleProvider(config, new Timing(), request).reply({ action: 'start' })).toEqual(reply);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(bodies[0].messages).toEqual(bodies[1].messages);
+  });
+
+  it('starts backup after the hedge and aborts the slower request after a valid reply', async () => {
+    vi.useFakeTimers();
+    const signals: AbortSignal[] = [];
+    const request = vi.fn(async (url, init) => {
+      signals.push(init.signal);
+      return String(url).includes('groq') ? hanging(init.signal) : ok();
+    });
+    const result = new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' });
+    await vi.advanceTimersByTimeAsync(1199);
     expect(request).toHaveBeenCalledTimes(1);
-  });
-
-  it('bounds repeated throttles even when the provider asks for immediate retry', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const request = vi.fn(async () => throttle('0'));
-    const result = new CompatibleProvider(settings, new Timing(), request).reply({ action: 'start' });
-    const assertion = expect(result).rejects.toMatchObject({ status: 429, retryAfterSeconds: 1 });
-    await vi.advanceTimersByTimeAsync(500);
-    await assertion;
-    expect(request).toHaveBeenCalledTimes(3);
-  });
-
-  it('accepts HTTP-date Retry-After without losing the original request', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
-    vi.setSystemTime(new Date('2026-09-21T10:00:00Z'));
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const request = vi.fn().mockImplementationOnce(async () => throttle('Mon, 21 Sep 2026 10:00:02 GMT')).mockImplementation(async () => ok());
-    const result = new CompatibleProvider(settings, new Timing(), request).reply({ action: 'start' });
-    await vi.advanceTimersByTimeAsync(2250);
+    await vi.advanceTimersByTimeAsync(1);
     expect(await result).toEqual(reply);
     expect(request).toHaveBeenCalledTimes(2);
+    expect(signals.every(signal => signal.aborted)).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not call backup when the primary succeeds before the hedge', async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => ok());
+    expect(await new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' })).toEqual(reply);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps a viable primary when the newly started backup is rate-limited', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const request = vi.fn(async (url, init) => {
+      if (!String(url).includes('groq')) return throttle('26');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      expect(init.signal.aborted).toBe(false);
+      return ok();
+    });
+    const result = new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await result).toEqual(reply);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers immediately from a connection failure without leaking its exception', async () => {
+    const request = vi.fn(async url => {
+      if (String(url).includes('groq')) throw Error('private network credential details');
+      return ok();
+    });
+    expect(await new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' })).toEqual(reply);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not let a fast invalid reply win or reach the caller', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const request = vi.fn(async url => String(url).includes('groq') ? ok({ ...reply, translation: '' }) : ok());
+    expect(await new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' })).toEqual(reply);
+    expect(request.mock.calls.filter(([url]) => String(url).includes('groq'))).toHaveLength(2);
+    expect(request.mock.calls.filter(([url]) => String(url).includes('openai.com'))).toHaveLength(1);
+  });
+
+  it('uses one deadline, cancels both requests and reports a recoverable error', async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (_url, init) => hanging(init.signal));
+    const result = new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' });
+    const assertion = expect(result).rejects.toMatchObject({ status: 503, code: 'ai_timeout' });
+    await vi.advanceTimersByTimeAsync(8000);
+    await assertion;
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls.every(([, init]) => init.signal.aborted)).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not return provider quota countdowns when both configured routes fail', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const request = vi.fn(async () => throttle('32'));
+    await expect(new CompatibleProvider(withBackup(), new Timing(), request).reply({ action: 'start' }))
+      .rejects.toMatchObject({ status: 503, code: 'ai_unavailable', message: "We couldn't get a reply. Your answer is still here. Please try again." });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips a recent capacity failure but does not share that hint across credentials', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const config = withBackup();
+    const limited = vi.fn(async url => String(url).includes('groq') ? throttle('26') : ok());
+    await new CompatibleProvider(config, new Timing(), limited).reply({ action: 'start' });
+    const retry = vi.fn(async (_url: unknown) => ok());
+    await new CompatibleProvider(config, new Timing(), retry).reply({ action: 'start' });
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(String(retry.mock.calls[0][0])).toContain('api.openai.com');
+    const independent = vi.fn(async (_url: unknown) => ok());
+    await new CompatibleProvider(withBackup(), new Timing(), independent).reply({ action: 'start' });
+    expect(String(independent.mock.calls[0][0])).toContain('api.groq.com');
+  });
+
+  it('records numeric capacity and token usage without headers, credentials or content', async () => {
+    const provider = new CompatibleProvider(settings, new Timing(), async () => Response.json({
+      choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(reply) } }],
+      usage: { prompt_tokens: 3200, completion_tokens: 180 },
+    }, { headers: { 'x-ratelimit-limit-tokens': '2000000', 'x-ratelimit-limit-requests': '5000', Authorization: 'private' } }));
+    await provider.reply({ action: 'start' });
+    expect(provider.observations[0]).toMatchObject({ status: 200, input_tokens: 3200, output_tokens: 180,
+      limits: { 'limit-tokens': 2000000, 'limit-requests': 5000 } });
+    expect(JSON.stringify(provider.observations)).not.toMatch(/private|Tudo bem|test-key/);
   });
 });

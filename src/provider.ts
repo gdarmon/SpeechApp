@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { Settings } from "./config.js";
+import type { AIRoute, Settings } from "./config.js";
+import { coolDown, firstValidReply } from "./ai-routing.js";
 import { AppError, feedbackSchema, replySchema, turnFeedbackSchema, type Feedback, type Reply } from "./models.js";
 import { partnerPrompt, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
@@ -35,35 +36,44 @@ function generationSchema(context: Record<string, unknown>, feedback: boolean) {
 
 export class CompatibleProvider implements AIProvider {
   readonly demo = false;
+  readonly observations: { provider: string; model: string; status: number; elapsed_ms: number;
+    limits: Record<string, number>; input_tokens?: number; output_tokens?: number }[] = [];
   constructor(private settings: Settings, private timing: Timing, private request = fetch) {}
 
   private async complete<T>(prompt: string, context: Record<string, unknown>, schema: z.ZodType<T>, feedback = false): Promise<T> {
-    if (!this.settings.apiKey) throw new AppError(503, "Set the AI provider key on the server before starting a conversation.");
+    return this.timing.measure("ai", () => firstValidReply(this.settings, this.settings.fallback,
+      this.settings.aiHedgeMs, this.settings.aiTimeoutMs,
+      (route, signal) => this.generate(route, signal, prompt, context, schema, feedback)));
+  }
+
+  private async generate<T>(route: AIRoute, signal: AbortSignal, prompt: string, context: Record<string, unknown>, schema: z.ZodType<T>, feedback: boolean): Promise<T> {
+    if (!route.apiKey) throw new AppError(503, "Set the AI provider key on the server before starting a conversation.");
     const body: Record<string, unknown> = {
-      model: this.settings.model,
+      model: route.model,
       messages: [{ role: "system", content: prompt }, { role: "user", content: JSON.stringify(context) }],
       response_format: { type: "json_object" }, max_completion_tokens: feedback
         ? (context.kind === "assessment" ? 4096 : 2048)
         : (coachingLimits(context).level >= 3 ? 2048 : 1536),
     };
-    const host = new URL(this.settings.baseUrl).hostname;
+    const host = new URL(route.baseUrl).hostname;
     if (host === "api.openai.com") body.store = false;
-    const groqStructured = host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(this.settings.model);
-    const openaiStructured = host === "api.openai.com" && ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"].includes(this.settings.model);
+    const groqStructured = host === "api.groq.com" && ["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(route.model);
+    const openaiStructured = host === "api.openai.com" && ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"].includes(route.model);
     if (groqStructured || openaiStructured) {
-      body.reasoning_effort = "low";
+      body.reasoning_effort = openaiStructured && route.model === "gpt-5.6-luna" ? "none" : "low";
       body.response_format = { type: "json_schema", json_schema: { name: feedback ? "practice_summary" : "practice_reply",
         strict: true, schema: generationSchema(context, feedback) } };
     }
-    return this.timing.measure("ai", async () => {
+    return this.timing.measure(new URL(route.baseUrl).hostname === new URL(this.settings.baseUrl).hostname ? "ai_primary" : "ai_fallback", async () => {
       const deadline = performance.now() + this.settings.aiTimeoutMs;
       let repairHint = "";
       let rejectedContent = "";
-      let generations = 0, throttleRetries = 0;
-      // A throttle is not a failed generation. Keep its retry allowance separate
-      // from output repair, with one shared deadline for every call and wait.
-      for (let attempt = 0; attempt < 4; attempt++) {
+      let generations = 0;
+      // One targeted repair per route. Capacity failures never sleep or replay
+      // the same saturated service; the coordinator starts the other route.
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
+          signal.throwIfAborted();
           const remaining = Math.floor(deadline - performance.now());
           if (remaining < 1) throw new Error("AI deadline reached");
           if (repairHint) {
@@ -75,51 +85,60 @@ export class CompatibleProvider implements AIProvider {
                 + " Return the complete required JSON, without commentary. Do not change the learner's answer or invent a correction." },
             ];
           }
-          const response = await this.request(this.settings.baseUrl.replace(/\/$/, "") + "/chat/completions", {
-            method: "POST", headers: { Authorization: `Bearer ${this.settings.apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify(body), signal: AbortSignal.timeout(remaining), redirect: "error",
+          const started = performance.now();
+          const response = await this.request(route.baseUrl.replace(/\/$/, "") + "/chat/completions", {
+            method: "POST", headers: { Authorization: `Bearer ${route.apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(body), signal, redirect: "error",
           });
+          const limits: Record<string, number> = {};
+          for (const field of ["limit-requests", "limit-tokens", "remaining-requests", "remaining-tokens"]) {
+            const value = response.headers.get(`x-ratelimit-${field}`);
+            if (value && /^\d+$/.test(value)) limits[field] = Number(value);
+          }
+          const observation: (typeof this.observations)[number] = { provider: host, model: route.model, status: response.status,
+            elapsed_ms: Math.round(performance.now() - started), limits };
+          this.observations.push(observation);
           if (!response.ok) {
             await response.body?.cancel();
             if (response.status === 429) {
               const header = response.headers.get("Retry-After")?.trim();
               const seconds = header ? (/^\d+(?:\.\d+)?$/.test(header) ? Number(header) : (Date.parse(header) - Date.now()) / 1000) : NaN;
               const valid = Number.isFinite(seconds) && seconds >= 0;
-              const waitMs = valid ? Math.ceil(seconds * 1000) + 250 : Infinity;
-              console.warn(JSON.stringify({ event: "ai_rate_limit", provider: host, model: this.settings.model,
+              console.warn(JSON.stringify({ event: "ai_rate_limit", provider: host, model: route.model,
                 retry_after_seconds: valid ? Math.ceil(seconds) : null }));
-              if (throttleRetries < 2 && attempt < 3 && waitMs <= 18250 && deadline - performance.now() > waitMs + 5000) {
-                throttleRetries++;
-                await new Promise(resolve => setTimeout(resolve, waitMs));
-                continue;
-              }
+              coolDown(route, valid ? Math.max(1, seconds) : 30);
               const retry = valid ? Math.min(86400, Math.max(1, Math.ceil(seconds))) : 60;
               const wait = retry < 60 ? `${retry} seconds` : `${Math.ceil(retry / 60)} minute${retry > 60 ? "s" : ""}`;
               throw new AppError(429, `Fala's AI provider has reached its usage limit. Wait ${wait}, then tap Retry. Your conversation is safe.`, "ai_rate_limited", retry);
             }
+            if (response.status >= 500) coolDown(route, 5);
             throw new AppError(503, response.status >= 500 ? "The AI service is temporarily unavailable. Please retry shortly."
               : "The AI service rejected the request. Check the server's provider configuration.", "ai_unavailable");
           }
           generations++;
           const result = await response.json();
+          observation.elapsed_ms = Math.round(performance.now() - started);
+          if (Number.isSafeInteger(result?.usage?.prompt_tokens)) observation.input_tokens = result.usage.prompt_tokens;
+          if (Number.isSafeInteger(result?.usage?.completion_tokens)) observation.output_tokens = result.usage.completion_tokens;
           const choice = result?.choices?.[0];
           // Keep this only in memory for the single repair; never log conversation text.
           rejectedContent = typeof choice?.message?.content === "string" ? choice.message.content.slice(0, 16000) : "";
-          if (choice?.finish_reason === "length" && generations < 2 && attempt < 3 && deadline - performance.now() > 1000) {
+          if (choice?.finish_reason === "length" && generations < 2 && attempt < 1 && deadline - performance.now() > 1000) {
             repairHint = "The previous response was too long. Keep the response concise.";
             continue;
           }
           if (choice?.finish_reason !== "stop") throw new AppError(503, "The AI response was incomplete. Please retry.", "ai_invalid_reply");
           return schema.parse(JSON.parse(choice.message.content));
         } catch (error) {
+          if (signal.aborted) throw error;
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
             repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
-            console.warn(JSON.stringify({ event: "ai_reply_validation", provider: host, model: this.settings.model,
+            console.warn(JSON.stringify({ event: "ai_reply_validation", provider: host, model: route.model,
               generation: generations, issues: error instanceof z.ZodError ? error.issues.map(issue => ({ code: issue.code,
                 path: issue.path, ...(issue.code === "custom" ? { rule: issue.message } : {}) })) : [{ code: "invalid_json" }] }));
             // Retry malformed model output once, within the original time budget.
-            if (generations < 2 && attempt < 3 && deadline - performance.now() > 1000) continue;
+            if (generations < 2 && attempt < 1 && deadline - performance.now() > 1000) continue;
             throw new AppError(503, "The AI returned an invalid response. Please retry.", "ai_invalid_reply");
           }
           throw new AppError(503, "The AI connection timed out or was interrupted. Your saved conversation is safe; retry.", "ai_timeout");

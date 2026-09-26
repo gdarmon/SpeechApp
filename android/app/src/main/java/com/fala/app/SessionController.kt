@@ -36,9 +36,7 @@ class SessionController(application: Application) : AndroidViewModel(application
         settings.networkRecognition = enabled; networkRecognition = enabled
         diagnostics.events.record(VoiceEvent.NETWORK_CHOICE, network = enabled)
     }
-    private val api = SessionApi(settings) { seconds ->
-        connectionNotice = if (seconds > 0) "The conversation service is busy. Retrying in $seconds second${if (seconds == 1) "" else "s"}…" else ""
-    }
+    private val api = SessionApi(settings)
     private val input: SpeechInput = AndroidSpeechInput(application, diagnostics.events)
     private val output: SpeechOutput = AndroidSpeechOutput(application, diagnostics.events)
     var screen by mutableStateOf(if (settings.consent && settings.signedIn) {
