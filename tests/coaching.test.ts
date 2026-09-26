@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coachingReplySchema } from "../src/coaching.js";
+import { coachingReplySchema, learnerHasNoCord } from "../src/coaching.js";
 import { feedbackSchema, replySchema, type Session } from "../src/models.js";
 import { sessionVocabulary } from "../src/vocabulary.js";
 import { sanitizeFeedback } from "../src/service.js";
@@ -10,6 +10,22 @@ const correction = { kind: "correction", message: "Use quero for I want.", said:
 const fixed = { ...opening, text: "Com leite?", turn_feedback: correction };
 
 describe("small-step conversation contract", () => {
+  it("retains the learner's missing cord without offering a rank, and accepts a later update", () => {
+    const context = { action: "continue", lesson: {}, practice: { level: 1 }, support_language: "he-IL",
+      input: { text: "Ainda não tenho corda." } };
+    const reply = { ...opening, text: "Você treina com seu professor?", translation: "אתה מתאמן עם המורה שלך?",
+      suggested_replies: [{ text: "Treino com meu professor.", translation: "אני מתאמן עם המורה שלי." },
+        { text: "Ainda não treino com ele.", translation: "אני עדיין לא מתאמן איתו." }],
+      turn_feedback: { kind: "ok", message: "הבנתי, עדיין אין לך חגורה.", said: "", natural: "" } };
+    expect(coachingReplySchema(context).safeParse(reply).success).toBe(true);
+    for (const text of ["Você quer uma corda verde e roxa?", "Você quer essa corda?", "Qual é a sua corda?"]) {
+      expect(coachingReplySchema(context).safeParse({ ...reply, text }).success).toBe(false);
+    }
+    expect(learnerHasNoCord({ ...context, turns: [context.input], input: { text: "Sim, treino." } })).toBe(true);
+    expect(learnerHasNoCord({ ...context, turns: [context.input], input: { text: "Agora tenho corda verde." } })).toBe(false);
+    expect(learnerHasNoCord({ ...context, input: { text: "Meu amigo não tem corda." } })).toBe(false);
+    expect(learnerHasNoCord({ ...context, input: { text: "Não tenho corda.", help: true } })).toBe(false);
+  });
   it("accepts a short greeting and rejects a complicated opening, stacked questions and long answer ideas", () => {
     const schema = coachingReplySchema({ action: "start" });
     expect(schema.parse(opening)).toEqual(opening);

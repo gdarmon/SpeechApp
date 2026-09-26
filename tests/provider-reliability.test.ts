@@ -13,6 +13,24 @@ const throttle = (seconds: string) => new Response('private provider details', {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('provider throttling recovery', () => {
+  it('repairs a rank offer after the learner said they have no cord', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = { ...reply, text: 'Você quer essa corda?', translation: 'Do you want that cord?',
+      turn_feedback: { kind: 'ok' as const, message: 'You do not have a cord yet.', said: '', natural: '' } };
+    const good = { ...bad, text: 'Você treina com seu professor?', translation: 'Do you train with your teacher?',
+      suggested_replies: [{ text: 'Treino com meu professor.', translation: 'I train with my teacher.' },
+        { text: 'Ainda não treino com ele.', translation: 'I do not train with him yet.' }] };
+    const bodies: any[] = [];
+    const request = vi.fn(async (_url, init) => {
+      bodies.push(JSON.parse(init.body as string));
+      return ok(bodies.length === 1 ? bad : good);
+    });
+    const result = await new CompatibleProvider(settings, new Timing(), request).reply({ action: 'continue',
+      lesson: {}, practice: { level: 1 }, input: { text: 'Ainda não tenho corda.' }, support_language: 'en-US' });
+    expect(result).toEqual(good);
+    expect(bodies[0].messages[0].content).toContain('Current learner fact: they DO NOT HAVE A CORDA');
+    expect(bodies[1].messages.at(-1).content).toContain('Do not ask them to choose/want a rank');
+  });
   it('regenerates a copied finta/repeat pair when the next question asks for confirmation', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const opening = { ...reply, text: 'Qual nome quer ouvir?', translation: 'Which name would you like to hear?',

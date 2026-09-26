@@ -4,7 +4,7 @@ For the last verified publication, see [the 0.14.2 release record](releases/0.14
 
 ## 0.14.3 preparation — conversation capacity and recovery, 26 September 2026
 
-- 171 backend tests passed, including immediate failure recovery, delayed backup, first-valid-result selection, cancellation, one shared deadline, route/credential isolation, account-scoped budgets and operator-only synthetic diagnostics.
+- 173 backend tests passed, including immediate failure recovery, delayed backup, first-valid-result selection, cancellation, one shared deadline, route/credential isolation, account-scoped budgets and operator-only synthetic diagnostics. The live-probe teaching regression is covered by learner-fact continuity and provider repair tests.
 - Clean npm 10.9.7 installation, TypeScript/site build, Netlify function packaging and all three web browser suites passed. Native Android unit tests, debug build and lint passed; changed instrumentation test sources compiled. No physical-device test was performed.
 - The owner requested capacity for 50 concurrent learners. The code and [measurement tools](service-reliability.md) are prepared; no 50-request production result is claimed. The owner explicitly approved paid OpenAI conversations/web transcription, Groq conversation backup and disabled daily app allowances, retaining flood protection. Production activation and measurements must be verified in the release receipt.
 - The fixed operator probe uses no saved learner context. Optional full-session checks require a separate test-only learner account because ordinary session endpoints personalize from account history and retain aggregate rewards after conversation deletion.

@@ -4,6 +4,8 @@ The 26 September 2026 report showed Android 0.14.1 stopping around turn four/six
 
 The owner authorized paid service and asked for **50 simultaneous learners**. This is a capacity target, not a promise of no outages or of every response arriving within three seconds. Measured results and actual provider limits belong in the dated release receipt.
 
+The first real 50-request burst succeeded technically but exposed a teaching error: the model offered a cord color after the learner said they had no cord. The release now carries that explicit learner fact forward in generation instructions and rejects that rank-choice response before it reaches playback. A later personal statement that the learner now has a cord replaces the earlier fact. A successful HTTP response alone is not a passing teaching-quality evaluation.
+
 ## Configuration and recovery
 
 Production routing for this release is intended to use the already configured paid OpenAI credential:

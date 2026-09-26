@@ -6,6 +6,21 @@ export const wordCount = (text: string) => text.match(/[\p{L}\p{N}]+(?:['’-][\
 const normalized = (text: string) => text.toLocaleLowerCase("pt-BR").match(/[\p{L}\p{N}]+/gu)?.join(" ") ?? "";
 const spokenQuestion = (text: string) => text.match(/[^.!?]*\?/)?.[0] ?? "";
 
+// Keep an explicit personal fact across later turns, until the learner updates
+// it. Help-language requests and references to someone else's cord are excluded.
+export function learnerHasNoCord(context: Record<string, unknown>) {
+  if (!context.lesson) return false;
+  const answers = [...((context.turns as { text?: string; help?: boolean }[] | undefined) ?? []),
+    ...(context.input ? [context.input as Partial<TurnInput>] : [])];
+  for (const answer of answers.reverse()) {
+    if (answer.help) continue;
+    const text = termKey(answer.text ?? "");
+    if (/^(?:eu )?(?:ainda )?nao tenho (?:uma |nenhuma )?corda\b|^(?:eu )?estou sem corda\b/.test(text)) return true;
+    if (/^(?:eu )?(?:agora |ja )?tenho (?:uma )?corda\b/.test(text)) return false;
+  }
+  return false;
+}
+
 // Validate teaching constraints before a generated response can reach speech playback.
 // The saved reply schema stays compatible with conversations created by older versions.
 export function coachingReplySchema(context: Record<string, unknown>) {
@@ -31,6 +46,10 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const languageQuestion = /\b(?:como se diz|como (?:se )?pronuncia|o que significa)\b/.test(termKey(input?.text ?? ""));
     if (lesson && !final && !repair && !languageQuestion) {
       const question = termKey(reply.text);
+      if (learnerHasNoCord(context) && (/\b(?:quer|prefere|escolhe|escolher|gostaria)\b.*\b(?:corda|essa|outra)\b/.test(question)
+        || /\b(?:qual|cor)\b.*\b(?:sua corda|corda voce tem)\b/.test(question))) {
+        reject("The learner said they have no cord. Do not ask them to choose/want a rank or ask its color again. Ask about their own class practice or their teacher, without inventing their rank.");
+      }
       if (/\b(?:ouvir|escutar|repetir)\b.*\bcorda\b/.test(question)
         || /\b(?:nome|palavra|expressao|termo)\b.*\b(?:ouvir|repetir|escutar)\b/.test(question)
         || /\b(?:ouvir|repetir|escutar)\b.*\b(?:nome|palavra|expressao|termo)\b/.test(question)) {

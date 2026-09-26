@@ -61,7 +61,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 171 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 173 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 

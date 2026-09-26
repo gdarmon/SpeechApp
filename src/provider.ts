@@ -4,7 +4,7 @@ import { coolDown, firstValidReply } from "./ai-routing.js";
 import { AppError, feedbackSchema, replySchema, turnFeedbackSchema, type Feedback, type Reply } from "./models.js";
 import { partnerPrompt, FEEDBACK } from "./prompts.js";
 import type { Timing } from "./timing.js";
-import { coachingReplySchema } from "./coaching.js";
+import { coachingReplySchema, learnerHasNoCord } from "./coaching.js";
 import { coachingLimits } from "./learning.js";
 
 export interface AIProvider {
@@ -156,7 +156,8 @@ export class CompatibleProvider implements AIProvider {
       + `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
       + (action === "CONTINUE" ? "turn_feedback MUST be an object with kind, message, said and natural; NEVER null. " : "turn_feedback MUST be null. ")
       + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
-        : `Give two translated ideas that directly answer this question using familiar frames. Length limits are ceilings, not a quota; never pad an answer. Help/correction phrases maximum ${Math.min(10, limits.idea_words)} words. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Follow teaching.task and recycle its focus; it is not time for a farewell.`);
+        : `Give two translated ideas that directly answer this question using familiar frames. Length limits are ceilings, not a quota; never pad an answer. Help/correction phrases maximum ${Math.min(10, limits.idea_words)} words. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Follow teaching.task and recycle its focus; it is not time for a farewell.`)
+      + (learnerHasNoCord(context) ? "\nCurrent learner fact: they DO NOT HAVE A CORDA. Rank is earned, never chosen. Do not offer any cord/color, ask if they want one, or ask its color. Continue about their own class practice or teacher, with one concrete question at this level. The optional focus term and possession frames must yield to this fact." : "");
     return this.complete(partnerPrompt(context) + instruction, context, coachingReplySchema(context));
   }
   feedback(context: Record<string, unknown>) {
