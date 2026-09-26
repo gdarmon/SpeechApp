@@ -61,7 +61,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 173 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 181 tests, including local loopback fixtures for latency measurement, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 
@@ -142,7 +142,7 @@ The local 0.13.8 notes represent the initial answer/playback fix prepared during
 
 ## Open issues and limits
 
-- The corrected 0.14.3 fixed synthetic burst returned 50/50 replies; end-to-end median was 3.674 seconds and p95 6.943 seconds. The below-three-second target was not met. AI time was 1.617 seconds median / 1.810 seconds p95; do not confuse handler timing with user latency. Transport, cold initialization and platform queuing still need separate measurement.
+- The below-three-second target remains unmet. A [later 26 September investigation](latency-investigation-2026-09-26.md) separated client connection/body time and matched all 50 request IDs from one live burst to Netlify logs. A 7.17-second request began platform invocation about 5.24 seconds after client start and executed in 1.84 seconds. Long delays also persisted on reused connections and HTTP/2. Delayed hosting dispatch/invocation is the dominant reproduced tail; exact internal scheduling/concurrency cause and remedy still need provider confirmation. Some initial requests also show extra initialization/wrapper work. Use `scripts/check-latency.mjs` and `scripts/check-hosting-latency.mjs`; a successful HTTP count alone no longer passes the detailed latency gate.
 - Actual OpenAI limits were 500 RPM / 500,000 TPM. Groq backup remained at 8,000 TPM / 1,000 RPD and returned 24 observed 429s in the corrected burst. Paid access and disabled daily app allowances do not establish sustained capacity or a backup capable of carrying all 50 learners. The release receipt documents the existing-account capacity upgrade required from the owner.
 - `npm run benchmark` measures authenticated read-only endpoints. Use the explicitly enabled fixed operator probe for actual AI capacity without extracting provider secrets. The optional full-session check requires a dedicated test-only learner account; it must not use the operator's legacy history or a real learner account. Physical speech and the changed web transcription route were not tested with real audio.
 - 0.14.3 native unit/build/lint checks passed; instrumentation was compiled. No physical device was connected for new phone audio, notification-delivery or Play-install checks. Older captures remain historical evidence only.
