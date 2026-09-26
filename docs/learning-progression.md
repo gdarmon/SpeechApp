@@ -40,7 +40,7 @@ These numbers are conservative **product safeguards**, not validated educational
 
 ## Teaching and support
 
-A session focuses on two target terms at levels 1–2 and up to three at higher levels, introducing one at a time. Reviewed intermediate examples use short explanations without filler. Ten-turn plans alternate modeling, guided use, retrieval after intervening exchanges and small applications of a familiar focus. Help remains available. Coach and summary instructions normalize repeated practice, suggest one manageable next action and prohibit session/day/XP promises or requests to pad answers.
+A session focuses on two target terms at levels 1–2 and up to three at higher levels, introducing one at a time. Intermediate reply ideas should model a relevant reason, clarification or alternative without filler. Ten-turn plans guide modeling, guided use and later reuse, but the learner’s actual answer takes priority. Since 0.14.2, capoeira opening examples are situational and continuations have no fixed name-repetition script; see [lesson quality](lesson-quality.md). Help remains available. Coach and summary instructions normalize repeated practice, suggest one manageable next action and prohibit session/day/XP promises or requests to pad answers.
 
 **Try without answer ideas** hides ideas for subsequent questions. Revealing an idea marks that answer as assisted even if it is hidden again. Resuming an active session conservatively marks pending assistance because earlier exposure cannot be reconstructed locally. **Listen first** hides question text and ideas until requested. Reading a question is separate from reading an answer; no audio-only comprehension score is inferred.
 

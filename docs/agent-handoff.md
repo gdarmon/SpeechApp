@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained for release 0.14.1, 25 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.1.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.14.2, 26 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the last recorded release](releases/0.14.1.md) for dated deployment evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -61,7 +61,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 159 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 161 tests, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 
@@ -117,6 +117,10 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 - Practice points are not proficiency. Current rewards cap at 20 XP per ten-answer spoken lesson and 40 per local day; legacy earned unlocks are preserved. Consult `src/rewards.ts` and the gamification document when changing this.
 - Keep separate learners' SQL, memory, reports and AI context isolated. Idempotent retries reuse the original request ID and normalized payload; do not issue a fresh ID simply to retry a lost response.
 - Preserve application ID `com.fala.app`, upload key, Play signing identity and Google OAuth certificate setup. No credential belongs in an app asset or public catalog.
+
+## What changed in 0.14.2
+
+Removed the universal ten-turn hear/repeat-name script and the exact-term-on-every-turn requirement. Beginner openings now match the situation; continuations must respond to the learner's answer. Literal cord descriptions receive Hebrew/English meanings, and narrow validation guards cover the reported misuse and missing cord translations. Native progress numbers use LTR within Hebrew layout. No migration or provider switch is needed. See [lesson quality](lesson-quality.md) for root cause, acceptance examples and an opt-in synthetic evaluator. The live evaluation attempt was blocked before generation by a masked provider credential; do not claim live semantic or latency verification.
 
 ## What changed in 0.14.1
 

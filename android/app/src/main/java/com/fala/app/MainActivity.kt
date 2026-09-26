@@ -381,7 +381,7 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
                     Text(tr(if (c.demo) "Connection test · scripted replies" else "Level ${c.session.optJSONObject("practice")?.optInt("level", 1) ?: 1} · Speaking practice"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Surface(modifier = Modifier.walkthroughTarget(4), color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(20.dp)) {
-                    Text(tr("${(c.completedTurns + 1).coerceAtMost(c.targetTurns)} / ${c.targetTurns}"), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelMedium)
+                    Text(tr("${(c.completedTurns + 1).coerceAtMost(c.targetTurns)} / ${c.targetTurns}"), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr))
                 }
                 IconButton(onClick = { c.pause(); options() }, enabled = !c.recording) {
                     Icon(painterResource(R.drawable.ic_more), contentDescription = tr("Conversation options"))

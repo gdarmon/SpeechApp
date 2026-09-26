@@ -20,13 +20,13 @@ const sequences = [
 const stages = ["model", "guided", "model", "retrieve", "guided", "retrieve", "apply", "retrieve", "apply", "recall"];
 const tasks = [
   "Establish one concrete need in this situation. Model the core answer pattern in the ideas; do not quiz an unexplained term.",
-  "Follow the learner's answer with the SAME focus term and answer pattern. One simple confirmation is enough; no new topic.",
-  "Introduce the next focus term using the SAME familiar answer pattern. Explain its meaning through the translation, not a technical quiz.",
-  "Retrieve the first term after the intervening term. Reuse a familiar question and answer pattern; intentional repetition is useful.",
+  "Respond to the learner's actual answer in the same situation. Reuse a familiar answer pattern when it fits; do not assume a yes after a no.",
+  "If it fits the conversation, introduce the next focus term using a familiar pattern and a meaningful translation. Otherwise continue the learner's point.",
+  "Invite reuse of familiar language in a relevant follow-up. Do not ask an already-answered personal question or ignore the learner just to retrieve a term.",
   "Practise the current focus in the same situation. Change only one detail; retain the core answer pattern.",
   "Retrieve an earlier term and pattern. Build on what the learner actually said, without adding another teaching target.",
   "Use the focus in a related exchange within the SAME situation. Keep the roles stable and supply a familiar model if needed.",
-  "Return to an earlier term after a gap. A familiar question is welcome; do not invent vocabulary to sound different.",
+  "Reuse familiar language after a gap, adapting the question to what the learner has already told you. Avoid both repetitive loops and unnecessary new vocabulary.",
   "Reuse the learned words in one small application. No new target words or unrelated personal questions.",
   "Invite one final answer using a learned pattern. Keep ideas available as optional help; do not demand a summary of the whole lesson.",
 ];
@@ -44,7 +44,7 @@ export function teachingPlan(levelValue: unknown, question = 0, opening?: Pick<R
   const sequence = sequences[level <= 2 ? 0 : 1];
   const index = Math.max(0, Math.min(10, Math.trunc(question) || 0));
   return {
-    revision: "focused-practice-v2",
+    revision: "responsive-practice-v3",
     target_terms: targetTerms,
     focus_words: openingFocus(opening, targetTerms),
     language_work: languageWork[level - 1],
@@ -58,93 +58,42 @@ export function teachingPlan(levelValue: unknown, question = 0, opening?: Pick<R
   };
 }
 
-// A small, reviewed language model for each beginner turn. This is an example
-// for the partner, not a replacement for responding to the learner's answer.
-// Asking about the NAME avoids inventing variants or a class sequence the
-// learner has never been given. Full capoeira names remain intact in an idea.
-export function beginnerModel(term: string, meaning: string, question: number, language: string) {
-  const models = [
-    ["Qual nome quer ouvir?", "איזה שם תרצה לשמוע?", "Which name would you like to hear?"],
-    ["Quer ouvir esse nome devagar?", "תרצה לשמוע את השם הזה לאט?", "Would you like to hear that name slowly?"],
-    ["Qual nome quer ouvir agora?", "איזה שם תרצה לשמוע עכשיו?", "Which name would you like to hear now?"],
-    ["Qual nome quer repetir?", "על איזה שם תרצה לחזור?", "Which name would you like to repeat?"],
-    ["Quer repetir esse nome devagar?", "תרצה לחזור על השם הזה לאט?", "Would you like to repeat that name slowly?"],
-    ["Qual nome quer ouvir novamente?", "איזה שם תרצה לשמוע שוב?", "Which name would you like to hear again?"],
-    ["Qual nome vamos repetir?", "על איזה שם נחזור?", "Which name shall we repeat?"],
-    ["Qual nome quer repetir?", "על איזה שם תרצה לחזור?", "Which name would you like to repeat?"],
-    ["Quer ouvir esse nome novamente?", "תרצה לשמוע את השם הזה שוב?", "Would you like to hear that name again?"],
-    ["Qual nome quer ouvir novamente?", "איזה שם תרצה לשמוע שוב?", "Which name would you like to hear again?"],
-  ];
-  const model = models[question];
-  if (!model) return undefined;
+// Opening examples demonstrate a real use of the lesson vocabulary. They are
+// seeds, not a ten-turn script: continuations must respond to the learner.
+export function lessonOpeningModel(lessonId: string, term: string, meaning: string, language: string, levelValue: unknown) {
+  if (practiceLevel(levelValue).level > 2) return undefined;
   const he = language === "he-IL";
-  const name = `״${term}״ (${meaning})`;
-  let answers = [
-    [`Quero ${term}.`, `אני רוצה לשמוע את ${name}.`, `I'd like to hear “${term}” (${meaning}).`],
-    ["Pode falar esse nome?", "אפשר לומר את השם הזה?", "Could you say that name?"],
-  ];
-  if ([3, 6, 7].includes(question)) {
-    answers = [
-      [`${term}.`, name, `“${term}” (${meaning}).`],
-      ["Quero repetir esse nome.", "אני רוצה לחזור על השם הזה.", "I'd like to repeat that name."],
-    ];
-  } else if (question === 1 || question === 4) {
-    const hearing = question === 1;
-    answers = [
-      [`Sim, ${term}, devagar.`, `כן, ${name}, לאט.`, `Yes, “${term}” (${meaning}), slowly.`],
-      hearing ? ["Não, pode falar normalmente.", "לא, אפשר לדבר בקצב רגיל.", "No, you can speak at a normal pace."]
-        : ["Não, quero repetir normalmente.", "לא, אני רוצה לחזור בקצב רגיל.", "No, I'd like to repeat it at a normal pace."],
-    ];
-  } else if (question === 8) {
-    answers = [
-      [`Sim, ${term}.`, `כן, ${name}.`, `Yes, “${term}” (${meaning}).`],
-      ["Não, já ouvi esse nome.", "לא, כבר שמעתי את השם הזה.", "No, I've already heard that name."],
-    ];
+  const gloss = meaning.split(/;| — | \(/)[0];
+  const englishObject = `${/^[aeiou]/i.test(gloss) ? "an" : "a"} ${gloss}`;
+  type Line = [string, string, string];
+  let question: Line;
+  let answers: [Line, Line];
+  if (term.startsWith("corda ")) {
+    question = ["Qual é a sua corda?", "איזו חגורה יש לך?", "Which cord do you have?"];
+    answers = [[`Tenho ${term}.`, `יש לי ${gloss}.`, `I have ${englishObject}.`],
+      ["Ainda não tenho corda.", "עדיין אין לי חגורה.", "I don't have a cord yet."]];
+  } else if (["instruments-v1", "ensemble-v1"].includes(lessonId) && term !== "bateria") {
+    question = [`Você toca ${term}?`, `אתה מנגן ב${gloss}?`, `Do you play the ${term}?`];
+    answers = [[`Toco ${term}.`, `אני מנגן ב${gloss}.`, `I play the ${term}.`],
+      ["Ainda não toco.", "אני עדיין לא מנגן.", "I don't play yet."]];
+  } else if (["kicks-v1", "evasions-v1", "sweeps-v1", "direct-kicks-v1", "floor-v1", "spinning-v1",
+    "demonstration-v1", "cartwheel-shapes-v1", "cartwheel-variations-v1"].includes(lessonId)) {
+    question = [`Você treina ${term}?`, `אתה מתרגל ${gloss}?`, `Do you practise ${term}?`];
+    answers = [[`Treino ${term}.`, `אני מתרגל ${gloss}.`, `I practise ${term}.`],
+      ["Ainda não treino esse movimento.", "אני עדיין לא מתרגל את התנועה הזאת.", "I don't practise that movement yet."]];
+  } else if (lessonId === "berimbau-parts-v1") {
+    question = [`Você tem ${term}?`, `יש לך ${gloss}?`, `Do you have ${englishObject}?`];
+    answers = [[`Tenho ${term}.`, `יש לי ${gloss}.`, `I have ${englishObject}.`],
+      ["Ainda não tenho.", "עדיין אין לי.", "I don't have one yet."]];
+  } else if (["roda-rhythms-v1", "traditional-toques-v1"].includes(lessonId)) {
+    question = [`Você conhece ${term}?`, `אתה מכיר את המקצב ${term}?`, `Do you know the ${term} rhythm?`];
+    answers = [["Conheço esse ritmo.", "אני מכיר את המקצב הזה.", "I know that rhythm."],
+      ["Ainda não conheço.", "אני עדיין לא מכיר.", "I don't know it yet."]];
+  } else {
+    // Let the scenario guide uncommon terms rather than forcing nouns, verbs,
+    // song lines and events into one universal, often ungrammatical template.
+    return undefined;
   }
-  return { text: model[0], translation: model[he ? 1 : 2],
+  return { text: question[0], translation: question[he ? 1 : 2],
     suggested_replies: answers.map(answer => ({ text: answer[0], translation: answer[he ? 1 : 2] })) };
-}
-
-export function lessonModel(term: string, meaning: string, question: number, language: string, levelValue: unknown) {
-  const level = practiceLevel(levelValue).level;
-  if (level === 1) return beginnerModel(term, meaning, question, language);
-  if (question >= 10) return undefined;
-  const he = language === "he-IL";
-  const named = `“${term}”`;
-  const models = [
-    { text: `Como quer repetir ${named}?`, he: `איך תרצה לחזור על ${named}?`, en: `How would you like to repeat ${named}?`,
-      answers: [
-        [`Quero repetir ${named} devagar.`, `אני רוצה לחזור על ${named} לאט.`, `I'd like to repeat ${named} slowly.`],
-        [`Pode repetir ${named} de novo?`, `אפשר לחזור על ${named} שוב?`, `Could you repeat ${named} again?`],
-      ] },
-    { text: `Por que quer repetir ${named}?`, he: `למה תרצה לחזור על ${named}?`, en: `Why would you like to repeat ${named}?`,
-      answers: [
-        [`Quero repetir ${named} porque ainda não lembro bem desse nome.`, `אני רוצה לחזור על ${named} כי אני עדיין לא זוכר היטב את השם הזה.`, `I'd like to repeat ${named} because I don't remember that name well yet.`],
-        [`Quero ouvir ${named} de novo, porque quero lembrar.`, `אני רוצה לשמוע את ${named} שוב, כי אני רוצה לזכור.`, `I'd like to hear ${named} again because I want to remember.`],
-      ] },
-    { text: `Como pediria ajuda com ${named}?`, he: `איך היית מבקש עזרה עם ${named}?`, en: `How would you ask for help with ${named}?`,
-      answers: [
-        [`Não entendi ${named}. Pode explicar esse nome com um exemplo?`, `לא הבנתי את ${named}. אפשר להסביר את השם הזה בעזרת דוגמה?`, `I didn't understand ${named}. Could you explain that name with an example?`],
-        [`Não lembro de ${named}. Pode repetir esse nome mais devagar?`, `אני לא זוכר את ${named}. אפשר לחזור על השם הזה לאט יותר?`, `I don't remember ${named}. Could you repeat that name more slowly?`],
-      ] },
-    { text: `Como reformularia seu pedido sobre ${named}?`, he: `איך היית מנסח מחדש את הבקשה שלך לגבי ${named}?`, en: `How would you rephrase your request about ${named}?`,
-      answers: [
-        [`Quero entender ${named} para conversar na aula. Uma explicação curta ou um exemplo pode ajudar.`, `אני רוצה להבין את ${named} כדי לדבר בשיעור. הסבר קצר או דוגמה יכולים לעזור.`, `I want to understand ${named} to talk in class. A short explanation or an example could help.`],
-        [`Preciso ouvir ${named} mais devagar. Se ainda ficar difícil, podemos tentar outro exemplo.`, `אני צריך לשמוע את ${named} לאט יותר. אם עדיין יהיה קשה, אפשר לנסות דוגמה אחרת.`, `I need to hear ${named} more slowly. If it's still difficult, we can try another example.`],
-      ] },
-  ];
-  let model = models[level - 2];
-  if (question === 1 || question === 4) {
-    model = { ...models[0], text: `Quer repetir ${named} devagar?`,
-      he: `תרצה לחזור על ${named} לאט?`, en: `Would you like to repeat ${named} slowly?`,
-      answers: [
-        [`Sim, quero repetir ${named} devagar.`, `כן, אני רוצה לחזור על ${named} לאט.`, `Yes, I'd like to repeat ${named} slowly.`],
-        ["Não, prefiro repetir normalmente.", "לא, אני מעדיף לחזור בקצב רגיל.", "No, I'd prefer to repeat it at a normal pace."],
-      ] };
-  } else if (question === 6) {
-    model = { ...models[0], text: `O que ajudaria você a repetir ${named}?`,
-      he: `מה יעזור לך לחזור על ${named}?`, en: `What would help you repeat ${named}?` };
-  }
-  return { text: model.text, translation: model[he ? "he" : "en"],
-    suggested_replies: model.answers.map(answer => ({ text: answer[0], translation: answer[he ? 1 : 2] })) };
 }

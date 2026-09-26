@@ -1,0 +1,1 @@
+Capoeira practice now uses real situations instead of repeated requests to hear names. Cord colors have clear Hebrew and English meanings. Follow-up questions are guided by your answer, with ideas suited to the current question. Fixed the direction of the practice counter in Hebrew.

@@ -1,6 +1,6 @@
 # Fala didactic review — 0.13.6
 
-This historical review covers five Portuguese levels, 28 capoeira topics, ten-turn practice, reply ideas, translation, feedback, summaries and progression. It is a design and implementation review; no user study established improved retention or alignment with a CEFR level. For current progression behavior, see [learning progression](learning-progression.md).
+This historical review covers five Portuguese levels, 28 capoeira topics, ten-turn practice, reply ideas, translation, feedback, summaries and progression. It is a design and implementation review; no user study established improved retention or alignment with a CEFR level. For current progression behavior, see [learning progression](learning-progression.md). The name-repetition models and exact-term requirement described below were found to cause poor conversations and were removed in 0.14.2; see [the correction and evaluation limits](lesson-quality.md). Do not restore those historical examples as current teaching guidance.
 
 ## Findings and changes
 

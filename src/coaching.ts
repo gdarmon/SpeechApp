@@ -28,6 +28,15 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     // occurrence of a word we deliberately teach throughout this curriculum.
     const repetitionRequest = /^(?:(?:voce )?pode(?:ria)?(?: voce)? (?:repetir|falar de novo|dizer novamente)|repete|repita|de novo|novamente)\b/.test(termKey(input?.text ?? ""));
     const repair = help || reply.turn_feedback?.kind === "clarify" || repetitionRequest;
+    const languageQuestion = /\b(?:como se diz|como (?:se )?pronuncia|o que significa)\b/.test(termKey(input?.text ?? ""));
+    if (lesson && !final && !repair && !languageQuestion) {
+      const question = termKey(reply.text);
+      if (/\b(?:ouvir|escutar|repetir)\b.*\bcorda\b/.test(question)
+        || /\b(?:nome|palavra|expressao|termo)\b.*\b(?:ouvir|repetir|escutar)\b/.test(question)
+        || /\b(?:ouvir|repetir|escutar)\b.*\b(?:nome|palavra|expressao|termo)\b/.test(question)) {
+        reject("Have a meaningful conversation about the lesson situation. Do not ask which name to hear/repeat or treat a cord as audio. Name/pronunciation practice is for an explicit learner request.");
+      }
+    }
     if (!start && !final && !repair && !respondsToNewTerm) {
       type PriorReply = { text?: string; suggested_replies?: (string | { text: string })[] };
       const previous = (context.turns as { reply?: PriorReply }[] | undefined)?.at(-1)?.reply
@@ -53,9 +62,9 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     }
     if (lesson && !final && !repair && !respondsToNewTerm) {
       const exposure = [reply.text, ...reply.suggested_replies.map(idea => idea.text)].join(" ");
-      if (lesson.next_prompt?.focus_term && !contains(exposure, lesson.next_prompt.focus_term)) {
-        reject("Reuse the current focus_term in the question or an answer idea. Stay on this learning target instead of switching subjects.");
-      }
+      // A natural follow-up can use a pronoun, ask about practice or acknowledge
+      // that the learner has no cord/instrument. Do not force a catalog name into
+      // every turn: that constraint produced irrelevant listening/name drills.
       // Remove full introduced names first: corda crua must not be mistaken for
       // a deferred name inside the already-taught corda crua e amarela.
       let remaining = ` ${termKey(exposure)} `;
@@ -77,7 +86,7 @@ export function coachingReplySchema(context: Record<string, unknown>) {
       const retrieval = teaching?.allow_repetition || lesson?.next_prompt?.allow_repetition;
       // Reusing a reviewed question frame in a new beginner lesson is useful:
       // the target name changes, while the language remains familiar.
-      const checked = start && lesson?.next_prompt?.model ? [] : retrieval ? previous.slice(-1) : previous;
+      const checked = start && lesson ? [] : retrieval ? previous.slice(-1) : previous;
       if (checked.some(text => text && (normalized(text) === normalized(reply.text)
         || lesson && question && normalized(spokenQuestion(text)) === normalized(question)))) {
         reject("Avoid an immediate question loop. Reuse vocabulary and answer frames; repeat an earlier question only on a planned retrieval turn after an intervening exchange, or when the learner asks for help.");
@@ -94,6 +103,15 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const supportText = [reply.translation, ...reply.suggested_replies.map(idea => idea.translation), ...(reply.turn_feedback ? [reply.turn_feedback.message] : [])];
     if (context.support_language === "he-IL" && supportText.some(value => !/\p{Script=Hebrew}/u.test(value))) reject("Use Hebrew for every translation and feedback message; do not copy English examples.");
     if (context.support_language === "en-US" && supportText.some(value => /\p{Script=Hebrew}/u.test(value))) reject("Use English for every translation and feedback message.");
+    if (lesson) {
+      const translatedPairs = [{ text: reply.text, translation: reply.translation }, ...reply.suggested_replies];
+      for (const pair of translatedPairs) {
+        if (!/\bcordas?\b/.test(termKey(pair.text))) continue;
+        const translated = context.support_language === "he-IL" ? /חגור|חבל/.test(pair.translation)
+          : /\b(?:cords?|belts?)\b/i.test(pair.translation);
+        if (!translated) reject("Translate corda as a capoeira cord/belt (Hebrew: חגורה), with its literal colors. Copying the Portuguese description without its meaning is not a translation.");
+      }
+    }
     if (wordCount(reply.text) > limits.text_words || reply.text.length > limits.text_chars) reject(`Keep this level's spoken turn within ${limits.text_words} words and ${limits.text_chars} characters.`);
     const questions = reply.text.match(/\?/g)?.length ?? 0;
     if (questions > 1) reject("Ask only one question at a time.");
@@ -106,11 +124,11 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     if (lesson && !help && !final) {
       const afterWhich = termKey(reply.text).replace(/^qual (?:e )?(?:o |a )?/, "");
       if (/^qual\b/i.test(reply.text) && lesson.vocabulary?.some(entry => afterWhich.startsWith(`${termKey(entry.term)} `))) {
-        reject("Do not ask which variant of an unexplained name. Use the reviewed question model with directly matching answer ideas.");
+        reject("Do not ask which variant of an unexplained name. Ask a concrete question about the situation with directly matching answer ideas.");
       }
       if (/\b(?:qual|o que)\b.*\b(?:pr[oó]xim[ao]|vem depois|vem ap[oó]s)\b/i.test(reply.text)
         && !/\b(?:quer|prefere|escolhe|gostaria)\b/i.test(reply.text)) {
-        reject("Do not quiz the order of a capoeira sequence. Ask about the learner's request using the reviewed model.");
+        reject("Do not quiz the order of a capoeira sequence. Ask a concrete question that responds to the learner's experience or request.");
       }
     }
     if (limits.level === 1 && /^(?:quando|enquanto|se|depois que|antes de)\b[^?]*[,;]/i.test(reply.text.trim())) {
@@ -127,7 +145,7 @@ export function coachingReplySchema(context: Record<string, unknown>) {
     const phase = teaching?.phase ?? lesson?.next_prompt?.phase;
     if (!help && !final && !repair && limits.level >= 3 && ["model", "retrieve", "recall"].includes(phase ?? "")
       && !reply.suggested_replies.some(idea => wordCount(idea.text) >= limits.minimum_words)) {
-      reject(`At this teaching stage, at least one IDEA must demonstrate the level's connected-answer goal (about ${limits.minimum_words} words or more, within the idea limit). Use the reviewed model, not filler. This requirement is for the example, never the learner's answer.`);
+      reject(`At this teaching stage, at least one IDEA must demonstrate the level's connected-answer goal (about ${limits.minimum_words} words or more, within the idea limit). Demonstrate a relevant reason, clarification or alternative without filler. This requirement is for the example, never the learner's answer.`);
     }
     if (wordCount(reply.practice_phrase) > Math.min(10, limits.idea_words)) reject(`Help with one short phrase of at most ${Math.min(10, limits.idea_words)} words.`);
     const feedback = reply.turn_feedback;

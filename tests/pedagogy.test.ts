@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAPOEIRA_LESSONS, lessonContext } from "../src/capoeira.js";
-import { beginnerModel, openingFocus, teachingPlan } from "../src/pedagogy.js";
+import { lessonOpeningModel, openingFocus, teachingPlan } from "../src/pedagogy.js";
 import { coachingReplySchema, wordCount } from "../src/coaching.js";
 import { PRACTICE_LEVELS, practiceResult } from "../src/learning.js";
 import { replySchema, type Session } from "../src/models.js";
@@ -44,8 +44,9 @@ describe("focused ten-answer lessons", () => {
         focus.push(lesson.next_prompt.focus_term!);
         expect(lesson.deferred_terms.some(term => terms.includes(term))).toBe(false);
         expect(lesson.vocabulary.every(entry => /\p{Script=Hebrew}/u.test(entry.translation))).toBe(true);
-        {
-          const model = lesson.next_prompt.model!;
+        if (lesson.next_prompt.model) {
+          expect(round).toBe(0);
+          const model = lesson.next_prompt.model;
           expect(wordCount(model.text)).toBeLessThanOrEqual(level.turn_words);
           expect(model.suggested_replies.every(idea => wordCount(idea.text) <= level.idea_words)).toBe(true);
           const generated = replySchema.parse({ ...model, pace: "slow", turn_feedback: round ? feedback : null });
@@ -64,20 +65,53 @@ describe("focused ten-answer lessons", () => {
     }
   });
 
-  it("changes beginner ideas with the question's intent instead of offering a fixed request and repetition pair", () => {
+  it("uses literal cord descriptions and real situations instead of a universal name drill", () => {
     for (const language of ["en-US", "he-IL"]) {
-      const choice = beginnerModel("martelo", "martelo", 0, language)!;
-      const confirmation = beginnerModel("martelo", "martelo", 1, language)!;
-      const repeat = beginnerModel("martelo", "martelo", 3, language)!;
-      const again = beginnerModel("martelo", "martelo", 8, language)!;
-      expect(confirmation.suggested_replies[0].text).toMatch(/^Sim,/);
-      expect(confirmation.suggested_replies[1].text).toMatch(/^Não,/);
-      expect(repeat.suggested_replies[1].text).toBe("Quero repetir esse nome.");
-      expect(new Set([choice, confirmation, repeat, again].map(model => model.suggested_replies.map(idea => idea.text).join("|"))).size).toBe(4);
-      for (let round = 0; round < 10; round++) {
-        expect(beginnerModel("martelo", "martelo", round, language)!.suggested_replies.map(idea => idea.text)).not.toContain("Pode repetir?");
+      const lesson = lessonContext({ id: "graduated-cords-v1", visit: 2 }, 0, language)!;
+      const model = lesson.next_prompt.model!;
+      expect(model.text).toBe("Qual é a sua corda?");
+      expect(model.suggested_replies.map(idea => idea.text)).toEqual(["Tenho corda verde e roxa.", "Ainda não tenho corda."]);
+      expect(model.suggested_replies[0].translation).toContain(language === "he-IL" ? "חגורה ירוקה וסגולה" : "green-and-purple cord");
+      expect(model.suggested_replies[0].translation).not.toContain("corda verde e roxa");
+      expect(lesson.vocabulary[0].usage).toContain("not an idiom");
+      expect(lessonOpeningModel("instruments-v1", "berimbau", "berimbau", language, 1)?.text).toBe("Você toca berimbau?");
+      expect(lessonOpeningModel("kicks-v1", "martelo", "round kick", language, 1)?.text).toBe("Você treina martelo?");
+      for (let round = 1; round < 10; round++) {
+        expect(lessonContext({ id: "graduated-cords-v1", visit: 2 }, round, language)!.next_prompt.model).toBeUndefined();
       }
     }
+  });
+
+  it("rejects the reported cord-as-audio question and untranslated color descriptions", () => {
+    const lesson = lessonContext({ id: "graduated-cords-v1", visit: 2 }, 0, "he-IL")!;
+    const context = { action: "start", lesson, support_language: "he-IL" };
+    const good = replySchema.parse({ ...lesson.next_prompt.model, pace: "slow" });
+    expect(coachingReplySchema(context).safeParse(good).success).toBe(true);
+    for (const text of ["Quer ouvir corda verde e roxa?", "Qual nome quer ouvir?", "Quer repetir esse nome?"]) {
+      const result = coachingReplySchema(context).safeParse({ ...good, text });
+      expect(result.success, text).toBe(false);
+      expect(result.error?.issues.some(issue => issue.message.includes("meaningful conversation"))).toBe(true);
+    }
+    expect(coachingReplySchema(context).safeParse({ ...good, translation: 'יש לך "corda verde e roxa"?' }).success).toBe(false);
+    expect(coachingReplySchema(context).safeParse({ ...good, suggested_replies: [
+      { ...good.suggested_replies[0], translation: 'יש לי "corda verde e roxa".' }, good.suggested_replies[1],
+    ] }).success).toBe(false);
+    const english = { ...context, support_language: "en-US" };
+    const enReply = replySchema.parse({ ...lessonContext({ id: "graduated-cords-v1", visit: 2 }, 0, "en-US")!.next_prompt.model, pace: "slow" });
+    expect(coachingReplySchema(english).safeParse(enReply).success).toBe(true);
+    expect(coachingReplySchema(english).safeParse({ ...enReply, translation: "Do you have corda verde e roxa?" }).success).toBe(false);
+  });
+
+  it("allows a responsive follow-up when the learner has no cord, and actual requests for repetition", () => {
+    const lesson = lessonContext({ id: "graduated-cords-v1", visit: 1 }, 1, "he-IL")!;
+    const context = { action: "continue", lesson, practice: { level: 1 }, support_language: "he-IL", input: { text: "Ainda não tenho corda." } };
+    const next = replySchema.parse({ text: "Você treina há muito tempo?", translation: "אתה מתאמן כבר הרבה זמן?",
+      turn_feedback: { kind: "ok", message: "הבנתי, עדיין אין לך חגורה." },
+      suggested_replies: [{ text: "Comecei agora.", translation: "התחלתי עכשיו." }, { text: "Treino há um ano.", translation: "אני מתאמן שנה." }] });
+    expect(coachingReplySchema(context).safeParse(next).success).toBe(true);
+    const repeated = { ...next, text: "Quer ouvir esse nome devagar?", translation: "תרצה לשמוע את השם הזה לאט?" };
+    expect(coachingReplySchema(context).safeParse(repeated).success).toBe(false);
+    expect(coachingReplySchema({ ...context, input: { text: "Pode repetir?" } }).safeParse(repeated).success).toBe(true);
   });
 
   it("rejects stale answer pairs on changed questions, while allowing one familiar frame, retrieval and repair", () => {
@@ -138,14 +172,15 @@ describe("focused ten-answer lessons", () => {
 
   it("keeps canonical long terms intact and prioritizes a learner's explicit terminology question", () => {
     const lesson = lessonContext({ id: "roda-rhythms-v1", visit: 1 }, 0)!;
-    const reply = question("Quer ouvir o nome?");
+    const reply = question("Você conhece esse ritmo?");
     reply.turn_feedback = null;
     reply.suggested_replies[0].text = "São Bento Grande da Regional.";
     expect(coachingReplySchema({ action: "start", lesson }).safeParse(reply).success).toBe(true);
-    const cord = question("Quer repetir o nome?");
+    const cord = question("Qual é a sua corda?");
+    cord.translation = "איזו חגורה יש לך?";
     cord.turn_feedback = null;
-    cord.suggested_replies[0].text = "Corda crua e amarela.";
-    expect(coachingReplySchema({ action: "start", lesson: lessonContext({ id: "first-cords-v1", visit: 2 }) }).safeParse(cord).success).toBe(true);
+    cord.suggested_replies[0] = { text: "Corda crua e amarela.", translation: "חגורה בצבע טבעי וצהוב." };
+    expect(coachingReplySchema({ action: "start", support_language: "he-IL", lesson: lessonContext({ id: "first-cords-v1", visit: 2 }) }).safeParse(cord).success).toBe(true);
     const context = { action: "continue", lesson: lessonContext({ id: "kicks-v1", visit: 1 }, 1),
       input: { text: "O que é a negativa?" }, capoeira_reference: [{ term: "negativa" }] };
     const clarification = question("Quer conhecer o nome negativa?");
@@ -161,7 +196,9 @@ describe("focused ten-answer lessons", () => {
     const lesson = lessonContext({ id: "evasions-v1", visit: 1 }, 3, "he-IL", 4)!;
     const context = { action: "continue", practice: { level: 4 }, lesson, teaching: teachingPlan(4, 3),
       input: { text: "Quero repetir esquiva diagonal." } };
-    const reply = replySchema.parse({ ...lesson.next_prompt.model, turn_feedback: feedback });
+    const reply = replySchema.parse({ text: "O que ajuda você na aula?", translation: "מה עוזר לך בשיעור?", turn_feedback: feedback,
+      suggested_replies: [{ text: "Uma explicação simples ajuda porque ainda estou aprendendo português.", translation: "הסבר פשוט עוזר כי אני עדיין לומד פורטוגזית." },
+        { text: "Gosto de praticar devagar com um colega.", translation: "אני אוהב לתרגל לאט עם חבר." }] });
     expect(coachingReplySchema(context).safeParse(reply).success).toBe(true);
     expect(coachingReplySchema(context).safeParse({ ...reply, suggested_replies: [
       { text: "Quero esquiva diagonal.", translation: "אני רוצה התחמקות אלכסונית." },
@@ -169,7 +206,7 @@ describe("focused ten-answer lessons", () => {
     ] }).success).toBe(false);
     const guided = lessonContext({ id: "evasions-v1", visit: 1 }, 1, "he-IL", 4)!;
     expect(coachingReplySchema({ ...context, lesson: guided, teaching: teachingPlan(4, 1) })
-      .safeParse({ ...reply, ...guided.next_prompt.model }).success).toBe(true);
+      .safeParse({ ...reply, suggested_replies: [{ text: "Sim.", translation: "כן." }, { text: "Ainda não.", translation: "עדיין לא." }] }).success).toBe(true);
   });
 
   it("lets meaningful repeated short answers contribute without promoting rote or assisted sessions", () => {
