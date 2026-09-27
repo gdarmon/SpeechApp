@@ -17,17 +17,27 @@ export interface AIProvider {
 // saved replies, not optional fields in a newly generated response.
 function generationSchema(context: Record<string, unknown>, feedback: boolean) {
   const limits = coachingLimits(context);
+  // Constrain language while decoding, before a malformed reply costs a repair.
+  // Keep these simple character classes compatible with strict JSON Schema.
+  const portuguese = /^[^\u0590-\u05ff]*$/;
+  const support = context.support_language === "he-IL" ? /[\u0590-\u05ff]/ : portuguese;
+  const spoken = context.last_turn === true ? /^[^?\u0590-\u05ff]*$/ : context.action === "help" ? portuguese
+    : limits.level === 1 ? /^[^.!;?\u0590-\u05ff]*\?$/ : /^[^?\u0590-\u05ff]*\?[^?\u0590-\u05ff]*$/;
+  const feedbackMessage = turnFeedbackSchema.shape.message.regex(support);
   const answerFeedback = z.union([
-    turnFeedbackSchema.extend({ kind: z.literal("correction") }),
-    turnFeedbackSchema.extend({ kind: z.enum(["ok", "clarify", "guided"]), said: z.literal(""), natural: z.literal("") }),
+    turnFeedbackSchema.extend({ kind: z.literal("correction"), message: feedbackMessage,
+      natural: z.string().max(90).regex(portuguese) }),
+    turnFeedbackSchema.extend({ kind: z.enum(["ok", "clarify", "guided"]), message: feedbackMessage, said: z.literal(""), natural: z.literal("") }),
   ]);
   const schema = feedback ? feedbackSchema.extend({ vocabulary: feedbackSchema.shape.vocabulary.unwrap().max(5) }) : replySchema.extend({
     turn_feedback: context.action === "continue" ? answerFeedback : z.null(),
     suggested_replies: z.array(replySchema.shape.suggested_replies.unwrap().element.extend({
-      text: z.string().min(1).max(limits.idea_chars),
+      text: z.string().min(1).max(limits.idea_chars).regex(portuguese),
+      translation: z.string().min(1).max(500).regex(support),
     })).length(context.last_turn === true ? 0 : 2),
-    text: z.string().min(1).max(limits.text_chars),
-    translation: z.string().min(1).max(2400),
+    text: z.string().min(1).max(limits.text_chars).regex(spoken),
+    translation: z.string().min(1).max(2400).regex(support),
+    practice_phrase: z.string().max(500).regex(portuguese),
     pace: context.action === "start" ? z.literal("slow") : replySchema.shape.pace,
   });
   return JSON.parse(JSON.stringify(z.toJSONSchema(schema), (key, value) =>
@@ -166,8 +176,9 @@ export class CompatibleProvider implements AIProvider {
       answer_idea_rule: "When you change the question, write ideas that answer its new intent. Do not copy both complete previous answers. Keep the same easy words, but include the concrete detail the next question asks for.",
       learner_answer: (context.input as { text?: string } | undefined)?.text,
       earlier_questions: previousQuestions.slice(0, -1),
+      do_not_repeat_questions: previousQuestions.slice((context.teaching as { allow_repetition?: boolean } | undefined)?.allow_repetition ? -1 : -2),
       next_step: context.last_turn === true ? "This was the final learner answer. Give brief feedback and close the practice with a short statement, no question and no answer ideas."
-        : "Respond to this answer, then ask a relevant follow-up. Reuse familiar words. Do not repeat the latest question or ask an already-known personal fact again. Familiar language can be practised again after two intervening exchanges. A request to repeat or clarify is the exception.",
+        : "Respond to this answer, then ask a relevant follow-up. Reuse familiar words. Do not repeat any question in do_not_repeat_questions or ask an already-known personal fact again. Ask about a different concrete aspect of the same practice, such as who, where, when or a preference, keeping this level's length limit. Familiar language can be practised again after two intervening exchanges. A request to repeat or clarify is the exception.",
     } : undefined;
     const instruction = `\nPractice level ${limits.level}: ${limits.title}. Goal: ${limits.goal} Target learner answer: ${limits.answer_goal}. `
       + `Spoken text maximum ${limits.text_words} words / ${limits.text_chars} characters; each answer idea maximum ${limits.idea_words} words / ${limits.idea_chars} characters. `

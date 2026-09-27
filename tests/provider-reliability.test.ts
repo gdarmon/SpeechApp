@@ -85,6 +85,22 @@ describe('provider throttling recovery', () => {
     expect(properties.translation.minLength).toBe(1);
   });
 
+  it('constrains Hebrew support and Portuguese speech separately in the provider schema', async () => {
+    let body: any;
+    const translated = { ...reply, text: 'Tudo bem?', translation: 'הכול בסדר?',
+      suggested_replies: [{ text: 'Tudo bem.', translation: 'הכול בסדר.' }, { text: 'Mais ou menos.', translation: 'ככה ככה.' }] };
+    const request = vi.fn(async (_url, init) => { body = JSON.parse(init.body as string); return ok(translated); });
+    await new CompatibleProvider({ ...settings, baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.6-luna' }, new Timing(), request)
+      .reply({ action: 'start', practice: { level: 1 }, support_language: 'he-IL' });
+    const fields = body.response_format.json_schema.schema.properties;
+    expect(new RegExp(fields.text.pattern).test('Você treina?')).toBe(true);
+    expect(new RegExp(fields.text.pattern).test('Você מתרגל?')).toBe(false);
+    expect(new RegExp(fields.text.pattern).test('Sim. Você treina?')).toBe(false);
+    expect(new RegExp(fields.suggested_replies.items.properties.translation.pattern).test('I practise.')).toBe(false);
+    expect(new RegExp(fields.suggested_replies.items.properties.translation.pattern).test('אני מתרגל.')).toBe(true);
+    expect(new RegExp(fields.practice_phrase.pattern).test('מילה')).toBe(false);
+  });
+
   it.each(['0', '14', '26', '32', 'invalid'])('never waits on the same limited service (%s)', async header => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const request = vi.fn(async () => throttle(header));
