@@ -1,4 +1,4 @@
-// Served only as the old Netlify origin's /app/sw.js during the move.
+// Historical migration worker fixture; no longer served after the old origin was disabled.
 // Release that origin's offline shell without navigating an active draft.
 self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil((async () => {

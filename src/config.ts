@@ -33,7 +33,7 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings 
   catch { throw new AppError(503, "The server database or AI endpoint address is invalid."); }
   if (!["postgres:", "postgresql:"].includes(database.protocol)) throw new AppError(503, "DATABASE_URL must be a PostgreSQL connection string.");
   const loopback = (url: URL) => ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (provider.protocol !== "https:" && !(provider.protocol === "http:" && loopback(provider) && !env.NETLIFY)) {
+  if (provider.protocol !== "https:" && !(provider.protocol === "http:" && loopback(provider) && !env.VERCEL && !env.NETLIFY)) {
     throw new AppError(503, "The AI endpoint must use HTTPS.");
   }
   if (provider.username || provider.password || provider.search || provider.hash) throw new AppError(503, "Use a plain AI endpoint URL; set its key separately.");
@@ -57,7 +57,7 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv = process.env): Settings 
   const aiHedgeMs = Number(env.FALA_AI_HEDGE_MS ?? 1200);
   if (!Number.isInteger(aiHedgeMs) || aiHedgeMs < 100 || aiHedgeMs > 5000) throw new AppError(503, "FALA_AI_HEDGE_MS must be between 100 and 5000.");
   const localDatabase = env.FALA_LOCAL_DATABASE === "true";
-  if (localDatabase && (!loopback(database) || env.NETLIFY)) throw new AppError(503, "Unencrypted database connections are allowed only for local development.");
+  if (localDatabase && (!loopback(database) || env.VERCEL || env.NETLIFY)) throw new AppError(503, "Unencrypted database connections are allowed only for local development.");
   return { token: token.length >= 32 ? token : "", googleClientId, dailyUserLimit, dailyAppLimit, databaseUrl: env.DATABASE_URL, apiKey, baseUrl, model, fallback, aiHedgeMs, transcription, voiceApiKey, demo: env.FALA_DEMO === "true", aiTimeoutMs: timeout,
     databaseCa: (env.DATABASE_CA_CERT || "").replace(/\\n/g, "\n"), localDatabase };
 }

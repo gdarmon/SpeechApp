@@ -1,6 +1,6 @@
 // Explicitly opt-in: invokes real, billable AI with fixed synthetic data only.
 import { mkdir, writeFile } from 'node:fs/promises';
-const url = new URL(process.env.FALA_URL || 'https://falachatapp.netlify.app');
+const url = new URL(process.env.FALA_URL || 'https://fala-api.vercel.app');
 const token = process.env.FALA_TOKEN;
 const concurrency = Number(process.env.FALA_PROBE_CONCURRENCY || 1);
 const route = process.env.FALA_PROBE_ROUTE || 'active';

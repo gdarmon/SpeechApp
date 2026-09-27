@@ -1,8 +1,9 @@
 # Working on Fala
 
-Fala has a native Kotlin/Compose Android client, a JavaScript web app, and a TypeScript API on Vercel (Netlify retains legacy URL forwarding) backed by private PostgreSQL tables. The repository is the project memory; a previous chat or an ignored `artifacts/` file is not a prerequisite for continuing work.
+Fala has a native Kotlin/Compose Android client, a JavaScript web app, and a TypeScript API on Vercel only backed by private PostgreSQL tables. The repository is the project memory; a previous chat or an ignored `artifacts/` file is not a prerequisite for continuing work.
 
 - Start with [the handoff](docs/agent-handoff.md) for the code map, invariants, checks and open issues. [The documentation index](docs/README.md) routes to feature details.
+- Netlify was disabled and disconnected from GitHub on 27 September 2026 at the owner's request. Do not restore its deployment, forwarding or credential dependencies. See [the retirement receipt](docs/netlify-retirement-2026-09-27.md).
 - For a release, use [the release skill](.claude/skills/fala-release/SKILL.md) and [the release runbook](docs/releasing.md). Publishing authorization comes from the user's request, not from merely loading a skill. Carry out already-authorized targets without repeatedly asking for the same approval.
 - For a reported problem, use [the debugging skill](.claude/skills/fala-debug/SKILL.md). Distinguish a code finding, a reproduced failure, and a measurement from production.
 - Write maintained documentation, agent instructions and skills in English.
@@ -29,4 +30,4 @@ The user requires a visible version and release notes for every new app version.
 - Automated publishing targets Google Play internal testing. Confirm the upload result before reporting that an Android update is published. A Vercel website/API deployment alone does not update an installed Android binary.
 - For server-only content updates, explain that existing clients receive the content without a phone reinstall. Keep Portuguese difficulty separate from capoeira knowledge, and end-of-session vocabulary reviews capped at five items.
 
-- Use npm 10.9.7 (the Node 22 CI toolchain) when updating the lockfile. npm 12 can remove optional Netlify peer dependencies required by npm 10. Verify changes with `npx --yes npm@10.9.7 ci` before pushing.
+- Use npm 10.9.7 (the Node 22 CI toolchain) when updating the lockfile. Do not regenerate the lockfile with a different npm major version. Verify changes with `npx --yes npm@10.9.7 ci` before pushing.

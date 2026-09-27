@@ -29,7 +29,7 @@ export type Sender=(subscription:webpush.PushSubscription,payload:string)=>Promi
 export async function deliverReminders(db:Database,now=new Date(),send:Sender=(subscription,payload)=>webpush.sendNotification(subscription,payload,{
   TTL:1800,timeout:4000,urgency:'normal',vapidDetails:{subject:'mailto:gdarmon@gmail.com',publicKey:process.env.FALA_VAPID_PUBLIC_KEY!,privateKey:process.env.FALA_VAPID_PRIVATE_KEY!},
 }),publicKey=process.env.FALA_VAPID_PUBLIC_KEY||'') {
-  // Bounded batches keep a scheduled invocation within Netlify's execution limit.
+  // Bounded batches keep a scheduled invocation within the hosting execution limit.
   const due=await db.query<{user_id:string}>(`SELECT p.user_id FROM fala.reward_profiles p
     WHERE p.reminder_enabled AND EXISTS(SELECT 1 FROM fala.push_subscriptions s WHERE s.user_id=p.user_id AND COALESCE(s.subscription->>'vapid_public_key','')=$2)
     AND (extract(hour FROM ($1::timestamptz AT TIME ZONE p.timezone))*60+extract(minute FROM ($1::timestamptz AT TIME ZONE p.timezone))) BETWEEN p.reminder_minute AND p.reminder_minute+59

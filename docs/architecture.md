@@ -17,7 +17,7 @@ flowchart LR
     Client --> Speech[Android pt-BR text to speech]
 ```
 
-One Android application and one authenticated API on Vercel. The staged deployment is documented in the release runbook; Netlify retains transitional URL forwarding. Node 22, TypeScript, Zod for validating requests/model output, and PostgreSQL transactions for persistence. Kotlin, Compose, coroutines, and OkHttp on Android. Provider-specific code stays out of session management. Static public pages and the full web/PWA client are published alongside the separately bundled API functions.
+One Android application and one authenticated API on Vercel. The staged deployment is documented in the release runbook; Netlify was disabled and disconnected from GitHub on 27 September 2026. Node 22, TypeScript, Zod for validating requests/model output, and PostgreSQL transactions for persistence. Kotlin, Compose, coroutines, and OkHttp on Android. Provider-specific code stays out of session management. Static public pages and the full web/PWA client are published alongside the separately bundled API functions.
 
 ```
 android/app/src/main/java/com/fala/app/

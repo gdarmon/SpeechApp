@@ -1,5 +1,7 @@
 # Fala publishing status — 27 September 2026
 
+Current 0.15.0 publication is recorded in [the release receipt](../../docs/releases/0.15.0.md). Subsequent [Vercel-only hosting maintenance](../../docs/netlify-retirement-2026-09-27.md) retires Netlify without replacing the Android build.
+
 - **Website/API:** [Fala 0.15.0 on Vercel](https://fala-api.vercel.app/app/), including the rotating recent-practice card. Exact source/deployment and checks are in [the release receipt](../../docs/releases/0.15.0.md).
 - **Internal Testing:** **0.15.0 (104601)**, uploaded at 12:46 UTC. [Publisher](https://github.com/gdarmon/SpeechApp/actions/runs/36319940311).
 - **Closed Alpha:** the same build was committed and independently verified at 12:47 UTC; its separate lifecycle was **IN_REVIEW**. [Promotion](https://github.com/gdarmon/SpeechApp/actions/runs/36320143895). The previous 0.14.4 release was `PUBLISHED` at that observation.
@@ -9,11 +11,11 @@ The actual hosting cutover was 0.14.4; the owner chose 0.15.0 as the recognizabl
 
 ## Earlier 0.14.4 receipt — 27 September 2026
 
-- **Website/API:** [Fala 0.14.4 on Vercel](https://fala-api.vercel.app/app/); old Netlify URLs forward to it. Exact source/deployments and checks are in [the release receipt](../../docs/releases/0.14.4.md).
+- **Website/API:** [Fala 0.14.4 on Vercel](https://fala-api.vercel.app/app/); Netlify is now disabled; use the Vercel URL directly. Exact source/deployments and checks are in [the release receipt](../../docs/releases/0.14.4.md).
 - **Internal Testing:** 0.14.4, build **104501**, uploaded successfully. [Publisher](https://github.com/gdarmon/SpeechApp/actions/runs/36316041019).
 - **Closed Alpha:** the same build was committed and independently verified at 11:37 UTC. Its separate lifecycle was **IN_REVIEW**. [Promotion](https://github.com/gdarmon/SpeechApp/actions/runs/36316285927). Do not equate track `completed` with review approval.
 - **Production:** unchanged; no production rollout was requested or performed.
-- **Store metadata/screenshots:** the bundle promotion did not upload new listing text or screenshots. Canonical website/privacy/deletion URLs in the Console guide now use Vercel; existing Netlify links continue to redirect. Recheck actual Console permissions and listing state before another metadata upload.
+- **Store metadata/screenshots:** the bundle promotion did not upload new listing text or screenshots. Canonical website/privacy/deletion URLs in the Console guide now use Vercel; old Netlify links are offline. Recheck actual Console permissions and listing state before another metadata upload.
 
 Read [the release runbook](../../docs/releasing.md) before publishing. The earlier store-package receipt below is retained as history; its permissions or screenshots are not proof of current Console state.
 

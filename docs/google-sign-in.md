@@ -14,7 +14,7 @@ Open [Google Auth Platform](https://console.cloud.google.com/auth/overview), sel
 - Homepage: `https://fala-api.vercel.app/`.
 - Privacy page: `https://fala-api.vercel.app/privacy.html` (deploy the page before submitting).
 - Authentication only: `openid`, `email`, `profile`; no Gmail, contacts, or Drive access.
-- Register/verify the domain required by Google's branding flow. If the hosted Netlify subdomain cannot satisfy ownership verification, attach a domain you own before production verification and update the Android URL and OAuth origin together.
+- Register/verify the domain required by Google's branding flow. If the hosted Vercel subdomain cannot satisfy ownership verification, attach a domain you own before production verification and update the Android URL and OAuth origin together.
 
 Create an OAuth client of type **Web application** in this project. Add the authorized JavaScript origin `https://fala-api.vercel.app` for the web account-deletion page. This app uses a JavaScript callback, so there is no redirect URL to register. Copy the public ID ending in `.apps.googleusercontent.com` into Vercel's `GOOGLE_WEB_CLIENT_ID` environment variable. **No Google client secret is used or needed.**
 
@@ -42,7 +42,7 @@ Set `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider configuration de
 
 The current deployment explicitly disables the daily user/app allowances (`0`) and retains the per-account flood guard. Provider billing and throughput limits are separate. Sign-in has database-backed IP/global limits using the hosting adapter's trusted client address. Preserve the existing database and Google client ID across hosting moves.
 
-For the 0.14.4 migration, add the new origin to the existing **Fala backend** Web application client. Keep `https://falachatapp.netlify.app` as an additional origin while legacy web clients remain. The owner confirmed adding the new origin; the button loaded successfully, but that check did not perform a real account login.
+For the 0.14.4 migration, add the new origin to the existing **Fala backend** Web application client. Netlify has since been disabled; its old authorized origin is no longer required and can be removed from the Web client. Do not remove the Android OAuth clients. The owner confirmed adding the new origin; the button loaded successfully, but that check did not perform a real account login.
 
 ## 3. Verify before inviting people
 

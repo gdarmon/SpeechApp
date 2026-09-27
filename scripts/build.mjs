@@ -10,4 +10,4 @@ const release = await checkRelease();
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist", { recursive: true });
 await cp("public", "dist", { recursive: true });
-console.log(`Built Fala ${release.version}; release versions and notes verified. Netlify bundles the API separately.`);
+console.log(`Built Fala ${release.version}; release versions and notes verified. Stage the website/API with scripts/prepare-vercel-api.mjs for Vercel.`);

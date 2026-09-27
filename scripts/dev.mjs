@@ -1,13 +1,13 @@
-// Local development must never follow production's legacy-host proxy rules.
+// Local development compiles the shared API and serves public assets directly.
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 execFileSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.dev.json'], { stdio: 'inherit' });
-const { createHandler } = await import('../.netlify/dev-build/src/api.js');
-const { settingsFromEnv } = await import('../.netlify/dev-build/src/config.js');
-const { connectDatabase } = await import('../.netlify/dev-build/src/database.js');
+const { createHandler } = await import('../.fala/dev-build/src/api.js');
+const { settingsFromEnv } = await import('../.fala/dev-build/src/config.js');
+const { connectDatabase } = await import('../.fala/dev-build/src/database.js');
 let settings, database;
 const handler = createHandler({ settings: () => settings ??= settingsFromEnv(), database: config => database ??= connectDatabase(config), region: () => 'local' });
 const port = Number(process.env.FALA_DEV_PORT || 8888), root = path.resolve('public');

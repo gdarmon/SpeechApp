@@ -30,7 +30,7 @@ const walkthroughMigration = await readFile(new URL("../supabase/migrations/2026
 const rewardRulesMigration = await readFile(new URL("../supabase/migrations/202609230002_reward_rules.sql", import.meta.url), "utf8");
 const languageMigration = await readFile(new URL("../supabase/migrations/202609250001_language_reminders.sql", import.meta.url), "utf8");
 const claimsMigration = await readFile(new URL("../supabase/migrations/202609270001_generation_claims.sql", import.meta.url), "utf8");
-const netlifyRouting = await readFile(new URL("../netlify.toml", import.meta.url), "utf8");
+const vercelRouting = JSON.parse(await readFile(new URL("../deploy/vercel-api/vercel.json", import.meta.url), "utf8")).rewrites;
 const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration + languageMigration + claimsMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
@@ -88,7 +88,7 @@ beforeEach(async () => {
   coach = new Coach(); handler = instance();
 });
 
-describe("Netlify API against PostgreSQL", () => {
+describe("Fala API against PostgreSQL", () => {
   it("exposes invocation observations only in authorized operator diagnostics", async () => {
     const runtime = { instance_id: randomUUID(), invocation_number: 2, first_invocation: false, module_age_ms: 100 };
     const observed = (request: Request) => handler(request, 'local', runtime);
@@ -100,7 +100,7 @@ describe("Netlify API against PostgreSQL", () => {
   });
 
   it("restricts provider probes to fixed synthetic input and never saves them as learner practice", async () => {
-    expect(netlifyRouting).toContain('from = "/diagnostics/ai"');
+    expect(vercelRouting).toContainEqual({ source: "/diagnostics/ai", destination: "/api/service?route=/diagnostics/ai" });
     expect((await call("/diagnostics/ai", "POST", {}, handler, "wrong")).status).toBe(401);
     expect((await call("/diagnostics/ai", "POST", { prompt: "private input" })).status).toBe(422);
     expect((await call("/diagnostics/ai", "POST", { route: "fallback" })).status).toBe(409);
@@ -122,8 +122,8 @@ describe("Netlify API against PostgreSQL", () => {
     await pg.exec("UPDATE fala.usage_limits SET requests=120 WHERE bucket LIKE 'minute:%'");
     expect((await call("/sessions", "POST", { request_id: randomUUID() }, target)).status).toBe(429);
   });
-  it("routes AI reports on Netlify and stores a JSON object with the production database driver", async () => {
-    expect(netlifyRouting).toContain('from = "/content-reports"');
+  it("routes AI reports on Vercel and stores a JSON object with the production database driver", async () => {
+    expect(vercelRouting).toContainEqual({ source: "/content-reports", destination: "/api/service?route=/content-reports" });
     const session=(await start()).data;
     const response=await call('/content-reports','POST',{session_id:session.id,target:'opening',category:'inaccurate'});
     expect(response.status).toBe(200);
@@ -713,7 +713,8 @@ describe("provider contract and configuration", () => {
   it("requires valid secrets, secure endpoints and bounded timeouts", () => {
     const env = { FALA_TOKEN: settings.token, DATABASE_URL: settings.databaseUrl };
     for (const extra of [{ FALA_TOKEN: "short" }, { DATABASE_URL: "https://bad" }, { AI_TIMEOUT_MS: "60000" },
-      { OPENAI_BASE_URL: "http://remote.test" }, { FALA_LOCAL_DATABASE: "true", NETLIFY: "true" }]) {
+      { OPENAI_BASE_URL: "http://remote.test" }, { FALA_LOCAL_DATABASE: "true", NETLIFY: "true" },
+      { FALA_LOCAL_DATABASE: "true", VERCEL: "1" }, { OPENAI_BASE_URL: "http://localhost:1234", VERCEL: "1" }]) {
       expect(() => settingsFromEnv({ ...env, ...extra })).toThrow(AppError);
     }
     expect(settingsFromEnv(env).demo).toBe(false);

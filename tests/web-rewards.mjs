@@ -3,7 +3,8 @@ import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
 import { mkdir, readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const csp=(await readFile('netlify.toml','utf8')).match(/Content-Security-Policy = "(.*)"/)[1];
+const hosting=JSON.parse(await readFile('deploy/vercel-api/vercel.json','utf8'));
+const csp=hosting.headers.find(rule=>rule.source==='/(.*)').headers.find(header=>header.key==='Content-Security-Policy').value;
 const server=createServer(async(req,res)=>{
   try {const path=new URL(req.url,'http://localhost').pathname;
     if(!path.startsWith('/app/')&&path!='/logo.png'){res.writeHead(401,{'Content-Type':'application/json'});res.end('{"detail":"Sign in"}');return;}

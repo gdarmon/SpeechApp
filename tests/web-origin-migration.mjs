@@ -10,7 +10,7 @@ const old = createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.url === '/app/sw.js') {
     res.setHeader('Content-Type', 'text/javascript');
-    res.end(migrated ? await readFile('public/app/migrate-sw.js') : `
+    res.end(migrated ? await readFile('tests/fixtures/retired-origin-sw.js') : `
       self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
       self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
       self.addEventListener('fetch', e => { if(e.request.mode==='navigate') e.respondWith(Promise.resolve(new Response('<h1>Cached old Fala</h1>', {headers:{'Content-Type':'text/html'}}))); });

@@ -2,6 +2,8 @@
 
 **Use Fala on iPhone, Android or a computer:** [Open the web app](https://fala-api.vercel.app/app/). Version 0.15.0 marks the move to Vercel and replaces the pinned home focus with a rotating phrase from your recent practice. Learn at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.15.0.md), [browser details](docs/web-app.md).
 
+**Hosting:** Vercel only. Netlify was disabled and disconnected from GitHub; old Netlify URLs no longer work. [Retirement record](docs/netlify-retirement-2026-09-27.md).
+
 **Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [the owner guide](docs/owner-guide.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
 
 
@@ -53,7 +55,7 @@ Node 22.22.2 (see `.nvmrc`) and npm 10.9.7 are used for CI parity. Automated tes
 npx --yes npm@10.9.7 ci
 npm test
 npm run build
-npx netlify functions:build --src netlify/functions --functions .netlify/functions
+node scripts/prepare-vercel-api.mjs
 ```
 
 For local development, create `.env` using `.env.example` in a fresh checkout and fill in a development database connection and Google client ID (or optional operator token for API-only testing). Apply all migrations in filename order, then run `npm run dev` and use its printed URL. `FALA_DEMO=true` enables explicitly scripted connection tests, excluded from learning metrics; it cannot translate or assess you.

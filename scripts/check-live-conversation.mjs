@@ -3,7 +3,7 @@
 // Never use the operator token or a real learner's account for this check.
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-const url = new URL(process.env.FALA_URL || 'https://falachatapp.netlify.app');
+const url = new URL(process.env.FALA_URL || 'https://fala-api.vercel.app');
 const token = process.env.FALA_TEST_ACCOUNT_TOKEN;
 if (process.env.FALA_RUN_CONVERSATION_CHECK !== 'true' || !token || url.protocol !== 'https:' || url.username || url.password) {
   throw Error('Explicitly enable the live conversation check and configure the authorized HTTPS site and dedicated test-only learner token.');

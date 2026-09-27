@@ -6,16 +6,14 @@ import { createProbeHandler } from "../vercel-probe/handler.js";
 import { createReminderHandler } from "../../src/reminder-handler.js";
 import { createSessionProbe } from "../vercel-probe/sessions.js";
 
-// The website and API share the Vercel origin. Only the explicit legacy
-// origin remains allowed during migration; forwarded hosts never authorize CSRF.
+// The website and API share the Vercel origin; forwarded hosts never authorize CSRF.
 export const PUBLIC_ORIGIN = "https://fala-api.vercel.app";
-const LEGACY_ORIGIN = "https://falachatapp.netlify.app";
 export function createVercelHandler(handler: ReturnType<typeof createHandler>, runtime = createRuntimeTracker(), isolated?: (request: Request) => Promise<Response>, reminders?: (request: Request) => Promise<Response>) {
   return async (request: Request) => {
     const source = new URL(request.url);
     const route = source.pathname === "/api/service" ? source.searchParams.get("route") : source.pathname;
     if (!route || !/^\/[a-zA-Z][a-zA-Z0-9_/-]{0,239}$/.test(route)) return Response.json({ detail: "Endpoint not found." }, { status: 404 });
-    const target = new URL(route, request.headers.get("Origin") === LEGACY_ORIGIN ? LEGACY_ORIGIN : PUBLIC_ORIGIN);
+    const target = new URL(route, PUBLIC_ORIGIN);
     // Rewrites add their private route parameter; learner options such as the
     // transcription/support language must reach the shared API unchanged.
     for (const [name, value] of source.searchParams) {

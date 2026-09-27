@@ -48,7 +48,11 @@ jobs:
           name: fala-session-concurrency
           path: artifacts/session-concurrency-*.json
       - run: npm run build
-      - run: npx netlify functions:build --src netlify/functions --functions .netlify/functions
+      - name: Verify the isolated Vercel deployment package
+        run: |
+          stage="$(node scripts/prepare-vercel-api.mjs | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => console.log(JSON.parse(s).directory))')"
+          npm ci --prefix "$stage"
+          npm run typecheck --prefix "$stage"
   android:
     runs-on: ubuntu-latest
     steps:

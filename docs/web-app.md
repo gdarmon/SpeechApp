@@ -40,7 +40,7 @@ If OpenAI handles under-13 personal data, its guidance requires approved Zero Da
 
 References: [Google internal testing](https://support.google.com/googleplay/android-developer/answer/9845334), [Google target audience](https://support.google.com/googleplay/android-developer/answer/9867159), [Family Link app controls](https://support.google.com/families/answer/7103028), [OpenAI under-18 guidance](https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance).
 
-For the Vercel move, add the new origin to the existing Google Web client and update saved links; keep the old origin during transition. Browser cookies and push subscriptions belong to the old origin: sign in and reconnect notifications on the new site. Android 0.14.4 preserves the existing device session for the approved old Fala origins; arbitrary origin changes still require sign-in. The old Netlify service worker is retired locally so the next visit can follow the website redirect.
+For the Vercel move, add the new origin to the existing Google Web client and update saved links; the old Netlify origin is now offline. Browser cookies and push subscriptions belong to the old origin: sign in and reconnect notifications on the new site. Android 0.14.4 preserves the existing device session for the approved old Fala origins; arbitrary origin changes still require sign-in. Open the Vercel URL directly and replace old bookmarks/home-screen installations. Old cached pages cannot be relied on to migrate after the former host was disabled.
 
 ## Planned child accounts
 

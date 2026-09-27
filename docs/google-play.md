@@ -54,7 +54,7 @@ On 20 September 2026, the owner enabled the Play Developer API, granted `fala-gi
 2. Create the app in Play Console and enable **Play App Signing**. Let Google manage the app signing key; retain the local upload key separately. Register the Play app signing certificate with Google's Android OAuth client.
 3. Upload `fala-release.aab` to **Internal testing**, add testers, and use Play's opt-in/install link. Run sign-in and the speaking checklist from that installation before moving to a broader track.
 4. Complete the app listing, content rating, target audience, app access instructions, and Data safety declarations based on the actual production configuration. Use **gdarmon@gmail.com** as the support email.
-5. Current canonical links: privacy `https://fala-api.vercel.app/privacy.html`, account deletion `https://fala-api.vercel.app/delete-account.html`, and learning-data deletion `https://fala-api.vercel.app/delete-data.html`. Verify all three before a store metadata submission. The old Netlify links remain redirects; the 0.14.4 bundle promotion did not update store metadata.
+5. Current canonical links: privacy `https://fala-api.vercel.app/privacy.html`, account deletion `https://fala-api.vercel.app/delete-account.html`, and learning-data deletion `https://fala-api.vercel.app/delete-data.html`. Verify all three before a store metadata submission. The old Netlify links are now offline. Bundle promotion does not update store metadata: verify the contact website, privacy-policy URL and data-deletion URLs separately in Play Console.
 6. Use the prepared assets in `store/google-play/`: 512px icon, 1024×500 feature graphic, and native Android screenshots for phones, 7-inch tablets and 10-inch tablets. Screens show the real UI with fictional examples; they do not document a live sign-in test.
 7. Complete any account-specific testing or verification requirements displayed by Play Console before requesting production access. New personal developer accounts may require at least 12 opted-in closed testers for 14 continuous days; this depends on the account, not just the app.
 
@@ -83,3 +83,7 @@ Account deletion is available in-app and on the web and cascades through account
 [Google's Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469), [account deletion requirement](https://support.google.com/googleplay/android-developer/answer/13327111).
 
 The main publishing workflow uploads internal-testing releases after successful checks. Store metadata changes use the separate manual workflow above. Neither workflow releases to production.
+
+## Update hosting links without changing the Play binary
+
+The `play-store.yml` workflow supports `mode=audit` for a read-only listing audit without emulator captures, and `mode=update-links` for a narrowly scoped replacement of the retired Fala origin in existing descriptions/contact website. It preserves existing copy, screenshots, binaries and tracks, requires a fresh-edit verification, and refuses to replace a pending review. Listing permission is separate from permission to publish testing bundles. Privacy-policy and data-deletion Console fields still need owner verification because this edit API does not expose them. Keep the canonical URLs above even when the metadata API is unavailable.

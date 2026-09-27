@@ -1,6 +1,6 @@
 # Fala logo
 
-`fala-logo.png` is the original generated PNG, with transparency preserved. The same asset is bundled in Android and in the Netlify landing page. The Android adaptive icon supplies the forest-green background and a safe inset for round/squircle masks.
+`fala-logo.png` is the original generated PNG, with transparency preserved. The same asset is bundled in Android and in the website landing page. The Android adaptive icon supplies the forest-green background and a safe inset for round/squircle masks.
 
 Generated with Codex's built-in image-generation tool (not the API/CLI fallback). Final prompt:
 

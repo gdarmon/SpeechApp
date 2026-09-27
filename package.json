@@ -15,20 +15,15 @@
     "test:web": "node tests/web-browser.mjs && node tests/web-rewards.mjs && node tests/web-reminders.mjs && node tests/web-origin-migration.mjs"
   },
   "dependencies": {
-    "@netlify/functions": "6.0.0",
     "jose": "6.2.12",
     "postgres": "3.4.9",
     "web-push": "3.6.7",
     "zod": "4.6.5"
   },
-  "overrides": {
-    "sharp": "0.35.4"
-  },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@types/node": "22.19.15",
     "@types/web-push": "3.6.4",
-    "netlify-cli": "27.8.0",
     "playwright-core": "1.63.0",
     "typescript": "5.9.3",
     "vitest": "5.0.1"

@@ -9,6 +9,6 @@ Fala uses Google sign-in. There is no separate Fala password, paid subscription,
 7. Rewards contains themes and character skins. Bananera is available immediately. Bateba unlocks at 200 XP and Vesoura at 500 XP; these appearances do not restrict lessons.
 8. Friends supports private circles and points; it does not provide a person-to-person messaging service.
 9. To report an AI reply, open conversation options and select Report this AI reply. To report a summary, use Report this AI review on the review screen.
-10. Settings contains learning-data deletion and Fala account deletion. A web deletion route is https://falachatapp.netlify.app/delete-account.html.
+10. Settings contains learning-data deletion and Fala account deletion. A web deletion route is https://fala-api.vercel.app/delete-account.html.
 
 No app-owned credentials are needed if the reviewer can use their Google account. Confirm the Google OAuth audience and reviewer access before submission. If Google requires a dedicated review account, the owner must provide reusable access privately in Play Console, not in this repository or chat.

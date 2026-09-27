@@ -34,7 +34,7 @@ try {
   const internal=tracks.tracks?.find(t=>t.track==='internal')?.releases?.find(r=>r.status==='completed'&&r.name?.startsWith('Fala '+currentVersion+' '));
   if(!internal?.versionCodes?.length)throw Error('The matching app version must finish internal publishing before preparing the closed test.');
   await call('/'+edit.id+'/listings/en-US','PATCH',{title,shortDescription,fullDescription});
-  await call('/'+edit.id+'/details','PATCH',{contactEmail:'gdarmon@gmail.com',contactWebsite:'https://falachatapp.netlify.app'});
+  await call('/'+edit.id+'/details','PATCH',{contactEmail:'gdarmon@gmail.com',contactWebsite:'https://fala-api.vercel.app'});
   const groups={icon:['store/google-play/icon-512.png'],featureGraphic:['store/google-play/feature-graphic-1024x500.jpg']};
   for(const [folder,type] of [['phone','phoneScreenshots'],['seven-inch','sevenInchScreenshots'],['ten-inch','tenInchScreenshots']]) {
    const path='store/google-play/screenshots/'+folder;

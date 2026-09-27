@@ -30,16 +30,16 @@ it('rejects external and ambiguous rewrite targets before invoking the API', asy
   expect(handler).not.toHaveBeenCalled();
 });
 
-it('allows the exact legacy site through the migration proxy while preserving cookie CSRF checks', async () => {
+it('rejects cookies from the retired legacy origin after the Vercel-only cutover', async () => {
   const handler = vi.fn(async (request: Request) => {
-    sameOrigin(request);
-    expect(request.url).toBe('https://falachatapp.netlify.app/sessions');
+    expect(() => sameOrigin(request)).toThrow();
+    expect(request.url).toBe(`${PUBLIC_ORIGIN}/sessions`);
     expect(request.headers.get('cookie')).toBe('__Host-fala=synthetic');
-    return Response.json({ ok: true });
+    return new Response(null, { status: 403 });
   });
   expect((await createVercelHandler(handler)(new Request(`${PUBLIC_ORIGIN}/api/service?route=/sessions`, {
     method: 'POST', headers: { Origin: 'https://falachatapp.netlify.app', Cookie: '__Host-fala=synthetic' }, body: '{}',
-  }))).status).toBe(200);
+  }))).status).toBe(403);
 });
 
 it.each([

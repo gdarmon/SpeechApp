@@ -12,7 +12,8 @@ This is the entry point for people and coding agents taking over the repository.
 | Switch to Claude Code, Copilot or another agent | [Agent setup and skills](agent-setup.md) |
 | Service capacity, paid routing and latency | [Recovery and measurement](service-reliability.md) |
 | Reproduced multi-second response delay | [26 September latency investigation](latency-investigation-2026-09-26.md) |
-| Live test and exact Netlify dashboard timings | [27 September Observability comparison](latency-investigation-2026-09-27.md) |
+| Vercel-only operation and Netlify shutdown | [27 September retirement receipt](netlify-retirement-2026-09-27.md) |
+| Historical live test and exact Netlify dashboard timings | [27 September Observability comparison](latency-investigation-2026-09-27.md) |
 | Cold-start hypothesis tested with instance reuse | [27 September invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) |
 | Reproduce the isolated Vercel comparison and review migration gates | [Hosting comparison](hosting-comparison.md) |
 | Vercel deployment and measured AI comparison with Netlify | [27 September Vercel probe receipt](vercel-probe-2026-09-27.md) |

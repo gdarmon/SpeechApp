@@ -5,8 +5,8 @@ import { mkdir, readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const root = process.cwd();
 await mkdir('artifacts', { recursive: true });
-const toml = await readFile('netlify.toml', 'utf8');
-const csp = toml.match(/Content-Security-Policy = "(.*)"/)[1];
+const hosting = JSON.parse(await readFile('deploy/vercel-api/vercel.json', 'utf8'));
+const csp = hosting.headers.find(rule => rule.source === '/(.*)').headers.find(header => header.key === 'Content-Security-Policy').value;
 const server = createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname;

@@ -74,7 +74,7 @@ If publishing to those targets is already authorized, that approval does not nee
 
 1. Update the version everywhere and add English release notes.
 2. Run checks and build the app. Apply and verify any required database change before deploying server code that depends on it.
-3. Deploy and verify the staged website/API on Vercel, then push the checked code to GitHub. Main updates the legacy Netlify forwarding and runs cloud checks; it does not deploy Vercel automatically.
+3. Deploy and verify the staged website/API on Vercel, then push the checked code to GitHub. Main runs cloud checks; it does not deploy Vercel automatically.
 4. After checks pass, the workflow builds an Android bundle with the existing signing key and uploads it to Internal Testing.
 5. Promote that same bundle and build number to the closed Alpha track. No rebuild is needed.
 6. Verify the intended version was accepted by the website and Google Play; separately record whether Google is still reviewing it.

@@ -113,21 +113,12 @@ FALA_RUN_AI_PROBE=true FALA_LATENCY_TARGET=ai FALA_LATENCY_TRANSPORT=http2 \
   FALA_LATENCY_CONCURRENCY=10 FALA_LATENCY_WAVES=2 \
   node --env-file=.env scripts/check-latency.mjs
 
-# Match only the resulting request IDs to hosting logs using the existing
-# authorized Netlify CLI login. These two commands apply only to reports
-# taken through Netlify; do not correlate Vercel IDs with Netlify logs.
-# Substitute that historical report filename.
-node scripts/check-hosting-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
-
-# Read the dashboard's request duration and function-operation duration for
-# those same exact IDs. No new AI requests; allow time for data ingestion.
-node scripts/check-observability-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
 ```
 
-`FALA_PROBE_ROUTE` defaults to `primary` in the detailed harness, isolating the provider from hedging; use `active` to include configured recovery. Set `FALA_URL=https://fala-api.vercel.app` explicitly for current-host measurements; some older harnesses default to the legacy Netlify proxy. The token is sent only to that explicitly configured HTTPS origin, and redirects are never followed. Reports contain timing/request IDs and numeric provider observations, never learner or generated text. HTTP/2 reports connection setup separately and excludes it from request-wave timings. First wave is not proof of a cold function, and later waves do not guarantee warm server instances.
+`FALA_PROBE_ROUTE` defaults to `primary` in the detailed harness, isolating the provider from hedging; use `active` to include configured recovery. The current harnesses default to `https://fala-api.vercel.app`; `FALA_URL` can select an explicitly authorized alternative. The token is sent only to that explicitly configured HTTPS origin, and redirects are never followed. Reports contain timing/request IDs and numeric provider observations, never learner or generated text. HTTP/2 reports connection setup separately and excludes it from request-wave timings. First wave is not proof of a cold function, and later waves do not guarantee warm server instances.
 
 Limits are 1–50 concurrent requests, 1–3 waves and at most 100 requests per invocation. The existing 120-request/minute operator flood guard and provider token capacity still apply across separate invocations; leave appropriate time between large runs. A run exits **1** on HTTP/transport/response validation failures, **2** when any wave misses the p95 target (default `<3000 ms`, configurable through `FALA_LATENCY_MAX_P95_MS`), and **0** only when all waves pass. Small sample percentiles are descriptive, not an SLA.
 
-Hosting logs can take minutes to arrive. Their correlator exits **2** on incomplete coverage; rerun that read-only correlation later without repeating AI calls. It uses the repository's pinned Netlify CLI modules and existing login, and never writes unrelated log messages. `NETLIFY_SITE_ID` defaults to the documented Fala site. Timestamp offsets use separate clocks; platform duration can overlap initialization, so avoid summing overlapping spans or labeling every residual as queue time.
+The former Netlify-only network collectors were removed when that project was retired. Their historical source remains in Git at `bb13723`, and the dated reports preserve the measured comparison. Current diagnostics must target Vercel. Offline log parsing remains available for existing sanitized reports; it performs no hosting requests.
 
 The [27 September live dashboard comparison](latency-investigation-2026-09-27.md) matched all 105 requests across 50/25/30 bursts to Observability details. A 7.09-second Netlify request contained only 1.81 seconds of function execution. The new dashboard reader uses an undocumented read-only endpoint, five parallel reads and 15-second deadlines. It excludes client identity and logs, preserves missing data as unknown, and exits **2** when timing coverage is incomplete. Its reported before/after-function intervals describe platform timestamps, not an identified internal queue. Personal dashboard retention is currently 24 hours; retain sanitized findings in dated documentation.

@@ -22,7 +22,7 @@ This repository does not install personal skills into an agent's home directory 
 1. Clone/open `gdarmon/SpeechApp`; inspect the current branch, working tree and latest `origin/main`.
 2. Read `AGENTS.md`, then `docs/agent-handoff.md`. Read only the feature references needed for the task.
 3. Use the pinned local toolchain and run the relevant checks. Most development tests require no cloud credentials.
-4. For an authorized release, establish the machine's normal GitHub/Vercel/database access (and Netlify only for legacy URL forwarding) using the release runbook. GitHub Actions already holds the Play signing/publishing secrets; do not download them to the agent.
+4. For an authorized release, establish the machine's normal GitHub/Vercel/database access using the release runbook. GitHub Actions already holds the Play signing/publishing secrets; do not download them to the agent.
 5. Keep behavior docs and dated release evidence current. Update this setup page if changing skill locations or agent entry points.
 
 ## Example requests

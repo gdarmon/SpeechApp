@@ -13,7 +13,7 @@ export function connectDatabase(settings: Settings): Database {
     max: 1, prepare: false, connect_timeout: 5, idle_timeout: 60, max_lifetime: 300,
     ssl: settings.localDatabase ? false : settings.databaseCa
       ? { ca: settings.databaseCa, rejectUnauthorized: true } : "require",
-    connection: { application_name: "fala-netlify" },
+    connection: { application_name: "fala-api" },
     onnotice: () => {}, // Never log SQL, parameters, connection strings, or transcripts.
   });
   const wrap = (client: Pick<typeof sql, "unsafe">): Executor => ({

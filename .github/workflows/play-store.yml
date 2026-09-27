@@ -5,7 +5,7 @@ on:
       mode:
         description: Capture/audit, upload store assets, or explicitly promote an existing internal build to Alpha
         type: choice
-        options: [capture, upload, promote-alpha]
+        options: [capture, audit, update-links, upload, promote-alpha]
         default: capture
       version_code:
         description: Exact existing internal Play version code (required only for promote-alpha)
@@ -38,7 +38,8 @@ jobs:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           case "$STORE_MODE" in
-            capture) node scripts/play-store.mjs ;;
+            capture|audit) node scripts/play-store.mjs ;;
+            update-links) node scripts/play-store-links.mjs ;;
             upload) node scripts/play-store.mjs upload ;;
             promote-alpha) node scripts/play-promote.mjs ;;
             *) exit 1 ;;

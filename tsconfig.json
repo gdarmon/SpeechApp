@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "netlify/functions/**/*.ts", "deploy/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "deploy/**/*.ts", "tests/**/*.ts"]
 }

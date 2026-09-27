@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": false, "outDir": ".netlify/dev-build", "rootDir": "." },
+  "compilerOptions": { "noEmit": false, "outDir": ".fala/dev-build", "rootDir": "." },
   "include": ["src/**/*.ts"]
 }

@@ -3,17 +3,15 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import postgres from 'postgres';
-import { getToken } from '../node_modules/netlify-cli/dist/utils/command-helpers.js';
-import { NetlifyAPI } from '@netlify/api';
 
 const count = Number(process.env.FALA_SESSION_LEARNERS || 2);
 if (process.env.FALA_PREPARE_SESSION_FIXTURES !== 'true' || !Number.isInteger(count) || count < 1 || count > 50) {
   throw Error('Explicitly enable isolated session fixtures and choose 1–50 synthetic learners.');
 }
-const [token] = await getToken();
-const vars = await new NetlifyAPI(token).getEnvVars({ accountId: 'gdarmon', siteId: 'ed619bd9-b888-4276-b235-9733f4d3cd0d' });
-const value = vars.find(v => v.key === 'DATABASE_URL')?.values.find(v => v.context === 'dev')?.value;
-let url; try { url = new URL(value); } catch { throw Error('The established migration connection is unavailable.'); }
+// Supply the approved owner/migration connection through the environment.
+// Never fetch credentials from a retired hosting account.
+const value = process.env.FALA_MIGRATION_DATABASE_URL;
+let url; try { url = new URL(value); } catch { throw Error('Set FALA_MIGRATION_DATABASE_URL securely to the approved owner connection.'); }
 if (url.username !== 'postgres.mlksvlcnhuavhqdwaplj' || !url.hostname.endsWith('.pooler.supabase.com') || url.pathname !== '/postgres') {
   throw Error('The connection does not match the confirmed Fala database.');
 }

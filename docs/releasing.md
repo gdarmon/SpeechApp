@@ -8,8 +8,6 @@ Use this for an existing Fala installation, website and Play app. For first-time
 |---|---|---|
 | Source | `gdarmon/SpeechApp`, branch `main` | GitHub |
 | Website/API | `https://fala-api.vercel.app`, app at `/app/` | Reviewed staged Vercel production deployment |
-| Legacy URL compatibility | `https://falachatapp.netlify.app` | Main deploy: API proxies to Vercel; web temporary redirect |
-| Netlify site | `ed619bd9-b888-4276-b235-9733f4d3cd0d`, account `gdarmon` | Existing Netlify project/login |
 | Database | Private `fala` schema in the configured PostgreSQL/Supabase database | Reviewed SQL migrations, separately from site deployment |
 | Android identity | `com.fala.app` | Existing signing key and Play App Signing |
 | Internal testing | Play API track `internal` | `.github/workflows/play-bundle.yml` |
@@ -20,7 +18,7 @@ Website, database and Android are separate deployables. A website deployment doe
 
 ## Access without copying secrets into the repository
 
-Use an existing authorized `gh` login for the correct account/repository and Vercel's normal login/project connection. Netlify access is needed only for legacy forwarding changes. A fresh machine must log in normally. Existing signing and Google publishing credentials are already stored in GitHub Actions:
+Use an existing authorized `gh` login for the correct account/repository and Vercel's normal login/project connection. Netlify is retired and no longer needed for builds, credentials, diagnostics or publication. A fresh machine must log in normally. Existing signing and Google publishing credentials are already stored in GitHub Actions:
 
 - Secrets: `FALA_UPLOAD_KEYSTORE_BASE64`, `FALA_UPLOAD_STORE_PASSWORD`, `FALA_UPLOAD_KEY_ALIAS`, `FALA_UPLOAD_KEY_PASSWORD`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 - Variables: `FALA_PLAY_UPLOAD_ENABLED=true`, normally `FALA_PLAY_RELEASE_STATUS=completed`.
@@ -28,7 +26,7 @@ Use an existing authorized `gh` login for the correct account/repository and Ver
 
 Vercel `fala-api` Production holds `DATABASE_URL`, optional `DATABASE_CA_CERT`, Google public client ID, AI credentials/selectors and optional Web Push keys. `.env.example` lists names and meanings. Do not dump environment values or a complete provider response into logs. A masked secret is not recoverable just because another tool is connected. `FALA_REMINDER_TOKEN` must match the GitHub Actions secret of the same name; the scheduled workflow calls only the dedicated reminder endpoint. Keep the existing VAPID key pair for normal releases. A deliberate key rotation requires new browser subscriptions and must preserve opt-outs.
 
-Database migration requires an approved owner/migration connection. On the existing workstation, prior releases used an established operator connection stored in Netlify's development context for this same database. Confirm its target before using it; a development-context name alone does not establish a production destination. Prefer the owner's SQL Editor or a securely configured PostgreSQL connection on a new machine. Never borrow a neighboring project's database or expose connection strings in chat.
+Database migration requires an approved owner/migration connection supplied securely by the owner, preferably through Supabase SQL Editor or an existing PostgreSQL credential configuration. Do not fetch it from the retired Netlify account. The isolated fixture tool accepts `FALA_MIGRATION_DATABASE_URL` from the environment and verifies the confirmed Fala pooler identity before using the private diagnostic schema. Do not place credentials in a command argument, source file or logs.
 
 The `.tools/` and `artifacts/` directories are ignored conveniences. [The handoff](agent-handoff.md#existing-workstation-conveniences) documents the local CLI locations; the release must remain possible without those directories.
 
@@ -64,7 +62,7 @@ npm run test:web
 git diff --check
 ```
 
-`ci` with npm 10.9.7 is required before pushing a release. npm 12 previously pruned optional Netlify peer dependencies that npm 10 needs. Do not regenerate the lockfile with npm 12 to work around a build sandbox failure.
+`ci` with npm 10.9.7 is required before pushing a release. The pinned npm version keeps local and CI lockfile handling consistent. Do not regenerate the lockfile with npm 12 to work around a build sandbox failure.
 
 For native changes, from `android/`:
 
@@ -73,15 +71,11 @@ For native changes, from `android/`:
 ./gradlew --no-daemon :app:compileDebugAndroidTestKotlin
 ```
 
-Use relevant device acceptance checks for changes that cannot be validated locally. Report missing phone/emulator coverage honestly. The signed publishing workflow also runs tests, a release build and release lint. `npm run build` checks version/notes/catalog consistency; it does not package the Netlify function. CI additionally runs:
-
-```bash
-npx netlify functions:build --src netlify/functions --functions .netlify/functions
-```
+Use relevant device acceptance checks for changes that cannot be validated locally. Report missing phone/emulator coverage honestly. The signed publishing workflow also runs tests, a release build and release lint. `npm run build` checks version/notes/catalog consistency; CI also stages, installs and type-checks the self-contained Vercel package. Run `node scripts/prepare-vercel-api.mjs`, then `npm ci` and `npm run typecheck` inside the returned stage to reproduce that check.
 
 ## 3. Apply required migrations before dependent API deployment
 
-First identify which migrations are already installed in the intended Fala database. These checked-in files are not automatically applied by `npm run build`, GitHub Actions, Vercel or Netlify deployment. Do not blindly rerun all historical migrations against a live account store.
+First identify which migrations are already installed in the intended Fala database. These checked-in files are not automatically applied by `npm run build`, GitHub Actions or Vercel deployment. Do not blindly rerun all historical migrations against a live account store.
 
 Apply the pending reviewed SQL in a transaction through the owner's SQL Editor or a secured PostgreSQL connection. For example, with an existing libpq service/credential configuration and `PGSERVICE` set securely:
 
@@ -142,11 +136,11 @@ Do not advance main again while its Play publication is in progress: the publish
 
 The normal sequence is:
 
-1. Netlify updates legacy API proxies and the website redirect from main; the primary Vercel deployment was verified separately.
+1. Verify the separately staged Vercel production deployment. Netlify is disabled and receives no deployments.
 2. GitHub **Build and check Fala** (`checks.yml`) checks backend/web, real PostgreSQL compatibility and Android.
 3. After a successful **push-to-main** check, **Publish Play internal testing** (`play-bundle.yml`) builds with the existing signing key and uploads `internal` when enabled.
 
-No closed-test promotion or production rollout is automatic. Merely seeing a successful `pages-build-deployment` run is not evidence that the Netlify API or Play release is updated.
+No closed-test promotion or production rollout is automatic. Merely seeing a successful `pages-build-deployment` run is not evidence that the Vercel API or Play release is updated.
 
 ## 5. Monitor and verify the website and Internal Testing
 
@@ -161,7 +155,7 @@ Use numeric run IDs returned by `gh run list`, matching the full source SHA. Sav
 
 The internal publisher verifies Google's returned bundle version/hash and commits only the internal track. It refuses a used/older code and fails if Google reports a conflicting pending review. On an uncertain network/commit result, inspect Play before retrying.
 
-Verify the primary Vercel deployment is Ready and the Netlify compatibility deployment is published at the intended commit. Always specify the actual Netlify site ID in CLI deploys: `--site ed619bd9-b888-4276-b235-9733f4d3cd0d`. An unlinked local directory can silently create a different site. Then check:
+Verify the primary Vercel deployment is Ready on the intended source commit. Then check:
 
 ```bash
 curl --fail --silent --show-error https://fala-api.vercel.app/health
@@ -169,7 +163,7 @@ curl --fail --silent --show-error https://fala-api.vercel.app/app/
 curl --fail --silent --show-error https://fala-api.vercel.app/app/sw.js
 ```
 
-Also check the old Netlify `/health` returns `X-Fala-Host: vercel` and `/app/` redirects to the new origin.
+The old Netlify URLs intentionally return 404. Do not restore forwarding or deploy a compatibility site.
 
 `/health` returns `{"status":"ok"}`; it does **not** expose a version or prove database/AI health. Check the visible web version, cache name and changed public modules separately. For localization, exercise language switching in the live browser. Perform any authenticated smoke check with an authorized test account and without logging transcripts or credentials.
 
@@ -179,7 +173,7 @@ If automatic publishing is disabled or a run was skipped, establish the reason f
 gh workflow run play-bundle.yml --ref main
 ```
 
-It allocates a **new** Play build. Do not start it while another publisher is running or use it simply to recheck a successful upload. Netlify failed builds can be inspected/retried in the existing project's dashboard; confirm the intended commit instead of deploying an arbitrary local directory.
+It allocates a **new** Play build. Do not start it while another publisher is running or use it simply to recheck a successful upload.
 
 ## 6. Promote the same bundle to Closed Testing
 
@@ -225,14 +219,18 @@ Keep raw logs, private local credentials, downloaded bundles and screenshots in 
 
 A documentation or agent-instructions update alone needs no visible app version bump. Inspect the entire diff first: this route must not hide code, schema, dependency, workflow or published-asset changes.
 
-This repository's workflows currently run on every push, and a successful main check triggers another internal upload. For a verified docs-only commit, use both markers:
+This repository's workflows currently run on every push, and a successful main check triggers another internal upload. For a verified docs-only commit, use the skip marker:
 
 ```bash
-git commit -m "Document Fala operations and agent handoff [skip ci] [skip netlify]"
+git commit -m "Document Fala operations and agent handoff [skip ci]"
 git push origin HEAD:main
 ```
 
-GitHub's `[skip ci]` skips applicable push/PR checks; it does not stop manually dispatched workflows. `[skip netlify]` skips the site build. If branch protection requires checks, use the repository's review process rather than bypassing it. [GitHub skip behavior](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs), [Netlify skip a deploy](https://docs.netlify.com/deploy/manage-deploys/manage-deploys-overview/#skip-a-deploy).
+GitHub's `[skip ci]` skips applicable push/PR checks; it does not stop manually dispatched workflows. Netlify is disconnected and disabled, so it needs no commit marker. If branch protection requires checks, use the repository's review process rather than bypassing it. [GitHub skip behavior](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs).
+
+## Hosting maintenance without a new Android binary
+
+Infrastructure retirement and hosting configuration corrections can retain the already published app version when no client feature or API contract changes. This is **not** the docs-only validation shortcut: run the full relevant backend/web checks and deployment-package validation. To avoid an unnecessary Play upload, push the task commit with `[skip ci]`, explicitly dispatch `checks.yml` on that exact task branch, and wait for success before merging. The existing publisher accepts only successful push-to-main checks; a manual check does not publish Play. Keep the skip marker on the main commit, deploy and verify Vercel separately, and record the checked SHA and manual run. Normal user-visible releases still require the version bump and normal publication sequence.
 
 ## Troubleshooting and recovery
 
@@ -249,4 +247,4 @@ GitHub's `[skip ci]` skips applicable push/PR checks; it does not stop manually 
 | Notification default on but no notification | Check permission, time zone, active subscription/native scheduling, practice today and deduplication; no reminder exactly on time is guaranteed |
 | Long response after Send | Measure `Server-Timing`, provider/repair retries and device playback separately; preserve the reply/request ID |
 
-For a bad website/API release, promote a known compatible Vercel deployment and verify the stable alias. Netlify remains transitional forwarding and is not the primary application rollback target. For Android, prepare a corrected release with a higher version code; do not attempt a version-code downgrade. Do not delete learner data or remove a new schema column merely to roll back the UI. Record the recovery and which clients are affected.
+For a bad website/API release, promote a known compatible Vercel deployment and verify the stable alias. Netlify must stay disabled; a rollback uses Vercel. For Android, prepare a corrected release with a higher version code; do not attempt a version-code downgrade. Do not delete learner data or remove a new schema column merely to roll back the UI. Record the recovery and which clients are affected.

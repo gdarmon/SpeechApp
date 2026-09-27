@@ -21,4 +21,4 @@ Sign in with Google to keep your learning progress together across Android and t
 Fala is for adults and teenagers aged 13 and over, with parent or guardian permission under 18. An internet connection and Google account are required. Android speech recognition and playback depend on your device and installed Brazilian Portuguese voice. AI and transcription can make mistakes; feedback is not a pronunciation score. Fala is an independent language-learning app and is not an official ABADA-Capoeira product.
 
 Support: gdarmon@gmail.com
-Privacy: https://falachatapp.netlify.app/privacy.html
+Privacy: https://fala-api.vercel.app/privacy.html

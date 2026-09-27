@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { measureRequest, summarize, meetsLatencyTarget, runtimeObservation } from './lib/latency.mjs';
 import { openHttp2Session, measureHttp2Request } from './lib/latency-http2.mjs';
 
-const url = new URL(process.env.FALA_URL || 'https://falachatapp.netlify.app');
+const url = new URL(process.env.FALA_URL || 'https://fala-api.vercel.app');
 const target = process.env.FALA_LATENCY_TARGET || 'health';
 const concurrency = Number(process.env.FALA_LATENCY_CONCURRENCY || 1);
 const waves = Number(process.env.FALA_LATENCY_WAVES || 3);

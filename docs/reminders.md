@@ -27,7 +27,7 @@ The configured pair is already present. On a new workstation, establish normal a
 
 `.github/workflows/reminders.yml` runs on the default branch at minutes **07, 22, 37 and 52 of each UTC hour**. It sends an authenticated POST to `https://fala-api.vercel.app/internal/reminders`. GitHub schedule timing is best effort; the user-selected reminder time is evaluated in the account's time zone. A 17:00 preference is not a guarantee of delivery exactly at 17:00.
 
-The workflow has one concurrency group, a two-minute job timeout and a 35-second HTTP deadline. The server accepts POST only, checks the dedicated token and requires both VAPID settings before delivery. The retired Netlify reminder function returns 410 and has no schedule. Do not run two schedulers during normal operation.
+The workflow has one concurrency group, a two-minute job timeout and a 35-second HTTP deadline. The server accepts POST only, checks the dedicated token and requires both VAPID settings before delivery. The entire Netlify project is disabled; it no longer serves even the retired reminder endpoint. Do not run two schedulers during normal operation.
 
 `src/reminders.ts` processes at most 20 eligible learners per invocation with four concurrent workers and a four-second push timeout. Eligibility requires:
 
