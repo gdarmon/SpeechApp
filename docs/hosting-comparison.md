@@ -1,6 +1,6 @@
 # Isolated Vercel hosting comparison
 
-Status on 27 September 2026: the separate Vercel Hobby project is deployed, its health/authentication checks work, and the owner supplied the two required secret settings. **The AI comparison is not yet complete: the deployed database connection fails DNS resolution.** The owner subsequently supplied a direct-connection template whose hostname has an IPv6 record and no IPv4 record; switching to the actual Transaction pooler URI remains necessary. A 50-request health-only comparison succeeded on both hosts; it is not an AI or learner-capacity result. See the [deployment and measurement receipt](vercel-probe-2026-09-27.md). Fala users continue to use Netlify 0.14.3.
+Status on 27 September 2026: the separate Vercel Hobby project is deployed and the owner's Transaction pooler update resolved database access. All 400 fixed synthetic AI requests succeeded across two runs per host in reversed order. Second-wave p95 was 2.40–2.45 seconds on Vercel versus 4.01–4.12 on Netlify, with similar AI medians; the first Vercel wave still missed the three-second gate. See the [deployment and measurement receipt](vercel-probe-2026-09-27.md) for component timings and remaining limits. Fala users continue to use Netlify 0.14.3; this experiment does not enable learner routes on Vercel. Full conversation/voice capacity remains untested on Vercel.
 
 ## Why this experiment
 
@@ -21,7 +21,9 @@ npx --yes npm@10.9.7 run build
 node scripts/prepare-vercel-probe.mjs
 ```
 
-The last command prints a fresh absolute directory under ignored `artifacts/vercel-probe-*`. That directory is the Vercel project root. It contains only `.ts` sources from `src` and `deploy/vercel-probe`, package metadata/lockfile, a scoped TypeScript configuration, one catch-all function, reviewed routing configuration and a minimal diagnostic landing page. Hidden files, symlinks, `.env`, existing deployment state, `.tools`, Android signing material, reports and the normal web application are not copied. Never upload the whole workstation checkout as a substitute.
+The last command prints a fresh absolute directory under ignored `artifacts/vercel-probe-*`. That directory is the Vercel project root. It contains only `.ts` sources from `src` and `deploy/vercel-probe`, package metadata/lockfile, a scoped TypeScript configuration, one concrete `api/probe.ts` function, reviewed routing configuration and a minimal diagnostic landing page. Hidden files, symlinks, `.env`, existing deployment state, `.tools`, Android signing material, reports and the normal web application are not copied. Never upload the whole workstation checkout as a substitute.
+
+The three public paths rewrite to the concrete function with an allowlisted `endpoint` selector. The adapter maps that selector back to the shared route while preserving the method, authentication and POST body. The initial catch-all deployment served health but returned a platform 404 for the nested AI path; it was corrected and covered by a regression test. Check the actual POST route as well as health before running load.
 
 The prepared project uses `deploy/vercel-probe/vercel.json`: Node runtime selected by package engines, Fluid enabled, region `cle1`, 30-second function deadline, npm 10.9.7 installation and TypeScript checking. The application AI deadline remains eight seconds. No app version or Play upload is needed for this private diagnostic experiment.
 
@@ -81,4 +83,4 @@ The runner exits 1 for failed/invalid requests and 2 if a wave misses its p95 ta
 
 ## Local validation
 
-The local suite passed 199 tests across 17 files, including route/credential isolation, safe database-error logging and 50 concurrent adapter calls with immutable invocation snapshots. HTTP/1.1 and HTTP/2 loopback fixtures verify Vercel request-ID collection. The normal build, prepared project's type check, upload file allowlist inspection and validation against Vercel's current official JSON Schema (draft 4) passed. Actual Vercel packaging/deployment and live health/guard checks also passed. The AI comparison remains blocked by the database connection, as recorded in the dated receipt.
+The local suite passed 200 tests across 17 files, including concrete-entrypoint routing and POST-body preservation, route/credential isolation, safe database-error logging and 50 concurrent adapter calls with immutable invocation snapshots. HTTP/1.1 and HTTP/2 loopback fixtures verify Vercel request-ID collection. The normal build, prepared project's type check, upload file allowlist inspection and validation against Vercel's current official JSON Schema (draft 4) passed. Actual Vercel packaging/deployment, live health/guard checks, database access and AI requests also passed. Latency gates are reported separately in the dated receipt; HTTP success alone does not pass them.
