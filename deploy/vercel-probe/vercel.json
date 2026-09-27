@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "fluid": true,
+  "regions": ["cle1"],
+  "installCommand": "npx --yes npm@10.9.7 ci",
+  "buildCommand": "npm run typecheck",
+  "outputDirectory": "public",
+  "functions": {
+    "api/[...path].ts": { "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/diagnostics", "destination": "/api/diagnostics" },
+    { "source": "/diagnostics/ai", "destination": "/api/diagnostics/ai" }
+  ]
+}

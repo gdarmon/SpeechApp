@@ -1,5 +1,5 @@
 import http2 from 'node:http2';
-import { parseServerTiming } from './latency.mjs';
+import { parseServerTiming, hostingRequest } from './latency.mjs';
 
 export async function openHttp2Session(origin, timeoutMs = 20000) {
   const start = performance.now();
@@ -25,14 +25,14 @@ export async function openHttp2Session(origin, timeoutMs = 20000) {
 export function measureHttp2Request(url, { session, token, body, timeoutMs = 20000 } = {}) {
   const start = performance.now(), startedAt = new Date().toISOString();
   return new Promise(resolve => {
-    let readyAt, headersAt, status = 0, server = {}, requestId = null, bytes = 0, settled = false, timer, stream;
+    let readyAt, headersAt, status = 0, server = {}, hosting = hostingRequest({}), bytes = 0, settled = false, timer, stream;
     const chunks = [];
     const finish = error => {
       if (settled) return;
       settled = true; clearTimeout(timer);
       const total = performance.now() - start;
       const round = value => Number(value.toFixed(1));
-      resolve({ sample: { started_at: startedAt, status, error, request_id: requestId, reused_socket: true,
+      resolve({ sample: { started_at: startedAt, status, error, ...hosting, reused_socket: true,
         bytes, total_ms: round(total), client_queue_ms: readyAt === undefined ? null : round(readyAt),
         dns_ms: null, tcp_ms: null, tls_ms: null,
         after_connection_ms: headersAt === undefined || readyAt === undefined ? null : round(headersAt - readyAt),
@@ -50,7 +50,7 @@ export function measureHttp2Request(url, { session, token, body, timeoutMs = 200
     else stream.once('ready', () => { readyAt = performance.now() - start; });
     stream.on('response', headers => {
       headersAt = performance.now() - start; status = headers[':status'];
-      server = parseServerTiming(headers['server-timing']); requestId = headers['x-nf-request-id'] ?? null;
+      server = parseServerTiming(headers['server-timing']); hosting = hostingRequest(headers);
     });
     stream.on('data', chunk => {
       bytes += chunk.length;

@@ -1,10 +1,17 @@
 import { afterEach, expect, it } from 'vitest';
 import http from 'node:http';
 import http2 from 'node:http2';
-import { correlatePlatform, measureRequest, parseServerTiming, summarize, meetsLatencyTarget, runtimeObservation } from '../scripts/lib/latency.mjs';
+import { correlatePlatform, measureRequest, parseServerTiming, summarize, meetsLatencyTarget, runtimeObservation, hostingRequest } from '../scripts/lib/latency.mjs';
 import { openHttp2Session, measureHttp2Request } from '../scripts/lib/latency-http2.mjs';
 
 const cleanup = [];
+it('records only bounded hosting request identifiers with their platform', () => {
+  expect(hostingRequest({ 'x-vercel-id': 'tlv1::cle1::example-123', authorization: 'private' }))
+    .toEqual({ request_platform: 'vercel', request_id: 'tlv1::cle1::example-123' });
+  expect(hostingRequest({ 'x-nf-request-id': '01M3GQXP8JK1DX4WHXFX78RFZB' }).request_platform).toBe('netlify');
+  expect(hostingRequest({ 'x-vercel-id': 'x'.repeat(201) }).request_id).toBeNull();
+  expect(hostingRequest({}).request_id).toBeNull();
+});
 it('counts valid instance observations without retaining arbitrary diagnostic fields', () => {
   const first = { instance_id: '00000000-0000-4000-8000-000000000001', invocation_number: 1,
     first_invocation: true, module_age_ms: 2, private_text: 'do-not-retain' };
@@ -41,13 +48,15 @@ it('separates client connection-pool queuing from handler duration and reuses th
 
 it('measures body download separately from waiting for response headers', async () => {
   const { url, agent } = await fixture((req, res) => {
-    res.writeHead(200, { 'Server-Timing': 'total;dur=0.1' });
+    res.writeHead(200, { 'Server-Timing': 'total;dur=0.1', 'x-vercel-id': 'tlv1::cle1::example-123' });
     res.flushHeaders();
     setTimeout(() => res.end('{}'), 80);
   });
   const { sample } = await measureRequest(url, { agent });
   expect(sample.body_ms).toBeGreaterThan(60);
   expect(sample.handler_ms).toBe(.1);
+  expect(sample.request_platform).toBe('vercel');
+  expect(sample.request_id).toBe('tlv1::cle1::example-123');
 });
 
 it('does not follow redirects or expose an authorization token in diagnostics', async () => {
@@ -104,7 +113,7 @@ it('measures simultaneous HTTP/2 streams without serializing behind a connection
   server.on('stream', stream => {
     waiting.push(stream);
     if (waiting.length === 2) for (const reply of waiting) {
-      reply.respond({ ':status': 200, 'server-timing': 'total;dur=10' }); reply.end('{}');
+      reply.respond({ ':status': 200, 'server-timing': 'total;dur=10', 'x-vercel-id': 'tlv1::cle1::example-123' }); reply.end('{}');
     }
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -117,6 +126,8 @@ it('measures simultaneous HTTP/2 streams without serializing behind a connection
     expect(sample.status).toBe(200);
     expect(sample.error).toBeNull();
     expect(sample.handler_ms).toBe(10);
+    expect(sample.request_platform).toBe('vercel');
+    expect(sample.request_id).toBe('tlv1::cle1::example-123');
     expect(sample.client_queue_ms).not.toBeNull();
   }
 });

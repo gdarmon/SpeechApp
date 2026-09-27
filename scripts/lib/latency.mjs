@@ -11,6 +11,13 @@ export function parseServerTiming(header = '') {
 }
 
 const rounded = value => Number(value.toFixed(1));
+export function hostingRequest(headers) {
+  for (const [platform, name] of [['netlify', 'x-nf-request-id'], ['vercel', 'x-vercel-id']]) {
+    const id = headers[name];
+    if (typeof id === 'string' && /^[\w:=-]{1,200}$/.test(id)) return { request_platform: platform, request_id: id };
+  }
+  return { request_platform: null, request_id: null };
+}
 export function runtimeObservation(value) {
   if (!value || typeof value.instance_id !== 'string' || !/^[\da-f-]{36}$/i.test(value.instance_id)
     || !Number.isSafeInteger(value.invocation_number) || value.invocation_number < 1
@@ -75,7 +82,7 @@ export function measureRequest(url, { agent, token, body, timeoutMs = 20000 } = 
   const marks = {};
   const transport = url.protocol === 'https:' ? https : http;
   return new Promise(resolve => {
-    let settled = false, bytes = 0, status = 0, reused = false, requestId = null, server = {};
+    let settled = false, bytes = 0, status = 0, reused = false, hosting = hostingRequest({}), server = {};
     let timer;
     const finish = (error, text) => {
       if (settled) return;
@@ -84,7 +91,7 @@ export function measureRequest(url, { agent, token, body, timeoutMs = 20000 } = 
       const end = performance.now() - start;
       const duration = (to, from = 0) => Number.isFinite(to) && Number.isFinite(from) ? rounded(to - from) : null;
       const ready = marks.secure ?? marks.connect ?? marks.socket;
-      resolve({ sample: { started_at: startedAt, status, error, request_id: requestId, reused_socket: reused,
+      resolve({ sample: { started_at: startedAt, status, error, ...hosting, reused_socket: reused,
         bytes, total_ms: rounded(end), client_queue_ms: duration(marks.socket),
         dns_ms: duration(marks.lookup, marks.socket),
         tcp_ms: duration(marks.connect, marks.lookup ?? marks.socket),
@@ -101,7 +108,7 @@ export function measureRequest(url, { agent, token, body, timeoutMs = 20000 } = 
     }, res => {
       marks.headers = performance.now() - start;
       status = res.statusCode;
-      requestId = res.headers['x-nf-request-id'] ?? null;
+      hosting = hostingRequest(res.headers);
       server = parseServerTiming(res.headers['server-timing']);
       const chunks = [];
       res.on('data', chunk => {

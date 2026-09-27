@@ -16,6 +16,7 @@ android/**/build/
 *.keystore
 node_modules/
 .netlify/
+.vercel/
 .env.*
 !.env.example
 /dist/
