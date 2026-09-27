@@ -64,6 +64,23 @@ describe("isolated hosting probe", () => {
     expect(shared).not.toHaveBeenCalled();
   });
 
+  it("routes the concrete Vercel entrypoint through the same operator guard and preserves the POST body", async () => {
+    const shared = vi.fn(async (input: Request) => {
+      expect(new URL(input.url).pathname).toBe("/diagnostics/ai");
+      expect(await input.json()).toEqual({ route: "primary" });
+      expect(input.headers.get("Authorization")).toBe(`Bearer ${token}`);
+      return Response.json({ synthetic: true });
+    });
+    const probe = createProbeHandler(shared, () => token);
+    expect((await probe(request("/api/probe?endpoint=ai", "POST", null))).status).toBe(401);
+    for (const endpoint of ["sessions", "https://elsewhere.example", "toString", "__proto__", ""]) {
+      expect((await probe(request(`/api/probe?endpoint=${encodeURIComponent(endpoint)}`, "POST"))).status).toBe(404);
+    }
+    expect(shared).not.toHaveBeenCalled();
+    expect((await probe(request("/api/probe?endpoint=ai", "POST"))).status).toBe(200);
+    expect(shared).toHaveBeenCalledOnce();
+  });
+
   it("preserves request bodies, response timings and independent invocation snapshots during concurrent calls", async () => {
     let release!: () => void;
     const barrier = new Promise<void>(resolve => { release = resolve; });

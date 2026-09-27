@@ -7,11 +7,11 @@
   "buildCommand": "npm run typecheck",
   "outputDirectory": "public",
   "functions": {
-    "api/[...path].ts": { "maxDuration": 30 }
+    "api/probe.ts": { "maxDuration": 30 }
   },
   "rewrites": [
-    { "source": "/health", "destination": "/api/health" },
-    { "source": "/diagnostics", "destination": "/api/diagnostics" },
-    { "source": "/diagnostics/ai", "destination": "/api/diagnostics/ai" }
+    { "source": "/health", "destination": "/api/probe?endpoint=health" },
+    { "source": "/diagnostics", "destination": "/api/probe?endpoint=diagnostics" },
+    { "source": "/diagnostics/ai", "destination": "/api/probe?endpoint=ai" }
   ]
 }

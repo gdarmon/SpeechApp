@@ -42,6 +42,17 @@ export function createProbeHandler(handler: ReturnType<typeof createHandler>,
   operatorToken: () => string, runtime = createRuntimeTracker()) {
   return async (request: Request) => {
     const invocation = runtime();
+    const url = new URL(request.url);
+    // Use one concrete Vercel function rather than relying on a framework's
+    // catch-all filename routing for nested URLs. Preserve the POST body.
+    if (url.pathname === "/api/probe") {
+      const endpoints: Record<string, string> = { health: "/health", diagnostics: "/diagnostics", ai: "/diagnostics/ai" };
+      const endpoint = url.searchParams.get("endpoint") || "";
+      if (!Object.hasOwn(endpoints, endpoint)) return reject(404, "Endpoint or method not found.");
+      url.pathname = endpoints[endpoint];
+      url.searchParams.delete("endpoint");
+      request = new Request(url, request);
+    }
     const path = new URL(request.url).pathname.replace(/^\/api(?=\/)/, "").replace(/\/$/, "");
     const allowed = request.method === "GET" && ["/health", "/diagnostics"].includes(path)
       || request.method === "POST" && path === "/diagnostics/ai";

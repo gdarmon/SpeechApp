@@ -25,7 +25,7 @@ tsconfig.include = ['src/**/*.ts', 'deploy/vercel-probe/**/*.ts', 'api/**/*.ts']
 await writeFile(path.join(output, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2) + '\n');
 await cp(path.join(root, 'deploy/vercel-probe/vercel.json'), path.join(output, 'vercel.json'));
 await mkdir(path.join(output, 'api'));
-await writeFile(path.join(output, 'api/[...path].ts'),
+await writeFile(path.join(output, 'api/probe.ts'),
   'export { default } from "../deploy/vercel-probe/handler.js";\n');
 await mkdir(path.join(output, 'public'));
 await writeFile(path.join(output, 'public/index.html'),
