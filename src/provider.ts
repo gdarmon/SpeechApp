@@ -160,7 +160,8 @@ export class CompatibleProvider implements AIProvider {
       answered_question: previousQuestions.at(-1),
       learner_answer: (context.input as { text?: string } | undefined)?.text,
       earlier_questions: previousQuestions.slice(0, -1),
-      next_step: "Respond to this answer, then ask a relevant follow-up. Reuse familiar words. Do not repeat the latest question or ask an already-known personal fact again. Familiar language can be practised again after two intervening exchanges. A request to repeat or clarify is the exception.",
+      next_step: context.last_turn === true ? "This was the final learner answer. Give brief feedback and close the practice with a short statement, no question and no answer ideas."
+        : "Respond to this answer, then ask a relevant follow-up. Reuse familiar words. Do not repeat the latest question or ask an already-known personal fact again. Familiar language can be practised again after two intervening exchanges. A request to repeat or clarify is the exception.",
     } : undefined;
     const instruction = `\nPractice level ${limits.level}: ${limits.title}. Goal: ${limits.goal} Target learner answer: ${limits.answer_goal}. `
       + `Spoken text maximum ${limits.text_words} words / ${limits.text_chars} characters; each answer idea maximum ${limits.idea_words} words / ${limits.idea_chars} characters. `
