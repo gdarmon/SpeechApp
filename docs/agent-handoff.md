@@ -62,7 +62,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. The final main check passed 216 tests and skips one explicitly opt-in PostgreSQL concurrency test. Coverage includes local loopback fixtures, dashboard timing extraction, invocation tracking and the isolated Vercel probe routing/guard/safe error categories; the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. The 0.15.0 main check passed 221 tests and skips one explicitly opt-in PostgreSQL concurrency test. Coverage includes local loopback fixtures, dashboard timing extraction, invocation tracking and the isolated Vercel probe routing/guard/safe error categories; the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 
@@ -121,7 +121,7 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 
 ## What changed in 0.15.0
 
-The owner requested 0.15.0 as the visible Vercel milestone; the actual hosting cutover shipped in 0.14.4. This version fixes the Android home card that always read the first memory item. `Store.progress()` now derives `review_phrase` from recent account-owned corrections/help and completed-session vocabulary, with deterministic rotation as UTC days and completed conversations change. Both clients use the same field and label it as an optional phrase from prior practice, not today's lesson. Empty/expired history hides the card. See [learning progression](learning-progression.md#home-review-phrase-0150) for selection rules and [the release receipt](releases/0.15.0.md) for publication state. No database migration, provider change or new VAPID pair is required.
+The owner requested 0.15.0 as the visible Vercel milestone; the actual hosting cutover shipped in 0.14.4. The website is live on 0.15.0, and build 104601 was accepted in Internal Testing and closed Alpha on 27 September 2026. Alpha was `IN_REVIEW` at 12:47 UTC; recheck the current lifecycle before promising tester availability. This version fixes the Android home card that always read the first memory item. `Store.progress()` now derives `review_phrase` from recent account-owned corrections/help and completed-session vocabulary, with deterministic rotation as UTC days and completed conversations change. Both clients use the same field and label it as an optional phrase from prior practice, not today's lesson. Empty/expired history hides the card. See [learning progression](learning-progression.md#home-review-phrase-0150) for selection rules and [the release receipt](releases/0.15.0.md) for publication state. No database migration, provider change or new VAPID pair is required.
 
 ## What changed in 0.14.4
 

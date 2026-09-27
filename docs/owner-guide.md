@@ -31,7 +31,7 @@ Publishing the website alone does not update the Android app installed on a phon
 
 The owner requested 0.15.0 to make the Vercel move easy to identify. Hosting already moved in 0.14.4; this version also replaces the misleading “Today's focus” card with **From your recent practice**. It rotates among recent saved corrections/help and completed-session vocabulary as days and completed conversations change. With one available phrase it may repeat; without recent candidates the card is hidden. It does not promise that the next lesson will use that phrase. Website and Android share this behavior, in Hebrew or English.
 
-See [the 0.15.0 receipt](releases/0.15.0.md) for actual site/Play publication. The earlier performance measurements below were not repeated or reclassified as new 0.15.0 evidence.
+The website is live on 0.15.0, and **build 104601** was accepted in Internal Testing and closed Alpha. Google reported Alpha as **IN_REVIEW** on 27 September 2026 at 12:47 UTC. Install 0.15.0 on Android to replace the old home card. See [the release receipt](releases/0.15.0.md) for verification links. The earlier performance measurements below were not repeated or reclassified as new 0.15.0 evidence.
 
 ## Vercel cutover: 0.14.4
 
