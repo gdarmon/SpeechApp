@@ -26,6 +26,22 @@ This is hosting maintenance for the existing **0.15.0** release, with no new cli
 
 ## Verification and publication
 
-Local backend tests, build/version validation, four browser suites and the npm 10.9.7 clean install passed. Full cloud checks and the final Vercel deployment are recorded below after completion. This maintenance does not rerun real AI load tests or claim a new latency result. Actual phone sign-in/installation and notification delivery were not retested.
+Local backend tests, build/version validation, four browser suites and the npm 10.9.7 clean install passed. [Full cloud checks](https://github.com/gdarmon/SpeechApp/actions/runs/36323863089) passed on source `47fba51517bd59d4b0541c64e202d44816cbd981`: 223 backend tests (one opt-in local skip), browser suites, real PostgreSQL compatibility, the controlled 50-account concurrency test, the isolated Vercel package, and Android build/unit tests/lint/release bundle. The workflow was manually dispatched and did not upload another Play binary. The final Vercel deployment is recorded below. This maintenance does not rerun real AI load tests or claim a new latency result. Actual phone sign-in/installation and notification delivery were not retested.
 
 Store contact/description links are handled separately from Play bundles. The targeted link updater preserves text except the old host, keeps screenshots/tracks unchanged, verifies a fresh edit, and refuses to replace an existing review. Privacy-policy and account/data-deletion fields require separate Console verification.
+
+### Verified Vercel deployment
+
+Runtime/tooling source: `47fba51517bd59d4b0541c64e202d44816cbd981`, [PR #5](https://github.com/gdarmon/SpeechApp/pull/5). Production deployment **`dpl_E3CkeWJpQyjmD47eSQSxThgdpq1D`**, immutable URL `https://fala-oghk6fh39-gdarmon-4173.vercel.app`, reached **READY** and was aliased to `https://fala-api.vercel.app`. The staged upload excluded generated environment files and used the existing authorized project; no credentials were moved to another project.
+
+Post-deployment smoke checks passed: health 200 with the Vercel host marker, app 200/Web 0.15.0, service worker 200/`fala-web-0.15.0`, privacy 200 naming Vercel, account/data-deletion pages 200, Google configuration 200, unauthenticated dashboard 401. The old Netlify app still returned 404 with no redirect.
+
+### Google Play links: blocked separately from hosting
+
+The [targeted store-link run](https://github.com/gdarmon/SpeechApp/actions/runs/36323864268) reached edit validation, which Google rejected with **HTTP 403**. The edit was discarded and no store changes were committed. No review was replaced or circumvented. A subsequent [read-only audit](https://github.com/gdarmon/SpeechApp/actions/runs/36323929410) succeeded at **13:53:15 UTC** and confirmed:
+
+- Contact website still points to the retired `https://falachatapp.netlify.app`.
+- The existing en-US listing description contains no old Fala URL.
+- Both Internal and Alpha still contain Fala 0.15.0/build 104601, track status `completed`. This audit did not recheck the separate review lifecycle.
+
+Owner action in **Play Console → Store settings → Store listing contact details**: change Website to `https://fala-api.vercel.app`. Also verify the privacy-policy field is `https://fala-api.vercel.app/privacy.html` and the account/data-deletion fields use `https://fala-api.vercel.app/delete-account.html` / `https://fala-api.vercel.app/delete-data.html`; those Console fields are not exposed by this audit. These are store links, not remaining Netlify hosting. The source listing and Console guidance already use Vercel.

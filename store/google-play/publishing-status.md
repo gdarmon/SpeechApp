@@ -1,5 +1,7 @@
 # Fala publishing status — 27 September 2026
 
+**27 September, 13:53 UTC link audit:** the existing contact website still points to Netlify. The targeted update was rejected by Google with HTTP 403 at validation and discarded. The owner must change the website to `https://fala-api.vercel.app` in Store settings and verify privacy/deletion fields. Both Internal and Alpha retain 0.15.0/build 104601. See the [hosting receipt](../../docs/netlify-retirement-2026-09-27.md).
+
 Current 0.15.0 publication is recorded in [the release receipt](../../docs/releases/0.15.0.md). Subsequent [Vercel-only hosting maintenance](../../docs/netlify-retirement-2026-09-27.md) retires Netlify without replacing the Android build.
 
 - **Website/API:** [Fala 0.15.0 on Vercel](https://fala-api.vercel.app/app/), including the rotating recent-practice card. Exact source/deployment and checks are in [the release receipt](../../docs/releases/0.15.0.md).
