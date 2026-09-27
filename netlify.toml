@@ -27,6 +27,14 @@
 
 # Transitional compatibility for installed clients. New releases use Vercel directly.
 
+# A service-worker update cannot follow a cross-origin redirect. Release the old
+# offline worker locally; the next navigation follows the normal website move.
+[[redirects]]
+  from = "/app/sw.js"
+  to = "/app/migrate-sw.js"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/auth/*"
   to = "https://fala-api.vercel.app/auth/:splat"

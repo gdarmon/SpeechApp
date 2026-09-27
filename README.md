@@ -1,6 +1,6 @@
 # Fala
 
-**Use Fala on iPhone, Android or a computer:** [Open the web app](https://falachatapp.netlify.app/app/). Version 0.14.1 supports learning at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.14.1.md), [browser details](docs/web-app.md).
+**Use Fala on iPhone, Android or a computer:** [Open the web app](https://fala-api.vercel.app/app/). Version 0.14.4 moves the website and API to Vercel and reduces avoidable conversation waits. Learn at your own pace: repeat familiar practice, keep your chosen level and try optional challenges when ready. Includes the full Hebrew/English interface and default daily reminders around 17:00. [Release evidence and review state](docs/releases/0.14.4.md), [browser details](docs/web-app.md).
 
 **Taking over this project?** Start with [the documentation index](docs/README.md), [the developer/agent handoff](docs/agent-handoff.md), [the release runbook](docs/releasing.md), or [the owner guide](docs/owner-guide.md). [Claude Code and GitHub Copilot instructions/skills](docs/agent-setup.md) are committed with the code.
 
@@ -19,7 +19,7 @@ A native Android app for learning to **speak Brazilian Portuguese** through natu
 4. Deploy once the database and Google settings are ready, install the APK, and test with two Google accounts before inviting users.
 5. Follow [Google Play setup](docs/google-play.md) for the first app-bundle upload and one-time publishing credentials. Thereafter, successful `main` checks trigger a newly versioned, signed internal-testing upload when enabled.
 
-The current service URL is `https://falachatapp.netlify.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
+The current service URL is `https://fala-api.vercel.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
 
 **Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Netlify. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
 
@@ -68,7 +68,7 @@ For loopback PostgreSQL only, `FALA_LOCAL_DATABASE=true` disables TLS. Hosted co
 - Recurring mistakes counted across distinct conversations, assisted-phrase memory, next-day review context, and up to five review phrases. Word reviews contain at most five useful translated items with actual-dialogue counts and prior-history markers, including when opening an older report. New in Fala does not mean unknown to you.
 - Speaking time, conversations, topics, help requests, and recurring patterns. Individual deletion removes a session's derived memory; delete-all removes retained learner data.
 - Google sign-in for multiple learners, per-user data and mutation locks, revocable sessions, in-app/web account deletion, and per-user/app daily AI budgets.
-- Database-backed retry protection and rate limits across Netlify instances. One saved reply lets Android start playback; the dashboard loads in one client request.
+- Database-backed retry protection and rate limits across API instances. One saved reply lets Android start playback; the dashboard loads in one client request.
 - Generated Fala logo in the adaptive Android icon, app header, and landing page. [Logo source and generation prompt](assets/branding/README.md).
 
 ## Practical limits

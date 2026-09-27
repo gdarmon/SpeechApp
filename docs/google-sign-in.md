@@ -1,6 +1,6 @@
 # Google sign-in setup for Fala
 
-Users install Fala, sign in with Google, and tap Talk. The app already knows `https://falachatapp.netlify.app`. Users never enter a server address, API key, or shared token. All verified Google accounts are accepted; each account has separate conversations and progress. Google Workspace administrators can still restrict third-party apps.
+Users install Fala, sign in with Google, and tap Talk. The app already knows `https://fala-api.vercel.app`. Users never enter a server address, API key, or shared token. All verified Google accounts are accepted; each account has separate conversations and progress. Google Workspace administrators can still restrict third-party apps.
 
 These are one-time **publisher** steps. Play Console and Google Cloud setup require access to the developer's Google account; a Play Console URL alone does not grant that access.
 
@@ -11,12 +11,12 @@ Open [Google Auth Platform](https://console.cloud.google.com/auth/overview), sel
 - App name: **Fala**.
 - Audience: **External**. During initial testing, add tester emails; before broad distribution, switch to production and complete any verification Google requests.
 - Support/developer email: **gdarmon@gmail.com**.
-- Homepage: `https://falachatapp.netlify.app/`.
-- Privacy page: `https://falachatapp.netlify.app/privacy.html` (deploy the page before submitting).
+- Homepage: `https://fala-api.vercel.app/`.
+- Privacy page: `https://fala-api.vercel.app/privacy.html` (deploy the page before submitting).
 - Authentication only: `openid`, `email`, `profile`; no Gmail, contacts, or Drive access.
 - Register/verify the domain required by Google's branding flow. If the hosted Netlify subdomain cannot satisfy ownership verification, attach a domain you own before production verification and update the Android URL and OAuth origin together.
 
-Create an OAuth client of type **Web application** in this project. Add the authorized JavaScript origin `https://falachatapp.netlify.app` for the web account-deletion page. This app uses a JavaScript callback, so there is no redirect URL to register. Copy the public ID ending in `.apps.googleusercontent.com` into Netlify's `GOOGLE_WEB_CLIENT_ID` environment variable. **No Google client secret is used or needed.**
+Create an OAuth client of type **Web application** in this project. Add the authorized JavaScript origin `https://fala-api.vercel.app` for the web account-deletion page. This app uses a JavaScript callback, so there is no redirect URL to register. Copy the public ID ending in `.apps.googleusercontent.com` into Vercel's `GOOGLE_WEB_CLIENT_ID` environment variable. **No Google client secret is used or needed.**
 
 Create an OAuth client of type **Android**, in the same Cloud project:
 
@@ -40,9 +40,9 @@ The second migration preserves old single-learner records in a separate legacy o
 
 Set `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider configuration described in [deployment](deployment.md). `FALA_TOKEN` is optional, random 32+ character operator access to diagnostics and legacy records; omit it if you don't need that access. Short old tokens are ignored when Google is configured. Never distribute operator credentials to users.
 
-Default budgets: 30 AI requests per minute per account, 200 per rolling day per account, and 2,000 per rolling day across the whole app. `FALA_DAILY_USER_LIMIT` and `FALA_DAILY_APP_LIMIT` adjust daily allowances. These count attempted conversation operations, including retries/failures. They limit calls, not currency, and do not replace provider billing limits or Netlify's usage controls. Sign-in has separate database-backed IP and global limits using Netlify's trusted client address.
+The current deployment explicitly disables the daily user/app allowances (`0`) and retains the per-account flood guard. Provider billing and throughput limits are separate. Sign-in has database-backed IP/global limits using the hosting adapter's trusted client address. Preserve the existing database and Google client ID across hosting moves.
 
-**Existing deployment caveat:** the reported Netlify Database/AI Gateway changes have not appeared in the GitHub source available for this change. This checkout explicitly requires a PostgreSQL URL and AI provider key. Reconcile that separate Netlify change before replacing the live deployment; preserve its working database connection and provider configuration. No production schema change or deployment was performed locally.
+For the 0.14.4 migration, add the new origin to the existing **Fala backend** Web application client. Keep `https://falachatapp.netlify.app` as an additional origin while legacy web clients remain. The owner confirmed adding the new origin; the button loaded successfully, but that check did not perform a real account login.
 
 ## 3. Verify before inviting people
 
@@ -57,4 +57,4 @@ Device sessions expire after 90 days. Android encrypts the bearer credential wit
 
 ### Website on iPhone and Android
 
-The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://falachatapp.netlify.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice and installation.
+The web client now also serves the PWA at `/app/`. Its **Authorized JavaScript origins** must include `https://fala-api.vercel.app` (no path). The Google Identity Services callback uses no redirect URI. The web session is an HttpOnly cookie; Android still uses its existing device credential. See [the web app guide](web-app.md) for voice and installation.

@@ -1,44 +1,18 @@
-# Netlify + Supabase setup
+# Vercel + PostgreSQL setup
 
-This guide covers explicit Supabase/PostgreSQL configuration with Netlify Personal. If your current Netlify deployment uses its own Database/AI Gateway integration, reconcile those source changes before switching it to this branch. Building the repository does not create cloud projects. GitHub contains source and migrations, never your secrets.
+The current target is the full website/API at `https://fala-api.vercel.app`, project **fala-api**, team **gdarmon-4173**. Use the [release runbook](releasing.md) for staging, deployment, verification and rollback, and the [latest receipt](releases/0.14.4.md) for actual cutover status. A successful upload is not proof of the performance target or Play availability.
 
-## 1. Import into Netlify and check the region
+## Existing account and database
 
-Choose **Add new project → Import an existing project → GitHub**, then `gdarmon/SpeechApp`, branch `main`.
+Preserve the current Fala PostgreSQL database and private `fala` schema. A hosting change does not require copying learner data or creating another database. For a genuinely new installation, use the owner's chosen PostgreSQL/Supabase project and apply `supabase/migrations/*.sql` in filename order. For an existing database apply only missing reviewed migrations.
 
-| Setting | Value |
-|---|---|
-| Base directory | Leave empty: repository root |
-| Build command | `npm run build` |
-| Publish directory | `dist` |
-| Functions directory | `netlify/functions` |
-| Node version | 22.x, already configured |
+Use Supabase **Connect → Transaction pooler**, port **6543**, with the exact host, username and URL-encoded password from that project. The HTTPS project URL and the direct `db.PROJECT.supabase.co:5432` connection are not substitutes. Keep this connection server-side. Never paste it into chat or source. The driver uses TLS, `prepare: false`, one reusable connection per instance, a 60-second idle timeout and 300-second maximum lifetime. Generation claims allow AI work outside database transactions.
 
-These settings are in `netlify.toml`. The first build works before secrets exist: the landing page and `/health` work, while protected API requests report missing configuration. Android conversations require the remaining steps.
+The schema has RLS and denies `anon`/`authenticated` table access. Fala verifies Google ID tokens itself and issues hashed, revocable device sessions. It does not use the public Supabase Data API, service-role keys or Supabase Auth for learner login.
 
-Open **Cloud compute → Functions → Region**. Current documentation says new sites default to **Ohio (`cmh`, AWS `us-east-2`)**. Region selection is available on **Pro and Enterprise**; the Personal configuration leaves it unset. Older sites can differ, so check the actual region. [Netlify function configuration](https://docs.netlify.com/build/functions/configuration/).
+## Production environment
 
-## 2. Create Supabase
-
-1. Choose **New project**, name it `fala`, set a strong database password, and save it privately.
-2. Select a **specific region** matching Netlify: normally **East US (Ohio), `us-east-2`** for a new Personal site. Avoid the broad automatic Americas choice if you want a precise match.
-3. Wait for the project to be ready. Supabase Free is sufficient to begin initial testing.
-4. Open **SQL Editor**, run all migration files in `supabase/migrations/` in filename order as the database owner. They create the private schema, Google accounts, device sessions, and per-user ownership, and repair JSON saved by older versions. Old single-learner records remain isolated in a legacy operator account.
-5. Open **Connect**, select **Transaction pooler**, port **6543**, and copy its connection string. Replace the password placeholder with your database password, URL-encoding reserved characters if necessary. This is not the project HTTPS URL or an API key.
-
-Illustrative shape only:
-
-```text
-postgresql://postgres.PROJECT_REF:ENCODED_PASSWORD@aws-0-us-east-2.pooler.supabase.com:6543/postgres
-```
-
-Use the exact host and username copied from **your project**; the host prefix may differ. The server uses TLS, one reusable connection per warm instance, and `prepare: false`, compatible with transaction pooling. [Supabase connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [available regions](https://supabase.com/docs/guides/platform/regions).
-
-Do not expose `fala` through the Data API or grant `anon`/`authenticated` access. The migration enables RLS and revokes their access. Netlify accesses the schema through the server-only database connection. Supabase Auth, Storage, publishable keys and service-role keys are not needed: Google ID tokens are verified by the API, which issues its own revocable device sessions.
-
-## 3. Configure Netlify secrets
-
-In **Project configuration → Environment variables**, add the following. Use **Functions** scope and **Production** context where available. If your plan only offers all scopes/contexts, use that setting and disable untrusted deploy previews. The application never copies these values into the public site. Do not commit `.env` or put secrets in `netlify.toml`.
+Configure values only in the authorized Vercel project's **Production environment variables**, then deploy again. Existing values were moved with the owner's explicit permission. A fresh machine needs its own authorized login; do not search another project for credentials.
 
 | Variable | Value |
 |---|---|
@@ -51,62 +25,32 @@ In **Project configuration → Environment variables**, add the following. Use *
 | `FALA_OPENAI_MODEL` | Optional; defaults to `gpt-5.6-terra` |
 | `FALA_DEMO` | `false` |
 
-The paid option always uses `https://api.openai.com/v1`, with strict structured replies for the supported GPT-5.6 Terra/Sol/Luna models. Requests set `store: false`; provider abuse-monitoring retention is separate. [OpenAI model details](https://developers.openai.com/api/docs/models/gpt-5.6-terra), [data controls](https://developers.openai.com/api/docs/guides/your-data).
+| `FALA_AI_PROVIDER` | Current explicit primary: `openai` |
+| `FALA_AI_FALLBACK_PROVIDER` | Current explicit backup: `groq` |
+| `GROQ_API_KEY` | Existing authorized Groq credential |
+| `FALA_TRANSCRIPTION_PROVIDER` | Current web transcription: `openai` |
+| `FALA_AI_HEDGE_MS` | Current 5000 ms; immediate failover on primary errors still applies |
+| `AI_TIMEOUT_MS` | Current shared deadline: 8000 ms |
+| `FALA_VAPID_PUBLIC_KEY`, `FALA_VAPID_PRIVATE_KEY` | Matching Web Push key pair; private key never in source/client assets |
+| `FALA_REMINDER_TOKEN` | Dedicated random 32+ character secret, also configured in GitHub Actions |
+| `FALA_SESSION_DIAGNOSTICS` | Off normally; temporary explicit opt-in for isolated synthetic load tests |
 
-To select paid OpenAI coaching, set `FALA_AI_PROVIDER=openai` with the dedicated OpenAI key. Set `FALA_TRANSCRIPTION_PROVIDER=openai` as well if you want OpenAI transcription. Without explicit provider selectors, adding the dedicated OpenAI key retains the previous behavior of selecting OpenAI. An explicitly configured `FALA_AI_FALLBACK_PROVIDER=openai|groq` enables immediate recovery on failure and a second request after `FALA_AI_HEDGE_MS` (default 1200 ms) when the main route is slow. Both outputs must pass the same validation; the first valid result wins and cancels the other. Without that setting there is no automatic provider switch.
+The current model is explicitly `gpt-5.6-luna`; defaults are not evidence of production configuration. Daily user/application allowances are currently `0` by owner authorization. The per-account flood guard remains. Provider billing/throughput limits still apply: disabling an app quota does not enlarge provider capacity. Review [service reliability](service-reliability.md) before increasing traffic or changing routes. Requests use the configured fixed provider endpoints; fallback must be explicitly authorized/configured.
 
-For lower-cost coaching with the same natural voice, set `FALA_AI_PROVIDER=groq`, `FALA_TRANSCRIPTION_PROVIDER=groq`, and `GROQ_API_KEY`. Retain `FALA_OPENAI_API_KEY` for speech generation only. `FALA_GROQ_MODEL` defaults to `openai/gpt-oss-120b`; transcription uses `whisper-large-v3-turbo`. An existing `OPENAI_API_KEY` with `OPENAI_BASE_URL=https://api.groq.com/openai/v1` supplies the Groq credential when the dedicated one is absent. Select `FALA_AI_PROVIDER=openai` explicitly to return coaching to OpenAI, or `compatible` to use the three generic settings. When the selector is absent, the old OpenAI-key precedence remains compatible.
+Google's existing **Fala backend** Web OAuth client needs the exact authorized JavaScript origin `https://fala-api.vercel.app` without a path. Keep the legacy Netlify origin during transition. No Google client secret is needed. Existing Android OAuth clients and the `com.fala.app` signing identity remain unchanged.
 
-Groq provides a [free tier with limits](https://console.groq.com/docs/rate-limits). Check the Groq account's plan and limits; Fala cannot guarantee unlimited or zero-cost use for a paid Groq account. Paid fallback requires the explicit setting above and its own credential. [Groq transcription](https://console.groq.com/docs/speech-to-text) supports Portuguese and Hebrew. OpenAI voice generation remains billable. Voice and conversation requests have separate credentials and fixed provider hosts, and audio replays use the existing per-turn browser cache.
+## Deploy and verify
 
-As of 19 September 2026, Terra lists $2 per million input tokens and $12 per million output tokens for standard short-context requests. Actual cost depends on conversation history, output/reasoning tokens and retries. The daily user/app allowances cap requests, not dollars; review actual API usage before opening access broadly. [Current model pricing](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
+Follow the staged CLI deployment in [releasing.md](releasing.md#vercel-primary-deployment). The stage includes public files, the TypeScript API and its Vercel adapter; never deploy the whole workstation checkout. The configured function region is `cle1` with Node 22 and Fluid. The existing database location was preserved. Region labels and paid plans alone do not prove faster responses.
 
-Google sign-in is enabled through the Web and Android OAuth clients in [Google setup](google-sign-in.md). No Google client secret or email allowlist is required. Only set `FALA_TOKEN` if you want operator diagnostics or access to legacy records; generate a random value of at least 32 characters. App users never receive it.
+Verify `/health`, the visible web version and service worker, Google button loading, unauthenticated account rejection and the changed authenticated behavior. `/health` alone does not check AI or database health. Operator-only `/diagnostics` reports configuration/timing without credentials or learner transcripts. Synthetic AI checks are billable and explicitly enabled; see the measured scope in the release receipt.
 
-Optional: `AI_TIMEOUT_MS=8000` (allowed 5000–15000; shared by both routes and repairs); `DATABASE_CA_CERT` containing Supabase's PEM root certificate for explicit certificate verification. Literal `\n` sequences are accepted in the certificate value. Without a CA, the driver encrypts transport with `ssl: "require"`; supplying the CA also verifies the certificate. Leave `FALA_LOCAL_DATABASE` unset/false on Netlify.
+For reminders, the GitHub Actions `reminders.yml` workflow calls `/internal/reminders` every 15 minutes using its dedicated secret. This is best effort, not an exact-time alarm. Notification permission and a subscription matching the current VAPID key are required. Keep account opt-outs, custom times, same-day-practice suppression and delivery deduplication. Do not run the retired Netlify scheduler alongside it.
 
-Use a key for the configured provider. You can copy the adjacent chatbot's AI settings manually, but **do not copy its database connection**. This app has its own new database and does not require that local folder.
+## Existing clients and local development
 
-**Redeploy** after saving variables. Check the production deploy succeeds and the `api` function is listed. Environment and region changes need a new deploy.
+Android 0.14.4 targets Vercel directly and preserves its encrypted device login when moving from an explicitly approved old Fala origin. A new Play installation/update still requires the normal signed publication workflow.
 
-## 4. Connect Android
+Netlify remains only transitional compatibility: API routes proxy to Vercel and website visits redirect. The old `/app/sw.js` serves a local retirement worker, since a worker update cannot follow a cross-origin redirect. It clears only Fala shell caches and unregisters without navigating an open draft; the next visit moves to the new site. Browser cookies and notification permission belong to their origin, so the new website requires login/permission again. Keep the legacy proxy until old client versions can be retired.
 
-Install the APK from GitHub Actions or a local build. Fala already knows `https://falachatapp.netlify.app`. Read the processing notice, choose the recognition preference, **sign in with Google**, and tap **Talk**. A publisher changing the deployment URL must rebuild Android with the new `API_BASE_URL` and update the Google web origin; users do not configure it.
-
-Without an AI key, temporarily set `FALA_DEMO=true` and redeploy to check connectivity and phone audio. The app labels scripted mode and excludes it from progress. Set false again and start a new conversation for real practice.
-
-## 5. Latency from Haifa
-
-**On Personal, start with Ohio functions + Ohio Supabase.** This minimizes database trips between regions. Moving only the database to Frankfurt would make every database query cross the Atlantic. The nearby CDN serves static pages; dynamic conversations run in the configured function region.
-
-**If you later obtain region selection, benchmark Frankfurt functions + Frankfurt Supabase.** This is a reasonable candidate for lower latency from Israel, not a measured guarantee. Netlify uses `fra`; Supabase uses `eu-central-1`. Move both together. A Supabase region change requires a new project and data migration, so plan that before moving an existing database. [Supabase regions](https://supabase.com/docs/guides/platform/regions).
-
-The implementation reduces avoidable delays with one mobile request per spoken turn, one dashboard request, grouped context queries, pooled connections, 12 recent turns in the reply prompt, and short replies. GPT-5.6 Luna uses `reasoning_effort=none` for short replies; other supported OpenAI models and Groq GPT-OSS retain low reasoning effort. Conversation instructions are compact, with capoeira guidance included only for capoeira contexts. The AI deadline is below Netlify's 60-second synchronous limit. A transaction remains open during the bounded AI call to protect retries per learner. Locks are scoped to the user so different learners can progress independently across function instances. This has not been load-tested; measure database/pooler connection capacity before a broad launch.
-
-To measure your Haifa connection, use Node 22 on a computer on the same network. In a local ignored `.env`, set `FALA_URL=https://YOUR-SITE.netlify.app` and `FALA_TOKEN`, then run:
-
-```bash
-npm run benchmark
-```
-
-Eight authenticated read-only checks report the region, database-region hint, round-trip time and server timing. They never print the token or call the AI. The first request may include cold-start/connection overhead; later requests do not guarantee future warm instances. Compare Wi-Fi and mobile data. Full speaking delay also includes recognition, AI generation and voice startup; follow [phone checks](device-checks.md).
-
-Install a local pt-BR voice when available. Avoid artificial keep-alive requests: they consume usage and cannot guarantee latency. Supabase Free projects may pause after a week of inactivity; restore the project if needed. Pro avoids inactivity pausing, but upgrade only if you need it. [Supabase production guidance](https://supabase.com/docs/guides/deployment/going-into-prod).
-
-Netlify Personal covers hosting allowances, not AI inference. Check actual usage after real sessions before changing plans. Enabling an OpenAI key starts metered API usage; it does not change the hosting or database plans.
-
-## Troubleshooting
-
-| Symptom | Check |
-|---|---|
-| Site builds but app cannot connect | Set production function variables and redeploy |
-| “Run the Fala SQL migration” | Run the entire SQL file in the project used by `DATABASE_URL` |
-| Database unavailable | Project running; transaction pooler host/username/password correct; password URL-encoded; port 6543 |
-| Missing AI key | Key in function environment matches the provider endpoint |
-| AI usage limit | Inspect provider limits and billing. With explicit fallback configured, capacity failures switch route immediately instead of waiting on the same quota. New clients add no quota countdown. Daily app allowances can be disabled with `0`; the per-account 120-request/minute flood guard remains. See [capacity and recovery](service-reliability.md). |
-| AI rejected/incomplete response | Check model availability and compatible JSON output. A malformed reply gets one targeted repair with its rejected output and validation rules, within the same deadline. Remaining failures retain the conversation for Retry. |
-| Processing conflict | Wait briefly and retry; avoid competing sessions |
-| No Brazilian speech | Install pt-BR in Android voice settings |
-| APK update refused | Different debug signing keys; use the original key or reinstall then sign in again |
-
-`/health`, `/auth/config`, and the rate-limited Google sign-in endpoints are public. Learning/account routes require a user session. `/diagnostics` needs the optional operator token and reports no credentials or transcripts. `POST /diagnostics/ai` also requires that token, is billable and uses one fixed synthetic prompt; it reports only that generated reply and numeric capacity/timing information. It cannot accept a learner transcript, arbitrary prompt, model or endpoint. Application errors avoid raw SQL/provider logs. Rate-limit diagnostics record only the provider host, model and retry delay. Reply-validation diagnostics record schema issue codes, field paths and fixed coaching rules; they never include API keys, transcripts or provider output. Database backups and upstream retention remain separate from in-app deletion.
+`npm run dev` compiles the API into ignored `.netlify/dev-build` and starts a loopback-only server at `http://127.0.0.1:8888/app/`. It reads the local ignored `.env`, never cloud settings or production redirect rules. Use an authorized development database, `FALA_LOCAL_DATABASE=true` only for loopback PostgreSQL, and register the local Google origin if testing login. `FALA_DEV_PORT` changes the port. Restart after backend edits; static files are read directly. Scripted `FALA_DEMO=true` is explicitly labeled and is not real teaching or performance evidence.

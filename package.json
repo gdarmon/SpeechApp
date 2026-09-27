@@ -10,9 +10,9 @@
     "build": "npm run typecheck && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "dev": "netlify dev",
+    "dev": "node --env-file-if-exists=.env scripts/dev.mjs",
     "benchmark": "node --env-file-if-exists=.env scripts/benchmark.mjs",
-    "test:web": "node tests/web-browser.mjs && node tests/web-rewards.mjs && node tests/web-reminders.mjs"
+    "test:web": "node tests/web-browser.mjs && node tests/web-rewards.mjs && node tests/web-reminders.mjs && node tests/web-origin-migration.mjs"
   },
   "dependencies": {
     "@netlify/functions": "6.0.0",
