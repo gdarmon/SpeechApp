@@ -14,8 +14,8 @@ A native Android app for learning to **speak Brazilian Portuguese** through natu
 ## Publisher setup
 
 1. Follow [Google sign-in setup](docs/google-sign-in.md): create Web and Android OAuth clients in your Google Cloud project and register the installed app's signing certificate.
-2. Apply all files in `supabase/migrations/` in filename order to the app's PostgreSQL database. Existing single-learner data stays isolated in a legacy operator account.
-3. Configure `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider on Vercel. See [deployment and Haifa latency](docs/deployment.md).
+2. For a new database, apply `supabase/migrations/` in filename order. For the existing Fala database, apply only missing reviewed migrations after confirming the target. Existing single-learner data stays isolated in a legacy operator account.
+3. Configure `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider on Vercel. See [deployment and performance verification](docs/deployment.md).
 4. Deploy once the database and Google settings are ready, install the APK, and test with two Google accounts before inviting users.
 5. Follow [Google Play setup](docs/google-play.md) for the first app-bundle upload and one-time publishing credentials. Thereafter, successful `main` checks trigger a newly versioned, signed internal-testing upload when enabled.
 
@@ -23,14 +23,14 @@ The current service URL is `https://fala-api.vercel.app`, compiled into Android.
 
 **Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Vercel. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
 
-The current economical setup uses **Groq for conversations and transcription**, keeping **OpenAI only for the natural Portuguese voice**. Set `FALA_AI_PROVIDER=groq`, `FALA_TRANSCRIPTION_PROVIDER=groq`, a `GROQ_API_KEY` (or the existing Groq compatible settings), and retain `FALA_OPENAI_API_KEY` for voice. The model defaults to `openai/gpt-oss-120b` on Groq. Free-tier account quotas apply; Fala does not silently switch conversations to paid OpenAI when Groq is unavailable. Native Android continues to use device speech services. [Deployment and provider configuration](docs/deployment.md).
+The deployed route uses **paid OpenAI for conversations, web transcription and voice**, with an explicitly configured **Groq conversation backup**. Daily app/user allowances are disabled by owner approval; flood protection and provider capacity limits remain. Native Android uses device speech services. See [deployment and provider configuration](docs/deployment.md) and [the measured performance limits](docs/releases/0.14.4.md).
 
 ## Android
 
 Requires Android 8.0+ and an installed **Brazilian Portuguese** voice. On-device recognition depends on your Android version and language service; network recognition is optional with consent. The app never substitutes a Portugal voice.
 
 - Download `fala-debug-apk` from a successful run in **Actions → Build and check Fala**. Unzip it, transfer `app-debug.apk` to your phone, and install it. GitHub may require sign-in for artifacts.
-- Or open `android/` in Android Studio with SDK 36, build tools 35.0.0 and Java 17/21, and run:
+- Or open `android/` in Android Studio with SDK 36, build tools 35.0.0 and Java 21, and run:
 
 ```bash
 cd android

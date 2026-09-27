@@ -1,4 +1,14 @@
-# Fala publishing status — 21 September 2026
+# Fala publishing status — 27 September 2026
+
+- **Website/API:** [Fala 0.14.4 on Vercel](https://fala-api.vercel.app/app/); old Netlify URLs forward to it. Exact source/deployments and checks are in [the release receipt](../../docs/releases/0.14.4.md).
+- **Internal Testing:** 0.14.4, build **104501**, uploaded successfully. [Publisher](https://github.com/gdarmon/SpeechApp/actions/runs/36316041019).
+- **Closed Alpha:** the same build was committed and independently verified at 11:37 UTC. Its separate lifecycle was **IN_REVIEW**. [Promotion](https://github.com/gdarmon/SpeechApp/actions/runs/36316285927). Do not equate track `completed` with review approval.
+- **Production:** unchanged; no production rollout was requested or performed.
+- **Store metadata/screenshots:** the bundle promotion did not upload new listing text or screenshots. Canonical website/privacy/deletion URLs in the Console guide now use Vercel; existing Netlify links continue to redirect. Recheck actual Console permissions and listing state before another metadata upload.
+
+Read [the release runbook](../../docs/releasing.md) before publishing. The earlier store-package receipt below is retained as history; its permissions or screenshots are not proof of current Console state.
+
+## Historical receipt — 21 September 2026
 
 - **Android internal testing:** Fala 0.12.3, build 103001, accepted with status `completed`. [Verified upload](https://github.com/gdarmon/SpeechApp/actions/runs/35594213764).
 - **Website/API:** 0.12.3 deployed at commit `94234de`; public version, service-worker cache and automatic-retry module verified on falachatapp.netlify.app. A live ten-turn capoeira conversation, idempotent retry and five-word summary passed, including automatic recovery from Groq quota pauses. Temporary test data was deleted.

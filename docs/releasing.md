@@ -20,7 +20,7 @@ Website, database and Android are separate deployables. A website deployment doe
 
 ## Access without copying secrets into the repository
 
-Use an existing authorized `gh` login for the correct account/repository and Netlify's normal login/project connection. A fresh machine must log in normally. Existing signing and Google publishing credentials are already stored in GitHub Actions:
+Use an existing authorized `gh` login for the correct account/repository and Vercel's normal login/project connection. Netlify access is needed only for legacy forwarding changes. A fresh machine must log in normally. Existing signing and Google publishing credentials are already stored in GitHub Actions:
 
 - Secrets: `FALA_UPLOAD_KEYSTORE_BASE64`, `FALA_UPLOAD_STORE_PASSWORD`, `FALA_UPLOAD_KEY_ALIAS`, `FALA_UPLOAD_KEY_PASSWORD`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 - Variables: `FALA_PLAY_UPLOAD_ENABLED=true`, normally `FALA_PLAY_RELEASE_STATUS=completed`.
@@ -39,7 +39,7 @@ Inspect `git status`, fetch `origin`, and check current main and recent successf
 Use Node from `.nvmrc` and npm 10.9.7. For an example next patch:
 
 ```bash
-FALA_NEXT_VERSION=0.14.1
+FALA_NEXT_VERSION=0.14.5
 npx --yes npm@10.9.7 version "$FALA_NEXT_VERSION" --no-git-tag-version
 ```
 
@@ -81,7 +81,7 @@ npx netlify functions:build --src netlify/functions --functions .netlify/functio
 
 ## 3. Apply required migrations before dependent API deployment
 
-First identify which migrations are already installed in the intended Fala database. These checked-in files are not automatically applied by `npm run build`, GitHub Actions or Netlify deployment. Do not blindly rerun all historical migrations against a live account store.
+First identify which migrations are already installed in the intended Fala database. These checked-in files are not automatically applied by `npm run build`, GitHub Actions, Vercel or Netlify deployment. Do not blindly rerun all historical migrations against a live account store.
 
 Apply the pending reviewed SQL in a transaction through the owner's SQL Editor or a secured PostgreSQL connection. For example, with an existing libpq service/credential configuration and `PGSERVICE` set securely:
 
@@ -125,7 +125,7 @@ The owner authorized `fala-api` in team `gdarmon-4173`. Use the established Verc
 6. For a bounded full-session check, the operator-only adapter may temporarily use `FALA_SESSION_DIAGNOSTICS=true` with dedicated synthetic accounts in `fala_latency_probe`. Run `scripts/check-hosted-sessions.mjs` with its explicit opt-in and private manifest, retaining sanitized aggregate results only. Disable this flag and redeploy before normal traffic cutover. Do not test with a real learner's history.
 7. `scripts/prepare-session-fixtures.mjs --cleanup artifacts/session-fixtures-UUID.json`, with its explicit `FALA_PREPARE_SESSION_FIXTURES=true` opt-in, removes only that run's synthetic users. Remove the private manifest after cleanup.
 
-The first 0.14.4 cutover also needs the new Web Push pair configured and the protected reminder workflow on main. Its schedule is best effort, every 15 minutes. Verify a manual `reminders.yml` run and retire the Netlify scheduler in the same cutover. Normal releases keep the key and scheduler unchanged.
+The 0.14.4 cutover installed a new matching Web Push pair in Vercel Production and the protected reminder workflow on main, and retired the Netlify scheduler. Normal releases keep the key and scheduler unchanged. Observe a scheduled `reminders.yml` run and record its result. A manual invocation can send real due reminders; use isolated sender tests for a non-delivery check. See [reminder operations](reminders.md).
 
 ### Main and Android publication
 
@@ -240,7 +240,7 @@ GitHub's `[skip ci]` skips applicable push/PR checks; it does not stop manually 
 |---|---|
 | Local esbuild/Gradle/browser gets `EPERM` or cannot bind a socket | Use the host's normal execution approval for that build/check; don't change app dependencies to compensate |
 | `gh` says not logged in | Check the intended CLI config; on a fresh machine log in normally. Never print a saved token file |
-| Netlify ready but native UI is old | Verify the Play build, tester account/track eligibility, review state and installation |
+| Website ready but native UI is old | Verify the Play build, tester account/track eligibility, review state and installation |
 | Missing `ui_language` column / API schema failure | Check the required migration in the exact configured database before redeploying |
 | Internal upload skipped because main advanced | Check the newer main run; do not force-upload the superseded commit |
 | Used or older Play version code | Inspect tracks; use a new workflow allocation for a justified retry, not a reused bundle code |

@@ -8,7 +8,8 @@ This documentation lets someone open the project with Claude Code, GitHub Copilo
 - [Developer and agent handoff](agent-handoff.md): code, checks and unresolved issues.
 - [Working with Claude and Copilot](agent-setup.md).
 - [Release runbook](releasing.md): preparing a version and verifying the website and Google Play releases.
-- [Current release: learning at your own pace in 0.14.1](releases/0.14.1.md).
+- [Current release: Vercel migration and measured performance in 0.14.4](releases/0.14.4.md).
+- [Notifications and the new VAPID keys](reminders.md).
 - [Earlier language and reminder release: 0.14.0](releases/0.14.0.md).
 
 All maintained documentation and agent instructions are written in English.
@@ -25,7 +26,15 @@ All maintained documentation and agent instructions are written in English.
 
 Publishing the website alone does not update the Android app installed on a phone.
 
-## Learning at your own pace in 0.14.1
+## Current release: 0.14.4
+
+The website and API are live at [Fala on Vercel](https://fala-api.vercel.app/app/). The old address forwards existing clients and links during the transition; it is no longer the primary application server. Android **0.14.4 (104501)** was accepted into Internal Testing and the same bundle was submitted to closed Alpha. Google reported the closed release as **IN_REVIEW** on 27 September 2026 at 11:37 UTC; availability still depends on review and tester eligibility.
+
+The final test completed all **50 conversations and 600 AI operations**. Median response time was **2.49 seconds**, and 95% finished within **3.32 seconds**. The strict three-second target is still unmet. The owner approved releasing the improvement with that limitation documented. These are hosted synthetic-session measurements, not a test of 50 physical phones recording simultaneously.
+
+The previous Web Push private key could not be retrieved. A new matching pair is already configured in Vercel; nothing needs to be pasted into chat. On the new website, users sign in and connect notifications again. Existing reminder times and opt-outs remain stored. Android reminders do not depend on the VAPID key. See [reminder operations](reminders.md).
+
+## Learning at your own pace, introduced in 0.14.1
 
 The app keeps the learner at their chosen difficulty and removes the two-session promotion promise. Consistent practice across different days and situations can support an optional challenge, which the learner can choose when ready. Beginners practise fewer new words; intermediate examples are shorter, with no sentence-count quota. Repetition and help are normal parts of learning. See [the progression guide](learning-progression.md) for the rationale and limits.
 
@@ -40,7 +49,7 @@ The website and Internal Testing were verified on 0.14.1, build 104101. Closed A
 - Normal Android playback no longer slows automatically because of a model response. Explicit slow playback remains available.
 - The version remains visible, with release notes and checks.
 
-The report of roughly five seconds waiting after Send remains a separate measurement task. That release does not claim to have measured or fixed the cause.
+The original 0.14.0 release did not measure the reported five-second wait. The later 0.14.4 work measured hosting overhead, removed SQL connections held during AI generation and reduced repeated generation repairs; the current measured limits appear above.
 
 ## Requesting another change
 
@@ -58,7 +67,7 @@ If publishing to those targets is already authorized, that approval does not nee
 
 1. Update the version everywhere and add English release notes.
 2. Run checks and build the app. Apply and verify any required database change before deploying server code that depends on it.
-3. Push the prepared code to GitHub. Main-branch changes trigger website deployment and cloud checks.
+3. Deploy and verify the staged website/API on Vercel, then push the checked code to GitHub. Main updates the legacy Netlify forwarding and runs cloud checks; it does not deploy Vercel automatically.
 4. After checks pass, the workflow builds an Android bundle with the existing signing key and uploads it to Internal Testing.
 5. Promote that same bundle and build number to the closed Alpha track. No rebuild is needed.
 6. Verify the intended version was accepted by the website and Google Play; separately record whether Google is still reviewing it.
@@ -72,7 +81,7 @@ The version, such as **0.14.0**, appears in the app. The build number, such as *
 - **Closed Testing:** also check Google's review lifecycle. Acceptance into a track does not necessarily mean testers can already install it.
 - **Phone:** the Google account must be eligible for the track, and the installed app must be updated. An updated browser does not prove that the phone received a new Android binary.
 
-The 0.14.0 receipt recorded a live website, both testing tracks pointing to build 104001, and the closed release in `IN_REVIEW`. This is a dated observation, not a promise about its current state.
+The latest receipt records the exact verified website deployment, internal upload and closed-review state. Recheck Google before claiming that a pending review has completed.
 
 ## Moving to another machine or coding agent
 

@@ -39,13 +39,24 @@ The [Groq limits reference](https://console.groq.com/docs/rate-limits) lists 8,0
 
 [OpenAI's Luna model page](https://developers.openai.com/api/docs/models/gpt-5.6-luna) documents no-reasoning mode, structured output and standard short-context prices of $0.20/million input tokens and $1.20/million output tokens at this review. For an illustrative 4,000-input/250-output request, that is about **$0.0011**, or **$1.10 per 1,000 requests**, before caching, repairs, duplicate backup work and audio. It is an estimate, not an account bill or spending cap. Cancelled work may still be billed. See [latency guidance](https://developers.openai.com/api/docs/guides/latency-optimization) and the actual provider usage dashboard.
 
+## Current measured release and next speed work
+
+The [0.14.4 receipt](releases/0.14.4.md) records the completed Vercel migration and all five real-AI test runs, including failures. Final result: 50/50 complete conversations, 600/600 operations, p50 2.487 s and p95 3.316 s; answer-only p95 3.056 s. The owner approved release with the three-second target still unmet. SQL connections no longer remain locked during AI generation, web Send no longer adds an unnecessary session reload, and schema/prompt fixes reduced repair operations to 2/600.
+
+For the next optimization, retain the same 50-account, alternating level 1/3, ten-turn workload and report cold openings, later turns, summaries and repairs separately. AI p95 was 2.513 s; SQL p95 was 297.1 ms; outside-handler residual p95 was 1.227 s. These percentiles are not additive, and the residual is not proof of a particular queue. Investigate request-level outliers before changing regions or purchasing more hosting. Provider-capacity changes remain a separate requirement for sustained use and backup coverage.
+
+Any prompt/model change must preserve teaching quality, Hebrew translations, cord facts, replay safety and full-session completion. Do not lower the measured workload or discard failed runs to make the speed number pass. Physical microphone, transcription, playback and continuous 50-learner voice use still need their own evidence. Reading existing sanitized reports can continue without additional AI charges; another load run is an explicit bounded, billable action.
+
 ## Reproduce live checks without extracting provider secrets
 
-The established Fala operator token can call the deployed API even when Netlify masks AI credentials. Configure `FALA_URL` and `FALA_TOKEN` through an authorized local environment; never print the token or put it in a URL. A new workstation needs its own authorized access.
+The established Fala operator token can call the deployed Vercel API without extracting AI credentials. Configure `FALA_URL` and `FALA_TOKEN` through an authorized local environment; never print the token or put it in a URL. A new workstation needs its own authorized access.
 
 `POST /diagnostics/ai` accepts only `{route: "active"|"primary"|"fallback"}`. It uses one fixed synthetic Hebrew-supported capoeira turn, no saved learner context, and returns the generated answer plus numeric provider capacity/token/timing observations. Ordinary learner accounts receive 403. The request is billed and subject to the account flood guard.
 
 ```bash
+# Select the primary host explicitly; older harness defaults use the legacy URL.
+export FALA_URL=https://fala-api.vercel.app
+
 # One probe first; inspect model access, billing, semantics and actual limits.
 FALA_RUN_AI_PROBE=true FALA_PROBE_ROUTE=primary \
   node --env-file=.env scripts/check-ai-capacity.mjs
@@ -67,7 +78,15 @@ Read every generated conversation, not just the pass count. Record completed/fai
 
 If billing/model access fails, use the existing provider console and authorized configuration. Do not add free accounts to evade quotas, retry forever, return scripted teaching as if it were AI, or claim that removing the warning solved capacity. No user account, saved answer or history is deleted by recovery.
 
-## Detailed latency investigation
+## Isolated hosted full-session reproduction
+
+Use the release runbook to deploy the temporary operator-only session adapter with `FALA_SESSION_DIAGNOSTICS=true`, then prepare a new private fixture manifest with `scripts/prepare-session-fixtures.mjs` and explicit `FALA_PREPARE_SESSION_FIXTURES=true`. The helper uses the established Fala database connection; inspect and authorize the exact target first. It creates only synthetic accounts in `fala_latency_probe`; a fixture manifest contains test device credentials and must remain ignored/private.
+
+For `scripts/check-hosted-sessions.mjs`, configure `FALA_URL`, the operator `FALA_TOKEN`, `FALA_SESSION_FIXTURE` and `FALA_RUN_SESSION_CHECK=true` through the authorized local environment. `FALA_SESSION_LEARNERS=50` controls fixture creation; `FALA_SESSION_GAP_MS=35000` preserves the recorded pacing. `scripts/check-hosted-audio.mjs` additionally requires `FALA_RUN_AUDIO_CHECK=true` and the same isolated fixture. Do not substitute ordinary learner tokens or read real account history.
+
+These checks make real paid AI requests and retain sanitized aggregates only. Functional failure and failure of the three-second speed gate are distinct outcomes; both must be reported. Finally disable session diagnostics, redeploy and verify its route rejects access; clean the exact fixture with the helper's `--cleanup` option, then remove the manifest. The 0.14.4 fixture cleanup is already complete. A fresh run needs fresh fixtures.
+
+## Historical Netlify timing and current measurement tools
 
 The later [invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) adds an important control: confirmed existing application instances still had multi-second pre-function delays. Its instrumented draft exposes only operator-visible instance IDs, immutable invocation counters and module age. These describe application reuse, not platform cold-start duration. The detailed probe now preserves those whitelisted observations and summarizes them per wave; older deployments have no such observations. No production rollout of the instrumentation is claimed.
 
@@ -75,6 +94,7 @@ The [26 September investigation](latency-investigation-2026-09-26.md) matched th
 
 ```bash
 # Public baseline: three sequential requests, then read-only authenticated SQL.
+export FALA_URL=https://fala-api.vercel.app
 node scripts/check-latency.mjs
 FALA_LATENCY_TARGET=diagnostics node --env-file=.env scripts/check-latency.mjs
 
@@ -94,7 +114,9 @@ FALA_RUN_AI_PROBE=true FALA_LATENCY_TARGET=ai FALA_LATENCY_TRANSPORT=http2 \
   node --env-file=.env scripts/check-latency.mjs
 
 # Match only the resulting request IDs to hosting logs using the existing
-# authorized Netlify CLI login. Substitute the report filename just printed.
+# authorized Netlify CLI login. These two commands apply only to reports
+# taken through Netlify; do not correlate Vercel IDs with Netlify logs.
+# Substitute that historical report filename.
 node scripts/check-hosting-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
 
 # Read the dashboard's request duration and function-operation duration for
@@ -102,7 +124,7 @@ node scripts/check-hosting-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
 node scripts/check-observability-latency.mjs artifacts/latency-ai-50-TIMESTAMP.json
 ```
 
-`FALA_PROBE_ROUTE` defaults to `primary` in the detailed harness, isolating the provider from hedging; use `active` to include configured recovery. `FALA_URL` defaults to the production Fala host. The token is sent only to that explicitly configured HTTPS origin, and redirects are never followed. Reports contain timing/request IDs and numeric provider observations, never learner or generated text. HTTP/2 reports connection setup separately and excludes it from request-wave timings. First wave is not proof of a cold function, and later waves do not guarantee warm server instances.
+`FALA_PROBE_ROUTE` defaults to `primary` in the detailed harness, isolating the provider from hedging; use `active` to include configured recovery. Set `FALA_URL=https://fala-api.vercel.app` explicitly for current-host measurements; some older harnesses default to the legacy Netlify proxy. The token is sent only to that explicitly configured HTTPS origin, and redirects are never followed. Reports contain timing/request IDs and numeric provider observations, never learner or generated text. HTTP/2 reports connection setup separately and excludes it from request-wave timings. First wave is not proof of a cold function, and later waves do not guarantee warm server instances.
 
 Limits are 1–50 concurrent requests, 1–3 waves and at most 100 requests per invocation. The existing 120-request/minute operator flood guard and provider token capacity still apply across separate invocations; leave appropriate time between large runs. A run exits **1** on HTTP/transport/response validation failures, **2** when any wave misses the p95 target (default `<3000 ms`, configurable through `FALA_LATENCY_MAX_P95_MS`), and **0** only when all waves pass. Small sample percentiles are descriptive, not an SLA.
 

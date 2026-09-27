@@ -16,9 +16,9 @@ This is the entry point for people and coding agents taking over the repository.
 | Cold-start hypothesis tested with instance reuse | [27 September invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) |
 | Reproduce the isolated Vercel comparison and review migration gates | [Hosting comparison](hosting-comparison.md) |
 | Vercel deployment and measured AI comparison with Netlify | [27 September Vercel probe receipt](vercel-probe-2026-09-27.md) |
-| Full-session isolation, shared-pool contention and next implementation | [27 September session concurrency check](session-concurrency-2026-09-27.md) |
+| Full-session isolation, reproduced pool contention and implemented fix | [27 September session concurrency check](session-concurrency-2026-09-27.md) |
 | Current lesson-quality correction | [Meaningful conversations and evaluation](lesson-quality.md) |
-| Latest recorded publication evidence | [0.14.3 release and capacity record](releases/0.14.3.md) |
+| Latest recorded publication evidence | [0.14.4 release and capacity record](releases/0.14.4.md) |
 | Earlier language/reminder release | [0.14.0 release record](releases/0.14.0.md) |
 | Architectural detail | [Architecture](architecture.md) |
 
@@ -32,7 +32,8 @@ This is the entry point for people and coding agents taking over the repository.
 | Native in-app update offers | [App updates](app-updates.md) |
 | Web installation, browser speech and iPhone use | [Web app](web-app.md) |
 | Shared Hebrew/English UI and reminder-default migration | [Localization](localization.md) |
-| Points, skins, private circles and reminders | [Gamification](gamification.md) |
+| Points, skins and private circles | [Gamification](gamification.md) |
+| VAPID keys, notification subscriptions and scheduled delivery | [Reminder operations](reminders.md) |
 | Practice levels and independent evidence | [Learning progression](learning-progression.md) |
 | Capoeira knowledge and lesson rotation | [ABADÁ curriculum](abada-curriculum.md) |
 | Teaching constraints and reviewed examples | [Didactic review](didactic-review.md) |
@@ -44,5 +45,3 @@ This is the entry point for people and coding agents taking over the repository.
 | Store listing and closed-test planning | [Store package](../store/google-play/README.md), [closed test](../store/google-play/closed-test-plan.md) |
 
 The source code and current workflow definitions determine behavior. Dated release receipts record a point in time; they are not proof of today's review state. Read current remote state before publishing. Keep prior release notes and evidence when adding a new record.
-
-- [0.14.4 migration and performance receipt](releases/0.14.4.md): SQL generation claims, Vercel cutover, Android origin migration and measured limits.

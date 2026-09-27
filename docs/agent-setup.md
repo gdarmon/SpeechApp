@@ -22,7 +22,7 @@ This repository does not install personal skills into an agent's home directory 
 1. Clone/open `gdarmon/SpeechApp`; inspect the current branch, working tree and latest `origin/main`.
 2. Read `AGENTS.md`, then `docs/agent-handoff.md`. Read only the feature references needed for the task.
 3. Use the pinned local toolchain and run the relevant checks. Most development tests require no cloud credentials.
-4. For an authorized release, establish the machine's normal GitHub/Netlify/database access using the release runbook. GitHub Actions already holds the Play signing/publishing secrets; do not download them to the agent.
+4. For an authorized release, establish the machine's normal GitHub/Vercel/database access (and Netlify only for legacy URL forwarding) using the release runbook. GitHub Actions already holds the Play signing/publishing secrets; do not download them to the agent.
 5. Keep behavior docs and dated release evidence current. Update this setup page if changing skill locations or agent entry points.
 
 ## Example requests
@@ -41,6 +41,6 @@ For diagnosis:
 
 ## Access and portability limits
 
-An agent instruction file supplies knowledge, not accounts or permission. Local CLI logins, database-owner credentials and private signing backups are intentionally absent from Git. GitHub-hosted agents may have a restricted token, no Netlify connection, or no Android SDK; they can still prepare code/PRs and use configured Actions checks. State the exact missing access if an authorized external step cannot run.
+An agent instruction file supplies knowledge, not accounts or permission. Local CLI logins, database-owner credentials and private signing backups are intentionally absent from Git. GitHub-hosted agents may have a restricted token, no Vercel connection, or no Android SDK; they can still prepare code/PRs and use configured Actions checks. State the exact missing access if an authorized external step cannot run.
 
 Nothing here changes the app's AI provider. Switching the coding assistant to Claude or Copilot is independent of Fala's configured Groq/OpenAI services.

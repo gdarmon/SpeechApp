@@ -10,10 +10,10 @@ The owner reports that production access is unavailable. The initial API audit f
 
 - App: Fala: Speak Portuguese. Category: Education. Language: English (United States).
 - Support email: gdarmon@gmail.com
-- Website: https://falachatapp.netlify.app/
-- Privacy: https://falachatapp.netlify.app/privacy.html
-- Account deletion: https://falachatapp.netlify.app/delete-account.html
-- Data deletion while keeping the account: https://falachatapp.netlify.app/delete-data.html
+- Website: https://fala-api.vercel.app/
+- Privacy: https://fala-api.vercel.app/privacy.html
+- Account deletion: https://fala-api.vercel.app/delete-account.html
+- Data deletion while keeping the account: https://fala-api.vercel.app/delete-data.html
 - Ads: No. The app includes no advertising SDK or advertisements.
 - App access: Some or all functionality is restricted; Google sign-in is required. Use the instructions in app-access.txt.
 - Intended audience: 13–15, 16–17, and 18+. Current online service is not enabled for under-13 use. This audience setting is separate from the IARC content rating.
@@ -34,11 +34,11 @@ Complete the IARC questionnaire honestly from the actual features; the rating is
 | Personal info: Name | Optional circle nickname | Optional; app functionality; visible to joined circle members |
 | App activity: Other user-generated content | Conversation text, typed replies, optional report notes and circle names | Core conversation text is required for AI practice; reporting and circles are optional; app functionality and safety |
 | App activity: App interactions | Learning history, practice time, XP, streak dates, settings | Required for saved progress and app functionality; optional reminder preferences |
-| Audio: Voice or sound recordings | Optional network recognition by the phone's chosen speech service | Native Fala does not upload audio to its server. Review the system speech provider's handling and applicable system-service exception before finalizing this field; do not claim that no service can receive audio. The website's separate Groq transcription flow is not the native Android flow. |
+| Audio: Voice or sound recordings | Optional network recognition by the phone's chosen speech service | Native Fala does not upload audio to its server. Review the system speech provider's handling and applicable system-service exception before finalizing this field; do not claim that no service can receive audio. The website's separate OpenAI transcription flow is not the native Android flow. |
 
 Data is sent using HTTPS. Account deletion is offered in-app and on the web. No analytics/advertising SDK, advertising ID, contacts or device location permission is included. Time zone is used for reminders, not to determine location.
 
-Conversation text goes to Groq; account and learning data are processed by Netlify and Supabase. Google handles sign-in. Android recognition and voice playback use the phone's speech services. OpenAI voice generation is currently for the website. Service-provider processing and deliberate sharing with circle members must be classified under Google's definitions; do not infer "not shared" merely because there is no sale of data. No application transcript is logged by Fala; provider operational logs/retention still apply.
+Conversation text goes to the explicitly configured OpenAI primary and, when invoked, Groq backup; account and learning data are processed by Vercel and Supabase. Netlify forwards legacy URLs during the transition. Google handles sign-in. Android recognition and voice playback use the phone's speech services. OpenAI transcription and voice generation are currently for the website. Service-provider processing and deliberate sharing with circle members must be classified under Google's definitions; do not infer "not shared" merely because there is no sale of data. No application transcript is logged by Fala; provider operational logs/retention still apply.
 
 Before submitting, confirm the current service-provider contracts and retention settings. Do not declare Zero Data Retention, ephemeral-only processing, an independent security review, or a fixed backup deletion deadline without evidence. Application records remain until the learner deletes them; reports are removed with their conversation/account. External logs and backups are governed by provider retention.
 

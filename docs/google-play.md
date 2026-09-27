@@ -1,6 +1,6 @@
 # Fala — Google Play release preparation
 
-For day-to-day updates use [the release runbook](releasing.md); for the verified 0.14.0 upload and closed-review state see [the release record](releases/0.14.0.md). Historical setup details below are not proof of the latest published build.
+For day-to-day updates use [the release runbook](releasing.md); for the verified 0.14.4 upload and closed-review state see [the release record](releases/0.14.4.md). Historical setup details below are not proof of the latest published build.
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 
@@ -54,7 +54,7 @@ On 20 September 2026, the owner enabled the Play Developer API, granted `fala-gi
 2. Create the app in Play Console and enable **Play App Signing**. Let Google manage the app signing key; retain the local upload key separately. Register the Play app signing certificate with Google's Android OAuth client.
 3. Upload `fala-release.aab` to **Internal testing**, add testers, and use Play's opt-in/install link. Run sign-in and the speaking checklist from that installation before moving to a broader track.
 4. Complete the app listing, content rating, target audience, app access instructions, and Data safety declarations based on the actual production configuration. Use **gdarmon@gmail.com** as the support email.
-5. Privacy URL: `https://falachatapp.netlify.app/privacy.html`. Account deletion URL: `https://falachatapp.netlify.app/delete-account.html`. Data deletion without closing the account: `https://falachatapp.netlify.app/delete-data.html`. Deploy and test both before submitting.
+5. Current canonical links: privacy `https://fala-api.vercel.app/privacy.html`, account deletion `https://fala-api.vercel.app/delete-account.html`, and learning-data deletion `https://fala-api.vercel.app/delete-data.html`. Verify all three before a store metadata submission. The old Netlify links remain redirects; the 0.14.4 bundle promotion did not update store metadata.
 6. Use the prepared assets in `store/google-play/`: 512px icon, 1024×500 feature graphic, and native Android screenshots for phones, 7-inch tablets and 10-inch tablets. Screens show the real UI with fictional examples; they do not document a live sign-in test.
 7. Complete any account-specific testing or verification requirements displayed by Play Console before requesting production access. New personal developer accounts may require at least 12 opted-in closed testers for 14 continuous days; this depends on the account, not just the app.
 

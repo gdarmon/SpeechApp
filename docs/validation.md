@@ -1,6 +1,15 @@
 # Validation
 
-For verified publication and measurements, see [the 0.14.3 release record](releases/0.14.3.md). The sections below distinguish local checks from deployment evidence; historical checks must not be treated as current-version device evidence.
+For verified publication and measurements, see [the 0.14.4 release record](releases/0.14.4.md). The sections below distinguish local checks from deployment evidence; historical checks must not be treated as current-version device evidence.
+
+## 0.14.4 — Vercel migration and full-session checks, 27 September 2026
+
+- Main CI passed 216 backend tests, real PostgreSQL compatibility/concurrency, four browser suites, TypeScript/release metadata checks and Android unit/build/lint checks. Instrumentation sources compiled locally; they were not executed on a physical device.
+- The local 50-account controlled test reproduces the single-connection queue and verifies the generation-claim fix. Its 25 ms fake provider is not end-user performance evidence.
+- The final real-AI check completed **50/50 conversations and 600/600 operations**. Overall p50 was **2.487 seconds**, p95 **3.316 seconds**, maximum **4.658 seconds**. Answer-only p95 was **3.056 seconds**. The strict three-second gate still failed, and the owner explicitly approved releasing the improvement with that limitation documented. Earlier failed runs remain in the release receipt.
+- Synthetic web audio passed; Google sign-in assets loaded on the new origin, but no actual Google login or phone microphone/Play installation was performed. Continuous 50-learner voice capacity remains unverified.
+- Live Vercel health/version/auth guards and old-URL forwarding were verified. Temporary session diagnostics are off and all 252 synthetic users across six fixture manifests were removed from the dedicated test schema.
+- Internal 0.14.4 (104501) upload and closed Alpha promotion were verified. Alpha was separately `IN_REVIEW`; see the receipt for workflow links and exact observation time.
 
 ## 0.14.3 — conversation capacity and recovery, 26 September 2026
 

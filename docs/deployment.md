@@ -1,6 +1,6 @@
 # Vercel + PostgreSQL setup
 
-The current target is the full website/API at `https://fala-api.vercel.app`, project **fala-api**, team **gdarmon-4173**. Use the [release runbook](releasing.md) for staging, deployment, verification and rollback, and the [latest receipt](releases/0.14.4.md) for actual cutover status. A successful upload is not proof of the performance target or Play availability.
+The live deployment is the full website/API at `https://fala-api.vercel.app`, project **fala-api**, team **gdarmon-4173**. Use the [release runbook](releasing.md) for staging, deployment, verification and rollback, and the [latest receipt](releases/0.14.4.md) for actual cutover status. A successful upload is not proof of the performance target or Play availability.
 
 ## Existing account and database
 
@@ -24,7 +24,6 @@ Configure values only in the authorized Vercel project's **Production environmen
 | `FALA_OPENAI_API_KEY` | OpenAI key for voice; also coaching only when selected |
 | `FALA_OPENAI_MODEL` | Optional; defaults to `gpt-5.6-terra` |
 | `FALA_DEMO` | `false` |
-
 | `FALA_AI_PROVIDER` | Current explicit primary: `openai` |
 | `FALA_AI_FALLBACK_PROVIDER` | Current explicit backup: `groq` |
 | `GROQ_API_KEY` | Existing authorized Groq credential |
@@ -45,7 +44,7 @@ Follow the staged CLI deployment in [releasing.md](releasing.md#vercel-primary-d
 
 Verify `/health`, the visible web version and service worker, Google button loading, unauthenticated account rejection and the changed authenticated behavior. `/health` alone does not check AI or database health. Operator-only `/diagnostics` reports configuration/timing without credentials or learner transcripts. Synthetic AI checks are billable and explicitly enabled; see the measured scope in the release receipt.
 
-For reminders, the GitHub Actions `reminders.yml` workflow calls `/internal/reminders` every 15 minutes using its dedicated secret. This is best effort, not an exact-time alarm. Notification permission and a subscription matching the current VAPID key are required. Keep account opt-outs, custom times, same-day-practice suppression and delivery deduplication. Do not run the retired Netlify scheduler alongside it.
+For reminders, the GitHub Actions `reminders.yml` workflow calls `/internal/reminders` every 15 minutes using its dedicated secret. This is best effort, not an exact-time alarm. Notification permission and a subscription matching the current VAPID key are required. Keep account opt-outs, custom times, same-day-practice suppression and delivery deduplication. Do not run the retired Netlify scheduler alongside it. The new matching VAPID pair is already configured in Vercel Production; retain it for future deployments. See [reminder operations](reminders.md) for key handling, reconnection and troubleshooting.
 
 ## Existing clients and local development
 
