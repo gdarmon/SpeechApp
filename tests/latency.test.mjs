@@ -1,10 +1,20 @@
 import { afterEach, expect, it } from 'vitest';
 import http from 'node:http';
 import http2 from 'node:http2';
-import { correlatePlatform, measureRequest, parseServerTiming, summarize, meetsLatencyTarget } from '../scripts/lib/latency.mjs';
+import { correlatePlatform, measureRequest, parseServerTiming, summarize, meetsLatencyTarget, runtimeObservation } from '../scripts/lib/latency.mjs';
 import { openHttp2Session, measureHttp2Request } from '../scripts/lib/latency-http2.mjs';
 
 const cleanup = [];
+it('counts valid instance observations without retaining arbitrary diagnostic fields', () => {
+  const first = { instance_id: '00000000-0000-4000-8000-000000000001', invocation_number: 1,
+    first_invocation: true, module_age_ms: 2, private_text: 'do-not-retain' };
+  expect(runtimeObservation(first)).not.toHaveProperty('private_text');
+  expect(runtimeObservation({ ...first, first_invocation: false })).toBeNull();
+  expect(runtimeObservation(undefined)).toBeNull();
+  expect(summarize([{ status: 200, runtime: first }, { status: 200, runtime: { ...first,
+    invocation_number: 2, first_invocation: false } }]).runtime)
+    .toEqual({ observations: 2, instances: 1, first_invocations: 1, reused_invocations: 1 });
+});
 afterEach(async () => { for (const action of cleanup.splice(0).reverse()) await action(); });
 async function fixture(handler, maxSockets = 1) {
   const server = http.createServer(handler);

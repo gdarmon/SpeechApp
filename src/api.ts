@@ -14,6 +14,7 @@ import { saveSubscription, subscriptionSchema } from './reminders.js';
 import { lessonContext } from "./capoeira.js";
 import { practiceLevel } from "./learning.js";
 import { teachingPlan } from "./pedagogy.js";
+import type { RuntimeObservation } from "./runtime.js";
 
 type Dependencies = {
   settings: () => Settings;
@@ -42,7 +43,7 @@ async function body(request: Request): Promise<unknown> {
 }
 
 export function createHandler(dependencies: Dependencies) {
-  return async (request: Request, clientAddress = "local"): Promise<Response> => {
+  return async (request: Request, clientAddress = "local", runtime?: RuntimeObservation): Promise<Response> => {
     const timing = new Timing();
     const respond = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
       status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store",
@@ -125,7 +126,8 @@ export function createHandler(dependencies: Dependencies) {
           lesson: lessonContext({ id: "graduated-cords-v1", visit: 2 }, 1, "he-IL", 1), teaching: teachingPlan(1, 1),
           opening: { text: "Qual é a sua corda?", suggested_replies: ["Tenho corda verde e roxa.", "Ainda não tenho corda."] },
           turns: [], input: { text: "Ainda não tenho corda.", source: "typed", assisted: false, help: false, language: "pt-BR" } });
-        return respond({ synthetic: true, reply, observations: probe instanceof CompatibleProvider ? probe.observations : [] });
+        return respond({ synthetic: true, reply, observations: probe instanceof CompatibleProvider ? probe.observations : [],
+          ...(runtime ? { runtime } : {}) });
       }
       const sessions = new Sessions(store, ai);
       const speech = dependencies.speech?.(settings) ?? new Speech(settings);
@@ -148,7 +150,8 @@ export function createHandler(dependencies: Dependencies) {
             model: settings.model, provider: new URL(settings.baseUrl).hostname,
             fallback: settings.fallback ? { provider: new URL(settings.fallback.baseUrl).hostname, model: settings.fallback.model } : null,
             ai_hedge_ms: settings.aiHedgeMs, ai_timeout_ms: settings.aiTimeoutMs,
-            daily_user_limit: settings.dailyUserLimit, daily_app_limit: settings.dailyAppLimit });
+            daily_user_limit: settings.dailyUserLimit, daily_app_limit: settings.dailyAppLimit,
+            ...(runtime ? { runtime } : {}) });
         }
         if (path === "/dashboard") return respond({ status, progress: await store.progress(), history: await store.history(), rewards: await rewards.snapshot() });
         if (path === "/progress") return respond(await store.progress());

@@ -1,7 +1,7 @@
 // Bounded production diagnosis; no learner history, session writes, or raw text.
 import https from 'node:https';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { measureRequest, summarize, meetsLatencyTarget } from './lib/latency.mjs';
+import { measureRequest, summarize, meetsLatencyTarget, runtimeObservation } from './lib/latency.mjs';
 import { openHttp2Session, measureHttp2Request } from './lib/latency-http2.mjs';
 
 const url = new URL(process.env.FALA_URL || 'https://falachatapp.netlify.app');
@@ -44,7 +44,9 @@ try {
       // Only the fixed operator endpoint supplies these observations; no text is retained.
       const observations = (data?.observations || []).map(({ provider, model, status, elapsed_ms, limits, input_tokens, output_tokens }) =>
         ({ provider, model, status, elapsed_ms, limits, input_tokens, output_tokens }));
-      return { wave: wave + 1, index, ...sample, ...(target === 'ai' ? { observations } : {}) };
+      const runtime = runtimeObservation(data?.runtime);
+      return { wave: wave + 1, index, ...sample, ...(runtime ? { runtime } : {}),
+        ...(target === 'ai' ? { observations } : {}) };
     }));
     results.push(...samples);
     const summary = { wave: wave + 1, ...summarize(samples) };

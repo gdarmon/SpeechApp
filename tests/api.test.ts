@@ -87,6 +87,16 @@ beforeEach(async () => {
 });
 
 describe("Netlify API against PostgreSQL", () => {
+  it("exposes invocation observations only in authorized operator diagnostics", async () => {
+    const runtime = { instance_id: randomUUID(), invocation_number: 2, first_invocation: false, module_age_ms: 100 };
+    const observed = (request: Request) => handler(request, 'local', runtime);
+    expect((await call('/health', 'GET', undefined, observed)).data).not.toHaveProperty('runtime');
+    expect((await call('/status', 'GET', undefined, observed)).data).not.toHaveProperty('runtime');
+    expect((await call('/diagnostics', 'GET', undefined, observed, 'wrong')).data).not.toHaveProperty('runtime');
+    expect((await call('/diagnostics', 'GET', undefined, observed)).data.runtime).toEqual(runtime);
+    expect((await call('/diagnostics/ai', 'POST', {}, observed)).data.runtime).toEqual(runtime);
+  });
+
   it("restricts provider probes to fixed synthetic input and never saves them as learner practice", async () => {
     expect(netlifyRoutes.path).toContain("/diagnostics/ai");
     expect((await call("/diagnostics/ai", "POST", {}, handler, "wrong")).status).toBe(401);

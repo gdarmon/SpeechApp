@@ -11,6 +11,14 @@ export function parseServerTiming(header = '') {
 }
 
 const rounded = value => Number(value.toFixed(1));
+export function runtimeObservation(value) {
+  if (!value || typeof value.instance_id !== 'string' || !/^[\da-f-]{36}$/i.test(value.instance_id)
+    || !Number.isSafeInteger(value.invocation_number) || value.invocation_number < 1
+    || value.first_invocation !== (value.invocation_number === 1)
+    || !Number.isFinite(value.module_age_ms) || value.module_age_ms < 0) return null;
+  return { instance_id: value.instance_id, invocation_number: value.invocation_number,
+    first_invocation: value.first_invocation, module_age_ms: value.module_age_ms };
+}
 export function percentile(values, fraction) {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
   return sorted.length ? sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] : null;
@@ -22,7 +30,11 @@ export function summarize(samples) {
   const ok = samples.filter(sample => sample.status === 200 && !sample.error);
   const metrics = ['total_ms', 'client_queue_ms', 'dns_ms', 'tcp_ms', 'tls_ms',
     'after_connection_ms', 'body_ms', 'handler_ms', 'ai_ms', 'db_ms', 'outside_handler_ms'];
+  const runtime = samples.map(sample => runtimeObservation(sample.runtime)).filter(Boolean);
   return { requests: samples.length, successful: ok.length,
+    runtime: { observations: runtime.length, instances: new Set(runtime.map(value => value.instance_id)).size,
+      first_invocations: runtime.filter(value => value.first_invocation).length,
+      reused_invocations: runtime.filter(value => !value.first_invocation).length },
     below_3_seconds: ok.filter(sample => sample.total_ms < 3000).length,
     metrics: Object.fromEntries(metrics.map(metric => [metric, {
       samples: ok.filter(sample => Number.isFinite(sample[metric])).length,
