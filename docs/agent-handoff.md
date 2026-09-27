@@ -61,7 +61,7 @@ npm test
 npm run build
 ```
 
-The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 181 tests, including local loopback fixtures for latency measurement, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
+The normal Vitest suite uses an isolated PGlite database and mocked provider requests; no real AI keys are needed. It currently has 184 tests, including local loopback fixtures and dashboard timing extraction for latency measurement, but the count is a dated observation, not a contract. `build` type-checks, verifies shared catalogs and release metadata, and copies public files to `dist/`.
 
 For browser changes:
 
@@ -142,6 +142,7 @@ The local 0.13.8 notes represent the initial answer/playback fix prepared during
 
 ## Open issues and limits
 
+- The [27 September live Observability test](latency-investigation-2026-09-27.md) matched all 105 requests across 50/25/30 bursts to the dashboard's exact request details. In the 50 burst, 0/50 finished below three seconds (p50 5.29 s, p95 7.16 s). The slowest Netlify request lasted 7.09 s but its function operation only 1.81 s, with 5.16 s reported before invocation. A hard limit of 25 was not established by the smaller comparisons. Use `scripts/check-observability-latency.mjs` on a completed probe to retrieve numeric details without further AI calls; it uses an undocumented read-only dashboard API and excludes client identity/logs. No hosting migration or paid-plan fix has been demonstrated.
 - The below-three-second target remains unmet. A [later 26 September investigation](latency-investigation-2026-09-26.md) separated client connection/body time and matched all 50 request IDs from one live burst to Netlify logs. A 7.17-second request began platform invocation about 5.24 seconds after client start and executed in 1.84 seconds. Long delays also persisted on reused connections and HTTP/2. Delayed hosting dispatch/invocation is the dominant reproduced tail; exact internal scheduling/concurrency cause and remedy still need provider confirmation. Some initial requests also show extra initialization/wrapper work. Use `scripts/check-latency.mjs` and `scripts/check-hosting-latency.mjs`; a successful HTTP count alone no longer passes the detailed latency gate.
 - Actual OpenAI limits were 500 RPM / 500,000 TPM. Groq backup remained at 8,000 TPM / 1,000 RPD and returned 24 observed 429s in the corrected burst. Paid access and disabled daily app allowances do not establish sustained capacity or a backup capable of carrying all 50 learners. The release receipt documents the existing-account capacity upgrade required from the owner.
 - `npm run benchmark` measures authenticated read-only endpoints. Use the explicitly enabled fixed operator probe for actual AI capacity without extracting provider secrets. The optional full-session check requires a dedicated test-only learner account; it must not use the operator's legacy history or a real learner account. Physical speech and the changed web transcription route were not tested with real audio.
