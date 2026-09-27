@@ -15,6 +15,7 @@ This is the entry point for people and coding agents taking over the repository.
 | Live test and exact Netlify dashboard timings | [27 September Observability comparison](latency-investigation-2026-09-27.md) |
 | Cold-start hypothesis tested with instance reuse | [27 September invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) |
 | Next latency experiment and isolated Vercel setup | [Hosting comparison](hosting-comparison.md) |
+| Vercel deployment, initial measurements and current blocker | [27 September Vercel probe receipt](vercel-probe-2026-09-27.md) |
 | Current lesson-quality correction | [Meaningful conversations and evaluation](lesson-quality.md) |
 | Latest recorded publication evidence | [0.14.3 release and capacity record](releases/0.14.3.md) |
 | Earlier language/reminder release | [0.14.0 release record](releases/0.14.0.md) |
