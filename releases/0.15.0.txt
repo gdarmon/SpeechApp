@@ -1,0 +1,1 @@
+Fala 0.15 marks our move to Vercel for the website and conversation service. Home now shows a clearly labeled word or phrase from your recent practice, rotating across available phrases as you complete conversations and return on another day. Old phrases no longer stay pinned forever. Includes the faster conversations and safer retries introduced in 0.14.4.

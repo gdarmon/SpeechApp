@@ -280,12 +280,12 @@ private fun FalaApp(c: SessionController, mic: (() -> Unit) -> Unit, google: Goo
     }
 
     if (c.settings.activeSession.isNotBlank()) OutlinedButton(onClick = { c.resume() }, enabled = !c.busy, modifier = Modifier.fillMaxWidth()) { Text(tr("Resume your conversation")) }
-    val memory = c.progress.optJSONArray("memory")?.takeIf { it.length() > 0 }
-        ?: c.progress.optJSONArray("help_patterns")
-    if (memory != null && memory.length() > 0) {
-        Text(tr("Today's focus"), fontWeight = FontWeight.Bold)
-        Notice(memory.getJSONObject(0).getString("natural"))
-        Text(tr("We'll create opportunities to use this in conversation."))
+    val reviewPhrase = if (c.progress.isNull("review_phrase")) "" else c.progress.optString("review_phrase").trim()
+    if (reviewPhrase.isNotBlank()) {
+        Text(tr("From your recent practice"), fontWeight = FontWeight.Bold)
+        Text(reviewPhrase, Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp)).padding(16.dp),
+            style = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr, textAlign = TextAlign.Left))
+        Text(tr("Try recalling the meaning, or use it in a sentence when you feel ready."))
     }
     c.history.objects().firstOrNull { it.optInt("demo") == 0 }?.let { recent ->
         TextButton(onClick = { c.start(false, recent.getString("topic")) }, enabled = !c.busy) { Text(tr("Continue topic: ${recent.getString("topic")}")) }

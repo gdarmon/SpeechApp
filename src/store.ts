@@ -3,7 +3,7 @@ import type { Database, Executor, Parameter } from "./database.js";
 import { AppError, PRACTICE_TURNS, type Session, type Start, type TurnInput, type Reply, type Feedback, type Correction,
   type Assessment, type LearnerContext, type Memory, type Turn } from "./models.js";
 import type { Timing } from "./timing.js";
-import { practiceLevel, practiceProgress, type PracticeEvidence } from "./learning.js";
+import { practiceLevel, practiceProgress, reviewPhrase, type PracticeEvidence } from "./learning.js";
 import { compactFeedback, vocabularyForms } from "./vocabulary.js";
 import type { LessonChoice, LessonHistory } from "./capoeira.js";
 import { Rewards } from './rewards.js';
@@ -210,7 +210,13 @@ export class Store {
 
   async progress() {
     const { learner } = await this.snapshot();
-    const [stats] = await this.read(`SELECT
+    const [{ review_words, ...stats }] = await this.read<{ review_words: { natural: string; last_seen: string }[]; conversations: number }>(`SELECT
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('natural', word->>'word', 'last_seen', s.ended_at)) FROM (
+        SELECT feedback, ended_at FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL
+        ORDER BY ended_at DESC, id DESC LIMIT 5
+      ) s CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(s.feedback->'vocabulary')='array'
+        THEN s.feedback->'vocabulary' ELSE '[]'::jsonb END) word
+      WHERE jsonb_typeof(word->'word')='string' AND length(word->>'word') BETWEEN 1 AND 90), '[]'::jsonb) AS review_words,
       (SELECT count(*)::int FROM fala.sessions s WHERE NOT demo AND ended_at IS NOT NULL
         AND EXISTS(SELECT 1 FROM fala.turns t WHERE t.session_id=s.id AND NOT t.help)) AS conversations,
       (SELECT COALESCE(sum(t.speech_ms),0)::float8 FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND NOT t.help) AS speech_ms,
@@ -220,7 +226,8 @@ export class Store {
         AND t.request->>'source'='typed') AS typed_turns,
       (SELECT count(*)::int FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id WHERE NOT s.demo AND t.help) AS help_requests,
       COALESCE((SELECT jsonb_agg(DISTINCT topic) FROM fala.sessions WHERE NOT demo AND ended_at IS NOT NULL),'[]'::jsonb) AS topics`);
-    return { ...stats, assessment: learner.assessment, memory: learner.memory, help_patterns: learner.help_patterns, practice: learner.practice };
+    return { ...stats, assessment: learner.assessment, memory: learner.memory, help_patterns: learner.help_patterns, practice: learner.practice,
+      review_phrase: reviewPhrase([...learner.memory, ...review_words], learner.help_patterns, stats.conversations) };
   }
 
   async previouslySeenWords(sessionId: string, words: string[]): Promise<Set<string>> {

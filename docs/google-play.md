@@ -1,6 +1,6 @@
 # Fala — Google Play release preparation
 
-For day-to-day updates use [the release runbook](releasing.md); for the verified 0.14.4 upload and closed-review state see [the release record](releases/0.14.4.md). Historical setup details below are not proof of the latest published build.
+For day-to-day updates use [the release runbook](releasing.md); for current upload and closed-review evidence see [the release record](releases/0.15.0.md). Historical setup details below are not proof of the latest published build.
 
 Publisher console: [Fala internal testing](https://play.google.com/console/u/0/developers/8995855757695563557/app/4974746035671245197/tracks/internal-testing). The existing app has received both manual and automated internal-testing releases.
 

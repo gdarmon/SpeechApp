@@ -1,6 +1,6 @@
 # Fala developer and agent handoff
 
-Maintained for release 0.14.4, 27 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.14.4.md) for dated deployment/capacity evidence and [the release runbook](releasing.md) before publishing.
+Maintained for release 0.15.0, 27 September 2026. Start with [AGENTS.md](../AGENTS.md). Read [the release record](releases/0.15.0.md) for dated deployment/capacity evidence and [the release runbook](releasing.md) before publishing.
 
 ## What the product does
 
@@ -118,6 +118,10 @@ Sandbox restrictions have previously blocked esbuild subprocesses, local browser
 - Practice points are not proficiency. Current rewards cap at 20 XP per ten-answer spoken lesson and 40 per local day; legacy earned unlocks are preserved. Consult `src/rewards.ts` and the gamification document when changing this.
 - Keep separate learners' SQL, memory, reports and AI context isolated. Idempotent retries reuse the original request ID and normalized payload; do not issue a fresh ID simply to retry a lost response.
 - Preserve application ID `com.fala.app`, upload key, Play signing identity and Google OAuth certificate setup. No credential belongs in an app asset or public catalog.
+
+## What changed in 0.15.0
+
+The owner requested 0.15.0 as the visible Vercel milestone; the actual hosting cutover shipped in 0.14.4. This version fixes the Android home card that always read the first memory item. `Store.progress()` now derives `review_phrase` from recent account-owned corrections/help and completed-session vocabulary, with deterministic rotation as UTC days and completed conversations change. Both clients use the same field and label it as an optional phrase from prior practice, not today's lesson. Empty/expired history hides the card. See [learning progression](learning-progression.md#home-review-phrase-0150) for selection rules and [the release receipt](releases/0.15.0.md) for publication state. No database migration, provider change or new VAPID pair is required.
 
 ## What changed in 0.14.4
 

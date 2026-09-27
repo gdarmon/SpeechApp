@@ -46,6 +46,14 @@ A session focuses on two target terms at levels 1–2 and up to three at higher 
 
 Capoeira uses the [28-theme curriculum](abada-curriculum.md). Topic rotation is unchanged in this revision and is not an adaptive spaced-repetition schedule. A future curriculum improvement can add learner-controlled revisits and retention checks; do not claim those features are already implemented.
 
+## Home review phrase (0.15.0)
+
+The old Android “Today's focus” card always displayed `memory[0]`, falling back to `help_patterns[0]`. Neither the day nor the selected lesson affected that choice. A remembered correction such as `a posição do pé` could therefore remain pinned and was mislabeled as today's lesson.
+
+Both clients now display the server-owned `progress.review_phrase` as **From your recent practice**, with an optional recall/use-in-a-sentence suggestion. The server combines saved corrections, help phrases and vocabulary from the five latest completed conversations seen within the last 30 days, removes duplicates and considers at most ten of the most recent candidates. Selection stays stable across refreshes and advances with the UTC day or completed-conversation count when the candidate list is unchanged. A changed candidate list also affects selection. No additional SQL request or AI generation is required.
+
+This is an optional review reminder, not a promise of the next topic, a due-date schedule or proficiency evidence. A single available phrase may recur until another is available or it ages out. With no recent candidate the card is hidden; older APIs also leave it hidden rather than falling back to the first memory item. Aging affects only this card: saved history and the separate progress/memory screen are retained. UI labels follow Hebrew/English; the Portuguese phrase remains untranslated and left-to-right. Selection uses only the authenticated account's existing scoped history.
+
 ## Focused review
 
 End-of-session reviews retain at most five words or expressions actually used in the dialogue, favoring relevant lesson terms, corrections and help phrases. Common function words are omitted; related inflections share slots and multiword capoeira names remain intact. Fewer than five useful items are fine. Unused hidden suggestions are excluded. Prior exposure is not a mastery claim.

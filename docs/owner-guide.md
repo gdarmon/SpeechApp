@@ -8,7 +8,8 @@ This documentation lets someone open the project with Claude Code, GitHub Copilo
 - [Developer and agent handoff](agent-handoff.md): code, checks and unresolved issues.
 - [Working with Claude and Copilot](agent-setup.md).
 - [Release runbook](releasing.md): preparing a version and verifying the website and Google Play releases.
-- [Current release: Vercel migration and measured performance in 0.14.4](releases/0.14.4.md).
+- [Current version: 0.15.0 and the home-review fix](releases/0.15.0.md).
+- [Vercel cutover and measured performance: 0.14.4](releases/0.14.4.md).
 - [Notifications and the new VAPID keys](reminders.md).
 - [Earlier language and reminder release: 0.14.0](releases/0.14.0.md).
 
@@ -26,7 +27,13 @@ All maintained documentation and agent instructions are written in English.
 
 Publishing the website alone does not update the Android app installed on a phone.
 
-## Current release: 0.14.4
+## Version 0.15.0: the Vercel milestone
+
+The owner requested 0.15.0 to make the Vercel move easy to identify. Hosting already moved in 0.14.4; this version also replaces the misleading “Today's focus” card with **From your recent practice**. It rotates among recent saved corrections/help and completed-session vocabulary as days and completed conversations change. With one available phrase it may repeat; without recent candidates the card is hidden. It does not promise that the next lesson will use that phrase. Website and Android share this behavior, in Hebrew or English.
+
+See [the 0.15.0 receipt](releases/0.15.0.md) for actual site/Play publication. The earlier performance measurements below were not repeated or reclassified as new 0.15.0 evidence.
+
+## Vercel cutover: 0.14.4
 
 The website and API are live at [Fala on Vercel](https://fala-api.vercel.app/app/). The old address forwards existing clients and links during the transition; it is no longer the primary application server. Android **0.14.4 (104501)** was accepted into Internal Testing and the same bundle was submitted to closed Alpha. Google reported the closed release as **IN_REVIEW** on 27 September 2026 at 11:37 UTC; availability still depends on review and tester eligibility.
 

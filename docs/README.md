@@ -18,7 +18,7 @@ This is the entry point for people and coding agents taking over the repository.
 | Vercel deployment and measured AI comparison with Netlify | [27 September Vercel probe receipt](vercel-probe-2026-09-27.md) |
 | Full-session isolation, reproduced pool contention and implemented fix | [27 September session concurrency check](session-concurrency-2026-09-27.md) |
 | Current lesson-quality correction | [Meaningful conversations and evaluation](lesson-quality.md) |
-| Latest recorded publication evidence | [0.14.4 release and capacity record](releases/0.14.4.md) |
+| Latest recorded publication evidence | [0.15.0 release and home-review fix](releases/0.15.0.md) |
 | Earlier language/reminder release | [0.14.0 release record](releases/0.14.0.md) |
 | Architectural detail | [Architecture](architecture.md) |
 

@@ -1,4 +1,4 @@
-import type { Session, Turn } from "./models.js";
+import type { Memory, Session, Turn } from "./models.js";
 
 export const PRACTICE_LEVELS = [
   { level: 1, title: "First phrases", goal: "Practise familiar words and short phrases for one everyday need.", answer_goal: "A word or short phrase; reuse familiar patterns", minimum_words: 2, opening_words: 7, opening_chars: 70, turn_words: 7, turn_chars: 70, idea_words: 7, idea_chars: 70 },
@@ -80,4 +80,26 @@ export function coachingLimits(context: Record<string, unknown>) {
   const level = practiceLevel((context.practice as { level?: number } | undefined)?.level);
   return { ...level, text_words: context.action === "start" ? level.opening_words : level.turn_words,
     text_chars: context.action === "start" ? level.opening_chars : level.turn_chars };
+}
+
+
+/** An optional reminder of recent practice, not the next lesson or mastery evidence. */
+export function reviewPhrase(memory: Pick<Memory, "natural" | "last_seen">[], help: Pick<Memory, "natural" | "last_seen">[], conversations: number, now = Date.now()): string | null {
+  const day = 86_400_000;
+  const seen = new Set<string>();
+  const phrases = [...memory, ...help]
+    .filter(item => Number.isFinite(Date.parse(item.last_seen)) && Date.parse(item.last_seen) <= now
+      && Date.parse(item.last_seen) >= now - 30 * day && normalizeAnswer(item.natural))
+    .sort((a, b) => Date.parse(b.last_seen) - Date.parse(a.last_seen)
+      || normalizeAnswer(a.natural).localeCompare(normalizeAnswer(b.natural), "pt-BR"))
+    .filter(item => {
+      const key = normalizeAnswer(item.natural);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, 10).map(item => item.natural.trim());
+  if (!phrases.length || !Number.isFinite(now)) return null;
+  // Stable on refresh, advances with the UTC day or completed practice. A single
+  // available phrase can recur; never invent content just to make the card change.
+  const completed = Number.isFinite(conversations) ? Math.max(0, Math.trunc(conversations)) : 0;
+  return phrases[(Math.floor(now / day) + completed) % phrases.length];
 }

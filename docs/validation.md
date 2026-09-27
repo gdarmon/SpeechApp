@@ -1,6 +1,12 @@
 # Validation
 
-For verified publication and measurements, see [the 0.14.4 release record](releases/0.14.4.md). The sections below distinguish local checks from deployment evidence; historical checks must not be treated as current-version device evidence.
+For verified publication and measurements, see [the 0.15.0 release record](releases/0.15.0.md). The sections below distinguish local checks from deployment evidence; historical checks must not be treated as current-version device evidence.
+
+## 0.15.0 — home review phrase and version milestone
+
+- 221 backend tests passed, including rotation across available corrections/help, stable refreshes, expired/invalid-history exclusion, deduplication and account isolation. The opt-in PostgreSQL concurrency test remains separate.
+- npm 10.9.7 clean installation and TypeScript/version/release-note/catalog checks passed. Four browser suites passed, including changed/null review suggestions and Hebrew labels with Portuguese left-to-right text.
+- Native and publication results are recorded in the release receipt. The 0.14.4 real-AI timing remains historical evidence; this change does not modify generation, provider routing or SQL transaction handling.
 
 ## 0.14.4 — Vercel migration and full-session checks, 27 September 2026
 

@@ -1,6 +1,6 @@
 # Vercel + PostgreSQL setup
 
-The live deployment is the full website/API at `https://fala-api.vercel.app`, project **fala-api**, team **gdarmon-4173**. Use the [release runbook](releasing.md) for staging, deployment, verification and rollback, and the [latest receipt](releases/0.14.4.md) for actual cutover status. A successful upload is not proof of the performance target or Play availability.
+The live deployment is the full website/API at `https://fala-api.vercel.app`, project **fala-api**, team **gdarmon-4173**. Use the [release runbook](releasing.md) for staging, deployment, verification and rollback, and the [latest receipt](releases/0.15.0.md) for actual cutover status. A successful upload is not proof of the performance target or Play availability.
 
 ## Existing account and database
 

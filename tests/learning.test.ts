@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { feedbackSchema, replySchema, type Session } from "../src/models.js";
+import { feedbackSchema, replySchema, type Memory, type Session } from "../src/models.js";
 import { coachingReplySchema } from "../src/coaching.js";
-import { independentAnswer, practiceProgress, practiceResult, PRACTICE_GUIDANCE, type PracticeEvidence } from "../src/learning.js";
+import { independentAnswer, practiceProgress, practiceResult, reviewPhrase, PRACTICE_GUIDANCE, type PracticeEvidence } from "../src/learning.js";
 import { compactFeedback, focusWords, sessionVocabulary } from "../src/vocabulary.js";
 
 const reply = replySchema.parse({ text: "O que você vai fazer?", translation: "What will you do?", turn_feedback: { kind: "ok", message: "That fits the instruction." },
@@ -108,5 +108,43 @@ describe("five useful words", () => {
     expect(compact.vocabulary.length).toBeLessThanOrEqual(5);
     expect(saved.vocabulary.length).toBeGreaterThan(5);
     expect(compact.vocabulary.every(word => counts.has(word.word) && word.translation === `Meaning of ${word.word}`)).toBe(true);
+  });
+});
+
+
+describe("home practice reminder", () => {
+  const now = Date.parse("2026-09-27T12:00:00Z"), day = 86_400_000;
+  const item = (natural: string, days = 2): Memory => ({ natural, category: "retrieval", occurrences: 1,
+    last_seen: new Date(now - days * day).toISOString(), due_at: new Date(now - (days - 1) * day).toISOString() });
+
+  it("does not pin the alphabetically first correction and includes saved help phrases", () => {
+    const memory = [item("a posição do pé"), item("Quero um café.")], help = [item("Pode repetir?")];
+    const original = structuredClone(memory);
+    const chosen = [0, 1, 2].map(completed => reviewPhrase(memory, help, completed, now));
+    expect(new Set(chosen)).toEqual(new Set(["a posição do pé", "Quero um café.", "Pode repetir?"]));
+    expect(reviewPhrase(memory, help, 0, now)).toBe(reviewPhrase([...memory].reverse(), help, 0, now + 1000));
+    expect(reviewPhrase(memory, help, 0, now + day)).not.toBe(chosen[0]);
+    expect(memory).toEqual(original);
+  });
+
+  it("deduplicates corrections and help and never invents a replacement for one phrase", () => {
+    const memory = [item("  Pode repetir? ")], help = [item("pode repetir.", 3)];
+    expect(reviewPhrase(memory, help, 0, now)).toBe("Pode repetir?");
+    expect(reviewPhrase(memory, help, 1, now + day)).toBe("Pode repetir?");
+  });
+
+  it("hides missing, expired or invalid history without deleting it", () => {
+    const old = [item("a posição do pé", 31), item("Future phrase", -1), item("..."), { ...item("Invalid"), last_seen: "invalid" }];
+    expect(reviewPhrase(old, [], 12, now)).toBeNull();
+    expect(reviewPhrase([], [], 0, now)).toBeNull();
+    expect(old).toHaveLength(4);
+  });
+
+  it("limits rotation to recent candidates and lets new practice replace expired content", () => {
+    const memory = Array.from({ length: 12 }, (_, i) => item(`Frase ${i}`, i));
+    const results = new Set(Array.from({ length: 10 }, (_, i) => reviewPhrase(memory, [], i, now)));
+    expect(results.size).toBe(10);
+    expect(results.has("Frase 10")).toBe(false);
+    expect(reviewPhrase([item("a posição do pé", 31)], [item("Quero treinar.", 0)], 40, now)).toBe("Quero treinar.");
   });
 });

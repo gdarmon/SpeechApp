@@ -163,10 +163,13 @@ it("isolates conversations, retries, aggregates, AI memory, updates, and all del
   }
   expect((await call(`/sessions/${a.id}/turns`, "POST", alice, { request_id: randomUUID(), text: correction.said, speech_ms: 6000 })).status).toBe(200);
   await call(`/sessions/${a.id}/turns`, "POST", alice, { request_id: randomUUID(), text: "A table", language: "en-US", help: true });
-  await call(`/sessions/${a.id}/finish`, "POST", alice, {});
+  const aReport = (await call(`/sessions/${a.id}/finish`, "POST", alice, {})).data;
   const ap = (await call("/progress", "GET", alice)).data;
   expect(ap.memory).toHaveLength(1); expect(ap.help_patterns).toHaveLength(1); expect(ap.speech_ms).toBe(6000);
+  expect([...ap.memory, ...ap.help_patterns].map((item: { natural: string }) => item.natural)
+    .concat(aReport.vocabulary.map((item: { word: string }) => item.word))).toContain(ap.review_phrase);
   const bp = (await call("/progress", "GET", bob)).data;
+  expect(bp.review_phrase).toBeNull();
   expect(bp.memory).toEqual([]); expect(bp.help_patterns).toEqual([]); expect(bp.speech_ms).toBe(0); expect(bp.topics).toEqual([]);
   expect((await call("/sessions", "GET", bob)).data.map((s: { id: string }) => s.id)).toEqual([b.id]);
   await start(bob);

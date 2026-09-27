@@ -495,12 +495,27 @@ describe("Netlify API against PostgreSQL", () => {
     const progress = (await call("/dashboard")).data.progress;
     expect(progress.conversations).toBe(2); expect(progress.speech_ms).toBe(10000);
     expect(progress.memory[0].occurrences).toBe(2);
+    const savedWords = (await call(`/sessions/${ids[0]}`)).data.feedback.vocabulary.map((item: { word: string }) => item.word);
+    expect([correction.natural, ...savedWords]).toContain(progress.review_phrase);
     await call(`/sessions/${ids[0]}`, "DELETE");
     expect((await call("/progress")).data.memory[0].occurrences).toBe(1);
     await call("/learner", "DELETE"); await call("/learner", "DELETE");
     expect((await call("/progress")).data.memory).toEqual([]);
+    expect((await call("/progress")).data.review_phrase).toBeNull();
     expect((await call("/sessions")).data).toEqual([]);
     expect((await pg.query("SELECT * FROM fala.turns")).rows).toEqual([]);
+  });
+  it("offers vocabulary from completed practice even when no correction or help was needed", async () => {
+    const saved = (await start()).data;
+    await turn(saved.id, { text: "Quero treinar com calma.", source: "typed" });
+    const report = (await finish(saved.id)).data;
+    const progress = (await call("/dashboard")).data.progress;
+    expect(progress.memory).toEqual([]);
+    expect(progress.help_patterns).toEqual([]);
+    expect(report.vocabulary.length).toBeGreaterThan(0);
+    expect(report.vocabulary.map((item: { word: string }) => item.word)).toContain(progress.review_phrase);
+    await call(`/sessions/${saved.id}`, "DELETE");
+    expect((await call("/progress")).data.review_phrase).toBeNull();
   });
   it("separates English and Hebrew assistance from spontaneous evidence", async () => {
     const session = (await start()).data;
@@ -511,6 +526,7 @@ describe("Netlify API against PostgreSQL", () => {
     const progress = (await call("/progress")).data;
     expect(progress.help_requests).toBe(2); expect(progress.speech_ms).toBe(0); expect(progress.conversations).toBe(0);
     expect(progress.help_patterns[0].occurrences).toBe(1);
+    expect(progress.review_phrase).toBe("Quero uma mesa para dois.");
     expect(coach.calls.at(-1)?.action).toBe("help");
   });
   it("rolls back the report when saving its learner evidence fails", async () => {

@@ -118,7 +118,7 @@ function leave() {
 async function home() {
   leave();
   if (!user) { screen('welcome'); return; }
-  screen('home'); text('account-email', user.email); guideHint();
+  screen('home'); show('practice-review', false); $('practice-review-phrase').textContent = ''; text('account-email', user.email); guideHint();
   await task(async current => {
     const dashboard = await api('/dashboard'); if (current !== epoch) return;
     const profile = dashboard.rewards?.profile;
@@ -129,6 +129,9 @@ async function home() {
     if (walkthroughAccount) walkthrough.restore(dashboard.rewards.profile.walkthrough_seen);
     guideHint();
     transcriptionService = dashboard.status?.speech?.transcription === 'groq' ? 'Groq' : dashboard.status?.speech?.transcription === 'openai' ? 'OpenAI' : 'the configured speech service';
+    const reviewPhrase = typeof dashboard.progress.review_phrase === 'string' ? dashboard.progress.review_phrase.trim() : '';
+    $('practice-review-phrase').textContent = reviewPhrase;
+    show('practice-review', !!reviewPhrase);
     const progress = dashboard.progress.practice;
     text('progress', progress ? `Level ${progress.level} · ${progress.title}. ${progress.goal}` : 'Start with short, simple replies.');
     text('practice-guidance', progress?.guidance || 'Repeat familiar practice as often as you need. Use examples, then try a phrase from memory when you feel comfortable.');

@@ -18,14 +18,14 @@ try {
  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await context.addInitScript(() => localStorage.setItem('fala.language','en-US'));
- let loggedIn=true,group=null;
+ let loggedIn=true,group=null,reviewPhrase="a posição do pé";
  const rewards=rewardFixture(); let settingsWrites=0;
  const practice={level:1,title:'First phrases',goal:'Practise familiar words and short phrases for one everyday need.',next_level:2,
    guidance:'Your recent practice suggests you could try the next level. Stay here or choose a harder level when you feel ready.'};
  await page.route('**/*',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname,send=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   if(path==='/auth/me')return loggedIn?send({email:'fixture@fala.invalid'}):route.fulfill({status:401,body:'{}'});
-  if(path==='/dashboard')return send({status:{demo:false},progress:{practice},history:[],rewards});
+  if(path==='/dashboard')return send({status:{demo:false},progress:{practice,review_phrase:reviewPhrase,memory:[{natural:"An old pinned phrase"}]},history:[],rewards});
   if(path==='/rewards')return send(rewards);
   if(path==='/rewards/settings'){settingsWrites++;Object.assign(rewards.profile,req.postDataJSON());return send(rewards);}
   if(path==='/friends'){
@@ -36,6 +36,12 @@ try {
   return route.continue();
  });
  await page.goto(base+'/app/');await page.locator('#reward-home').waitFor({state:'visible'});
+ await page.locator('#practice-review').waitFor({state:'visible'});
+ assert.equal(await page.locator('#practice-review-phrase').innerText(),'a posição do pé');
+ assert.equal(await page.locator('#practice-review h2').innerText(),'From your recent practice');
+ reviewPhrase='Pode repetir?';
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#practice-review-phrase').textContent==='Pode repetir?');
+ assert.equal(await page.locator('#practice-review-phrase').getAttribute('dir'),'ltr');
  assert.equal(rewards.profile.reminder_enabled,true);
  assert.equal(rewards.profile.reminder_minute,1020);
  assert.equal(rewards.profile.ui_language,'en-US');
@@ -105,12 +111,15 @@ try {
  await page.locator('[data-page="home"]').click();
  await page.waitForFunction(()=>!document.querySelector('#start').disabled);
  assert.match(await page.locator('#practice-challenge').innerText(),/רמה 2/);
+ assert.equal(await page.locator('#practice-review h2').innerText(),'חזרה קצרה מהתרגול שלך');
+ assert.equal(await page.locator('#practice-review-phrase').innerText(),'Pode repetir?');
  await page.getByText('לומדים בקצב שלכם',{exact:true}).click();
  assert.match(await page.locator('#home').innerText(),/אין מועד שבו צריך לעלות רמה/);
  assert.doesNotMatch(await page.locator('#home').innerText(),/two complete|of 2 qualifying|שתי שיחות/);
- practice.next_level=null;
+ practice.next_level=null; reviewPhrase=null;
  await page.reload(); await page.waitForFunction(()=>!document.querySelector('#start').disabled);
  assert.equal(await page.locator('#practice-challenge').isHidden(),true);
+ assert.equal(await page.locator('#practice-review').isHidden(),true,'No fallback to the old first memory item');
  await page.locator('[data-page="reminders-screen"]').click();
  await page.locator('#reminder-enabled').uncheck();
  await page.getByRole('button',{name:'שמירת ההעדפות'}).click();

@@ -79,6 +79,8 @@ internal val hebrewUi = mapOf(
     "Listen first · reveal the text when needed" to "קודם מקשיבים · מציגים את הטקסט כשצריך",
     "Resume your conversation" to "המשך השיחה שלכם",
     "Today's focus" to "מה מתרגלים היום",
+    "From your recent practice" to "חזרה קצרה מהתרגול שלך",
+    "Try recalling the meaning, or use it in a sentence when you feel ready." to "אפשר לנסות להיזכר במשמעות או לשלב במשפט, בקצב שלכם.",
     "We'll create opportunities to use this in conversation." to "נשלב את הביטוי הזה בשיחה כדי שתוכלו לתרגל אותו.",
     "Continue topic: {0}" to "המשך בנושא: {0}",
     "First phrases" to "ביטויים ראשונים",

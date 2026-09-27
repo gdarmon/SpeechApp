@@ -39,7 +39,7 @@ Inspect `git status`, fetch `origin`, and check current main and recent successf
 Use Node from `.nvmrc` and npm 10.9.7. For an example next patch:
 
 ```bash
-FALA_NEXT_VERSION=0.14.5
+FALA_NEXT_VERSION=0.15.1
 npx --yes npm@10.9.7 version "$FALA_NEXT_VERSION" --no-git-tag-version
 ```
 
