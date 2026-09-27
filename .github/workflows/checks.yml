@@ -36,6 +36,17 @@ jobs:
         run: npm test -- tests/api.test.ts
         env:
           FALA_TEST_DATABASE_URL: postgres://fala_test:fala_test@127.0.0.1:5432/fala_test
+      - name: Check 50 isolated full conversations and measure pool contention
+        run: |
+          createdb --host 127.0.0.1 --username fala_test fala_concurrency_test
+          npm test -- tests/session-concurrency.test.ts
+        env:
+          PGPASSWORD: fala_test
+          FALA_CONCURRENCY_DATABASE_URL: postgres://fala_test:fala_test@127.0.0.1:5432/fala_concurrency_test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fala-session-concurrency
+          path: artifacts/session-concurrency-*.json
       - run: npm run build
       - run: npx netlify functions:build --src netlify/functions --functions .netlify/functions
   android:

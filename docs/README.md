@@ -16,6 +16,7 @@ This is the entry point for people and coding agents taking over the repository.
 | Cold-start hypothesis tested with instance reuse | [27 September invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) |
 | Reproduce the isolated Vercel comparison and review migration gates | [Hosting comparison](hosting-comparison.md) |
 | Vercel deployment and measured AI comparison with Netlify | [27 September Vercel probe receipt](vercel-probe-2026-09-27.md) |
+| Full-session isolation, shared-pool contention and next implementation | [27 September session concurrency check](session-concurrency-2026-09-27.md) |
 | Current lesson-quality correction | [Meaningful conversations and evaluation](lesson-quality.md) |
 | Latest recorded publication evidence | [0.14.3 release and capacity record](releases/0.14.3.md) |
 | Earlier language/reminder release | [0.14.0 release record](releases/0.14.0.md) |

@@ -79,6 +79,7 @@ The runner exits 1 for failed/invalid requests and 2 if a wave misses its p95 ta
 - If both hosts remain slow, use their request IDs and component spans to investigate the remaining path. Do not migrate or buy a larger plan on an unmeasured assumption.
 - If Vercel improves this probe, the next gate is a full conversation check with isolated test learners and realistic staggered traffic, including voice. **Do not point existing clients at this adapter.**
 - `connectDatabase` currently permits one connection per process. Real turns hold a per-account transaction across generation. A multi-invocation process could therefore serialize different learners through the same connection. The synthetic probe uses a short budget transaction before generation, so it cannot validate that real-session contention. Review database pool capacity/transaction ownership and test account isolation/idempotency before enabling learner traffic; do not remove account locks or arbitrarily increase the pool to 50.
+  The subsequent [local full-session test](session-concurrency-2026-09-27.md) reproduced that serialization with 50 accounts, real PostgreSQL and controlled fake generation. The receipt records the proposed durable-claim approach and required race/failure checks; no runtime fix or hosted learner test has been deployed.
 - Once evidence supports a migration, handle client base URLs, Google auth/cookies, reminders, secrets, rollback and native distribution as a separate reviewed release. This experiment changes none of those.
 
 ## Local validation
