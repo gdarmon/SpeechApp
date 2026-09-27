@@ -6,8 +6,8 @@ import { createProbeHandler } from "../vercel-probe/handler.js";
 import { createReminderHandler } from "../../src/reminder-handler.js";
 import { createSessionProbe } from "../vercel-probe/sessions.js";
 
-// The public client origin stays on Netlify. Never derive this from an
-// untrusted forwarded-host header: cookie mutations keep their CSRF check.
+// The website and API share the Vercel origin. Only the explicit legacy
+// origin remains allowed during migration; forwarded hosts never authorize CSRF.
 export const PUBLIC_ORIGIN = "https://fala-api.vercel.app";
 const LEGACY_ORIGIN = "https://falachatapp.netlify.app";
 export function createVercelHandler(handler: ReturnType<typeof createHandler>, runtime = createRuntimeTracker(), isolated?: (request: Request) => Promise<Response>, reminders?: (request: Request) => Promise<Response>) {

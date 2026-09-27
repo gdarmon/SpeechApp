@@ -7,7 +7,8 @@ Use this for an existing Fala installation, website and Play app. For first-time
 | Target | Existing identity | Publication path |
 |---|---|---|
 | Source | `gdarmon/SpeechApp`, branch `main` | GitHub |
-| Website/API | `https://falachatapp.netlify.app`, app at `/app/` | Netlify production build of main |
+| Website/API | `https://fala-api.vercel.app`, app at `/app/` | Reviewed staged Vercel production deployment |
+| Legacy URL compatibility | `https://falachatapp.netlify.app` | Main deploy: API proxies to Vercel; web temporary redirect |
 | Netlify site | `ed619bd9-b888-4276-b235-9733f4d3cd0d`, account `gdarmon` | Existing Netlify project/login |
 | Database | Private `fala` schema in the configured PostgreSQL/Supabase database | Reviewed SQL migrations, separately from site deployment |
 | Android identity | `com.fala.app` | Existing signing key and Play App Signing |
@@ -25,7 +26,7 @@ Use an existing authorized `gh` login for the correct account/repository and Net
 - Variables: `FALA_PLAY_UPLOAD_ENABLED=true`, normally `FALA_PLAY_RELEASE_STATUS=completed`.
 - `FALA_DEBUG_KEYSTORE_BASE64` is an optional separate debug key; it is not the Play upload key.
 
-Netlify holds `DATABASE_URL`, optional `DATABASE_CA_CERT`, Google public client ID, AI credentials/selectors and optional Web Push keys. `.env.example` lists names and meanings. Do not dump environment values or a complete provider response into logs. A secret masked by Netlify is not recoverable just because another tool is connected.
+Vercel `fala-api` Production holds `DATABASE_URL`, optional `DATABASE_CA_CERT`, Google public client ID, AI credentials/selectors and optional Web Push keys. `.env.example` lists names and meanings. Do not dump environment values or a complete provider response into logs. A masked secret is not recoverable just because another tool is connected. `FALA_REMINDER_TOKEN` must match the GitHub Actions secret of the same name; the scheduled workflow calls only the dedicated reminder endpoint. Keep the existing VAPID key pair for normal releases. A deliberate key rotation requires new browser subscriptions and must preserve opt-outs.
 
 Database migration requires an approved owner/migration connection. On the existing workstation, prior releases used an established operator connection stored in Netlify's development context for this same database. Confirm its target before using it; a development-context name alone does not establish a production destination. Prefer the owner's SQL Editor or a securely configured PostgreSQL connection on a new machine. Never borrow a neighboring project's database or expose connection strings in chat.
 
@@ -112,6 +113,22 @@ Expect the two new columns, enabled default `true`, minute default `1020`, and p
 
 ## 4. Publish the checked commit
 
+### Vercel primary deployment
+
+The owner authorized `fala-api` in team `gdarmon-4173`. Use the established Vercel login or sign in on a fresh machine. Do not disable this project's deployment protection; its stable production alias is public under the current account defaults. Do not copy credentials to other projects implicitly.
+
+1. Apply any required database migration, finish the checks, and record the reviewed source SHA.
+2. Run `node scripts/prepare-vercel-api.mjs`. It returns a new ignored staging directory containing only reviewed TypeScript sources, public assets, package files and deployment configuration. It excludes environment files and local credentials.
+3. Link that exact stage: `vercel link --cwd STAGE --project fala-api --scope gdarmon-4173 --yes`.
+4. Deploy: `vercel deploy --cwd STAGE --scope gdarmon-4173 --prod --yes`. Record the Ready deployment ID and source SHA in the receipt. The GitHub branch is not automatically deployed to Vercel by this repository.
+5. Verify the stable alias's `/health`, `/app/`, `/auth/config`, unauthenticated `/dashboard` rejection, service-worker version, and any changed authenticated path. Google login requires this origin on the existing **Fala backend** Web OAuth client.
+6. For a bounded full-session check, the operator-only adapter may temporarily use `FALA_SESSION_DIAGNOSTICS=true` with dedicated synthetic accounts in `fala_latency_probe`. Run `scripts/check-hosted-sessions.mjs` with its explicit opt-in and private manifest, retaining sanitized aggregate results only. Disable this flag and redeploy before normal traffic cutover. Do not test with a real learner's history.
+7. `scripts/prepare-session-fixtures.mjs --cleanup artifacts/session-fixtures-UUID.json`, with its explicit `FALA_PREPARE_SESSION_FIXTURES=true` opt-in, removes only that run's synthetic users. Remove the private manifest after cleanup.
+
+The first 0.14.4 cutover also needs the new Web Push pair configured and the protected reminder workflow on main. Its schedule is best effort, every 15 minutes. Verify a manual `reminders.yml` run and retire the Netlify scheduler in the same cutover. Normal releases keep the key and scheduler unchanged.
+
+### Main and Android publication
+
 Once publishing the intended targets is authorized, merge/push the checked source to main using the repository's normal process. In this repository the maintainer has also used an authorized fast-forward push:
 
 ```bash
@@ -125,7 +142,7 @@ Do not advance main again while its Play publication is in progress: the publish
 
 The normal sequence is:
 
-1. Netlify starts a production website/API build from main.
+1. Netlify updates legacy API proxies and the website redirect from main; the primary Vercel deployment was verified separately.
 2. GitHub **Build and check Fala** (`checks.yml`) checks backend/web, real PostgreSQL compatibility and Android.
 3. After a successful **push-to-main** check, **Publish Play internal testing** (`play-bundle.yml`) builds with the existing signing key and uploads `internal` when enabled.
 
@@ -144,13 +161,15 @@ Use numeric run IDs returned by `gh run list`, matching the full source SHA. Sav
 
 The internal publisher verifies Google's returned bundle version/hash and commits only the internal track. It refuses a used/older code and fails if Google reports a conflicting pending review. On an uncertain network/commit result, inspect Play before retrying.
 
-Verify Netlify's **published** production deploy is `ready` at the intended commit, then check:
+Verify the primary Vercel deployment is Ready and the Netlify compatibility deployment is published at the intended commit. Always specify the actual Netlify site ID in CLI deploys: `--site ed619bd9-b888-4276-b235-9733f4d3cd0d`. An unlinked local directory can silently create a different site. Then check:
 
 ```bash
-curl --fail --silent --show-error https://falachatapp.netlify.app/health
-curl --fail --silent --show-error https://falachatapp.netlify.app/app/
-curl --fail --silent --show-error https://falachatapp.netlify.app/app/sw.js
+curl --fail --silent --show-error https://fala-api.vercel.app/health
+curl --fail --silent --show-error https://fala-api.vercel.app/app/
+curl --fail --silent --show-error https://fala-api.vercel.app/app/sw.js
 ```
+
+Also check the old Netlify `/health` returns `X-Fala-Host: vercel` and `/app/` redirects to the new origin.
 
 `/health` returns `{"status":"ok"}`; it does **not** expose a version or prove database/AI health. Check the visible web version, cache name and changed public modules separately. For localization, exercise language switching in the live browser. Perform any authenticated smoke check with an authorized test account and without logging transcripts or credentials.
 
@@ -230,4 +249,4 @@ GitHub's `[skip ci]` skips applicable push/PR checks; it does not stop manually 
 | Notification default on but no notification | Check permission, time zone, active subscription/native scheduling, practice today and deduplication; no reminder exactly on time is guaranteed |
 | Long response after Send | Measure `Server-Timing`, provider/repair retries and device playback separately; preserve the reply/request ID |
 
-For a bad website release, use Netlify's established rollback mechanism for a known compatible deploy and verify it. For Android, prepare a corrected release with a higher version code; do not attempt a version-code downgrade. Do not delete learner data or remove a new schema column merely to roll back the UI. Record the recovery and which clients are affected.
+For a bad website/API release, promote a known compatible Vercel deployment and verify the stable alias. Netlify remains transitional forwarding and is not the primary application rollback target. For Android, prepare a corrected release with a higher version code; do not attempt a version-code downgrade. Do not delete learner data or remove a new schema column merely to roll back the UI. Record the recovery and which clients are affected.

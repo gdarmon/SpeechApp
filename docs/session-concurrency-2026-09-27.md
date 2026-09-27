@@ -47,17 +47,31 @@ Maximum simultaneous provider operations: **1**. Acquisition time starts immedia
 
 Optional local report: `artifacts/session-concurrency-1790501832002.json`. The maintained table above is sufficient to continue without that ignored file.
 
-## Cause and concrete next implementation
+## Implemented connection-release fix
 
 `src/database.ts` configures `max: 1`. `Store.mutate()` starts a PostgreSQL transaction, takes an account-scoped advisory lock, then awaits its callback. `Sessions.start()`, `turn()` and `finish()` call the AI inside that callback. The one connection remains occupied while waiting for generation. Other learners in the same process therefore wait even though their account locks are independent. The short synthetic hosting probe does not exercise this pattern.
 
-The preferred implementation to evaluate is to release the SQL connection during AI generation while retaining a durable per-account in-flight claim:
+Release 0.14.4 releases the SQL connection during AI generation while retaining a durable per-account in-flight claim:
 
 1. In a short transaction, validate ownership and request-ID replay, acquire a bounded account claim, and read the generation context.
 2. Commit that transaction, then generate outside it so another account can use the connection.
 3. In a new short transaction, verify claim ownership and the expected session state, persist exactly once, award rewards through the existing path, and release the claim.
 4. Handle expired claims, failed generation, concurrent retries, a late response after takeover, cancellation and account deletion. Other account mutations must respect the claim; process-local mutexes are insufficient across instances. A late result must not overwrite newer state or award duplicate rewards.
 
-This requires an explicit schema/code change and regression tests; it is **not implemented or deployed in this change**. Do not simply remove the existing account locks. Increasing pool size can reduce this local queue but keeps long-running transactions and multiplies database connections across instances; it needs separate connection-budget evidence and is not an established fix for the target load.
+This is implemented in `Store.generate()` and `Sessions.start/turn/finish`, with the additive `202609270001_generation_claims.sql` migration. Claims expire after 45 seconds; commit verifies both ownership and the unchanged account/session snapshot. Generation failures release only their own claim. Regression tests cover expiry, takeover, stale results, deletion, replay and other account mutations. Existing advisory locks remain. Increasing pool size can reduce this local queue but keeps long-running transactions and multiplies database connections across instances; it needs separate connection-budget evidence and is not an established fix for the target load.
 
-After that implementation passes the local same-process test and race/failure cases, use an isolated hosted test database and dedicated synthetic learners for real generation, staggered 50-learner traffic, longer histories and audio. Measure the full Send-to-reply path and failures before changing learner URLs. Physical Android recognition/playback remains a separate device check. No production data or deployment was changed for this local test.
+## Controlled result after the fix
+
+Run: 09:49:57.702–09:50:02.764 UTC. Same local fixture and 25 ms fake provider. All 50 sessions, 500 turns, ownership/retry checks and bounded reviews passed; no claim remained.
+
+| Metric | Before p95 | After p95 |
+|---|---:|---:|
+| Transaction acquisition | 1,357.1 ms | 195.0 ms |
+| Session start | 1,383.9 ms | 310.1 ms |
+| First answer | 1,463.3 ms | 381.6 ms |
+| Tenth answer | 1,454.6 ms | 389.8 ms |
+| Finish | 1,401.8 ms | 344.3 ms |
+
+Maximum overlapping fake AI operations increased from 1 to 13. This is an observed overlap for a 25 ms operation, not a concurrency limit. There were 1,350 short transactions instead of 750 long ones. Optional report: `artifacts/session-concurrency-1790502602766.json`.
+
+The production claim migration was applied through the established, confirmed Fala database connection. Metadata verification returned RLS=true and anon/authenticated SELECT=false. No real learner rows were changed by this migration. Live AI measurements and remaining limits are recorded in [the 0.14.4 receipt](releases/0.14.4.md). Local fake-AI timings must not be presented as end-user latency.

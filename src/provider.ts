@@ -134,6 +134,9 @@ export class CompatibleProvider implements AIProvider {
           if (error instanceof AppError) throw error;
           if (error instanceof z.ZodError || error instanceof SyntaxError || error instanceof TypeError && /JSON|properties/.test(error.message)) {
             repairHint = error instanceof z.ZodError ? error.issues.slice(0,4).map(issue => issue.message).join(" ") : "Return syntactically valid JSON.";
+            if (error instanceof z.ZodError && error.issues.some(issue => issue.message.startsWith("The question changed but both answer ideas"))) {
+              repairHint += " Specifically replace suggested_replies: at least one complete Portuguese answer must differ from dialogue.previous_answer_ideas. Answer the new question's concrete detail using familiar words; changing only its translation is insufficient. Keep the valid question and feedback.";
+            }
             console.warn(JSON.stringify({ event: "ai_reply_validation", provider: host, model: route.model,
               generation: generations, issues: error instanceof z.ZodError ? error.issues.map(issue => ({ code: issue.code,
                 path: issue.path, ...(issue.code === "custom" ? { rule: issue.message } : {}) })) : [{ code: "invalid_json" }] }));
@@ -158,6 +161,9 @@ export class CompatibleProvider implements AIProvider {
     // small model can keep reproducing a valid opening from the nested history.
     const dialogue = action === "CONTINUE" && previousQuestions.length ? {
       answered_question: previousQuestions.at(-1),
+      previous_answer_ideas: ((context.turns as { reply?: { suggested_replies?: unknown[] } }[] | undefined)?.at(-1)?.reply
+        ?? context.opening as { suggested_replies?: unknown[] } | undefined)?.suggested_replies,
+      answer_idea_rule: "When you change the question, write ideas that answer its new intent. Do not copy both complete previous answers. Keep the same easy words, but include the concrete detail the next question asks for.",
       learner_answer: (context.input as { text?: string } | undefined)?.text,
       earlier_questions: previousQuestions.slice(0, -1),
       next_step: context.last_turn === true ? "This was the final learner answer. Give brief feedback and close the practice with a short statement, no question and no answer ideas."

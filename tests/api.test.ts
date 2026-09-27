@@ -1,4 +1,4 @@
-import {config as netlifyRoutes} from "../netlify/functions/api.js";
+
 import { readFile } from "node:fs/promises";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
@@ -30,6 +30,7 @@ const walkthroughMigration = await readFile(new URL("../supabase/migrations/2026
 const rewardRulesMigration = await readFile(new URL("../supabase/migrations/202609230002_reward_rules.sql", import.meta.url), "utf8");
 const languageMigration = await readFile(new URL("../supabase/migrations/202609250001_language_reminders.sql", import.meta.url), "utf8");
 const claimsMigration = await readFile(new URL("../supabase/migrations/202609270001_generation_claims.sql", import.meta.url), "utf8");
+const netlifyRouting = await readFile(new URL("../netlify.toml", import.meta.url), "utf8");
 const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration + languageMigration + claimsMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
@@ -99,7 +100,7 @@ describe("Netlify API against PostgreSQL", () => {
   });
 
   it("restricts provider probes to fixed synthetic input and never saves them as learner practice", async () => {
-    expect(netlifyRoutes.path).toContain("/diagnostics/ai");
+    expect(netlifyRouting).toContain('from = "/diagnostics/ai"');
     expect((await call("/diagnostics/ai", "POST", {}, handler, "wrong")).status).toBe(401);
     expect((await call("/diagnostics/ai", "POST", { prompt: "private input" })).status).toBe(422);
     expect((await call("/diagnostics/ai", "POST", { route: "fallback" })).status).toBe(409);
@@ -122,7 +123,7 @@ describe("Netlify API against PostgreSQL", () => {
     expect((await call("/sessions", "POST", { request_id: randomUUID() }, target)).status).toBe(429);
   });
   it("routes AI reports on Netlify and stores a JSON object with the production database driver", async () => {
-    expect(netlifyRoutes.path).toContain('/content-reports');
+    expect(netlifyRouting).toContain('from = "/content-reports"');
     const session=(await start()).data;
     const response=await call('/content-reports','POST',{session_id:session.id,target:'opening',category:'inaccurate'});
     expect(response.status).toBe(200);

@@ -51,6 +51,8 @@ describe('provider throttling recovery', () => {
       input: { text: 'Quero finta.', assisted: true }, support_language: 'en-US' })).toEqual(repaired);
     expect(bodies).toHaveLength(2);
     expect(bodies[1].messages.at(-1).content).toContain('both answer ideas were copied');
+    expect(JSON.parse(bodies[0].messages[1].content).dialogue.previous_answer_ideas).toEqual(opening.suggested_replies.map(idea => idea.text));
+    expect(bodies[1].messages.at(-1).content).toContain('Specifically replace suggested_replies');
   });
 
   it('repairs the actual rejected reply without logging the learner or generated text', async () => {

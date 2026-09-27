@@ -1,6 +1,6 @@
 # Working on Fala
 
-Fala has a native Kotlin/Compose Android client, a JavaScript web app, and a TypeScript API on Netlify backed by private PostgreSQL tables. The repository is the project memory; a previous chat or an ignored `artifacts/` file is not a prerequisite for continuing work.
+Fala has a native Kotlin/Compose Android client, a JavaScript web app, and a TypeScript API on Vercel (Netlify retains legacy URL forwarding) backed by private PostgreSQL tables. The repository is the project memory; a previous chat or an ignored `artifacts/` file is not a prerequisite for continuing work.
 
 - Start with [the handoff](docs/agent-handoff.md) for the code map, invariants, checks and open issues. [The documentation index](docs/README.md) routes to feature details.
 - For a release, use [the release skill](.claude/skills/fala-release/SKILL.md) and [the release runbook](docs/releasing.md). Publishing authorization comes from the user's request, not from merely loading a skill. Carry out already-authorized targets without repeatedly asking for the same approval.

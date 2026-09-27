@@ -44,3 +44,5 @@ This is the entry point for people and coding agents taking over the repository.
 | Store listing and closed-test planning | [Store package](../store/google-play/README.md), [closed test](../store/google-play/closed-test-plan.md) |
 
 The source code and current workflow definitions determine behavior. Dated release receipts record a point in time; they are not proof of today's review state. Read current remote state before publishing. Keep prior release notes and evidence when adding a new record.
+
+- [0.14.4 migration and performance receipt](releases/0.14.4.md): SQL generation claims, Vercel cutover, Android origin migration and measured limits.
