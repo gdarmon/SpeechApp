@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "fluid": true,
+  "regions": ["cle1"],
+  "installCommand": "npx --yes npm@10.9.7 ci",
+  "buildCommand": "npm run typecheck",
+  "outputDirectory": "public",
+  "functions": { "api/service.ts": { "maxDuration": 30 } },
+  "rewrites": [ { "source": "/:path*", "destination": "/api/service?route=/:path*" } ]
+}

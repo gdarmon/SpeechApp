@@ -105,10 +105,13 @@ export function coachingReplySchema(context: Record<string, unknown>) {
       const retrieval = teaching?.allow_repetition || lesson?.next_prompt?.allow_repetition;
       // Reusing a reviewed question frame in a new beginner lesson is useful:
       // the target name changes, while the language remains familiar.
-      const checked = start && lesson ? [] : retrieval ? previous.slice(-1) : previous;
+      // The teaching phase is guidance, not a ban on spaced practice. Reject
+      // immediate loops and unplanned back-and-forth loops, while allowing a
+      // familiar question after two intervening exchanges at any stage.
+      const checked = start && lesson ? [] : start ? previous : previous.slice(retrieval ? -1 : -2);
       if (checked.some(text => text && (normalized(text) === normalized(reply.text)
         || lesson && question && normalized(spokenQuestion(text)) === normalized(question)))) {
-        reject("Avoid an immediate question loop. Reuse vocabulary and answer frames; repeat an earlier question only on a planned retrieval turn after an intervening exchange, or when the learner asks for help.");
+        reject("Do not repeat the latest question or make a back-and-forth question loop. Reuse familiar vocabulary in a relevant follow-up. A familiar question can return after two intervening exchanges, on a planned retrieval turn after a gap, or when the learner asks for help.");
       }
       if (lesson?.next_prompt?.format === "open") {
         if (!/\b(qual|quais|como|quem|onde|quando|quanto|quantos|quanta|quantas|por que|o que)\b/i.test(question) || /\bou\b/i.test(question)) {

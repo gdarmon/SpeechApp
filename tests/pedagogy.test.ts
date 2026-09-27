@@ -164,6 +164,10 @@ describe("focused ten-answer lessons", () => {
     expect(coachingReplySchema(context).safeParse(opening).success).toBe(true);
     expect(coachingReplySchema({ ...context, turns: [{ reply: opening }] }).safeParse(opening).success).toBe(false);
     expect(coachingReplySchema({ ...context, teaching: teachingPlan(1, 1), lesson: lessonContext({ id: "kicks-v1", visit: 1 }, 1) }).safeParse(opening).success).toBe(false);
+    const spaced = { ...context, teaching: teachingPlan(1, 6), lesson: lessonContext({ id: "kicks-v1", visit: 1 }, 6),
+      turns: [{ reply: { text: "Você treina com seu professor?" } }, { reply: { text: "Você treina hoje?" } }] };
+    expect(coachingReplySchema(spaced).safeParse(opening).success).toBe(true);
+    expect(coachingReplySchema({ ...spaced, turns: [...spaced.turns, { reply: opening }] }).safeParse(opening).success).toBe(false);
     const nextLesson = lessonContext({ id: "instruments-v1", visit: 1 })!;
     const nextOpening = replySchema.parse({ ...nextLesson.next_prompt.model, pace: "slow" });
     expect(coachingReplySchema({ action: "start", lesson: nextLesson,
