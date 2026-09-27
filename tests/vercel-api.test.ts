@@ -41,3 +41,18 @@ it('allows the exact legacy site through the migration proxy while preserving co
     method: 'POST', headers: { Origin: 'https://falachatapp.netlify.app', Cookie: '__Host-fala=synthetic' }, body: '{}',
   }))).status).toBe(200);
 });
+
+it.each([
+  '/api/service?route=/speech/transcribe&language=he',
+  '/speech/transcribe?language=he',
+])('preserves the selected transcription language through %s', async source => {
+  const handler = vi.fn(async (request: Request) => {
+    expect(request.url).toBe(`${PUBLIC_ORIGIN}/speech/transcribe?language=he`);
+    expect(request.headers.get('content-type')).toBe('audio/mpeg');
+    expect(await request.text()).toBe('synthetic recording');
+    return Response.json({ text: 'synthetic transcript' });
+  });
+  expect((await createVercelHandler(handler)(new Request(PUBLIC_ORIGIN + source, {
+    method: 'POST', headers: { 'Content-Type': 'audio/mpeg' }, body: 'synthetic recording',
+  }))).status).toBe(200);
+});

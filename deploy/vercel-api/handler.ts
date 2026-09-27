@@ -16,6 +16,11 @@ export function createVercelHandler(handler: ReturnType<typeof createHandler>, r
     const route = source.pathname === "/api/service" ? source.searchParams.get("route") : source.pathname;
     if (!route || !/^\/[a-zA-Z][a-zA-Z0-9_/-]{0,239}$/.test(route)) return Response.json({ detail: "Endpoint not found." }, { status: 404 });
     const target = new URL(route, request.headers.get("Origin") === LEGACY_ORIGIN ? LEGACY_ORIGIN : PUBLIC_ORIGIN);
+    // Rewrites add their private route parameter; learner options such as the
+    // transcription/support language must reach the shared API unchanged.
+    for (const [name, value] of source.searchParams) {
+      if (source.pathname !== "/api/service" || name !== "route") target.searchParams.append(name, value);
+    }
     const forwarded = new Request(target, request);
     const response = route === "/internal/reminders" && reminders ? await reminders(forwarded) : route === "/diagnostics/session" && isolated ? await isolated(forwarded)
       : await handler(forwarded, request.headers.get("x-vercel-forwarded-for") || "unknown", runtime());
