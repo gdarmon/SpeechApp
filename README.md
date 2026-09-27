@@ -9,19 +9,19 @@
 
 A native Android app for learning to **speak Brazilian Portuguese** through natural conversations. Choose English or Hebrew once, tap **Talk**, and listen to Fala’s first question. Hold to speak, release, review your words, and send. English/Hebrew help gets you unstuck; selective feedback and personal memory guide later conversations. Earn practice points, build a gentle daily streak, and unlock new looks.
 
-**Native Android, Google sign-in, separate learner accounts.** Users install Fala, sign in with Google, and tap Talk. The app knows the service address; there are no server or token fields to configure. Netlify runs the conversation API and public pages; PostgreSQL (including Supabase) stores accounts, transcripts, and learning memory.
+**Native Android, Google sign-in, separate learner accounts.** Users install Fala, sign in with Google, and tap Talk. The app knows the service address; there are no server or token fields to configure. Vercel runs the conversation API and public pages; PostgreSQL (including Supabase) stores accounts, transcripts, and learning memory.
 
 ## Publisher setup
 
 1. Follow [Google sign-in setup](docs/google-sign-in.md): create Web and Android OAuth clients in your Google Cloud project and register the installed app's signing certificate.
 2. Apply all files in `supabase/migrations/` in filename order to the app's PostgreSQL database. Existing single-learner data stays isolated in a legacy operator account.
-3. Configure `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider on Netlify. See [deployment and Haifa latency](docs/deployment.md).
+3. Configure `GOOGLE_WEB_CLIENT_ID`, `DATABASE_URL`, and the AI provider on Vercel. See [deployment and Haifa latency](docs/deployment.md).
 4. Deploy once the database and Google settings are ready, install the APK, and test with two Google accounts before inviting users.
 5. Follow [Google Play setup](docs/google-play.md) for the first app-bundle upload and one-time publishing credentials. Thereafter, successful `main` checks trigger a newly versioned, signed internal-testing upload when enabled.
 
 The current service URL is `https://fala-api.vercel.app`, compiled into Android. AI keys and database passwords stay on the server. Each sign-in issues a separate 90-day device session; Android encrypts the credential with Keystore, and the database stores only its hash. Optional `FALA_TOKEN` is **operator-only** diagnostics/legacy access, never a user-facing setup step.
 
-**Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Netlify. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
+**Hosting:** this code uses the explicit Supabase/PostgreSQL connection and AI provider configured in Vercel. Google Play distributes the separate Android application; a server deployment does not update the phone UI. See [validation results](docs/validation.md) for tested behavior and remaining device checks.
 
 The current economical setup uses **Groq for conversations and transcription**, keeping **OpenAI only for the natural Portuguese voice**. Set `FALA_AI_PROVIDER=groq`, `FALA_TRANSCRIPTION_PROVIDER=groq`, a `GROQ_API_KEY` (or the existing Groq compatible settings), and retain `FALA_OPENAI_API_KEY` for voice. The model defaults to `openai/gpt-oss-120b` on Groq. Free-tier account quotas apply; Fala does not silently switch conversations to paid OpenAI when Groq is unavailable. Native Android continues to use device speech services. [Deployment and provider configuration](docs/deployment.md).
 

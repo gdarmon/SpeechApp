@@ -1,6 +1,6 @@
 # Fala on iPhone, Android and the web
 
-Share https://falachatapp.netlify.app/app/ . Web and native Android both display version 0.12.4; each is distributed separately. Netlify serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
+Share https://fala-api.vercel.app/app/ . Web and native Android both display version 0.14.4; each is distributed separately. Vercel serves the public PWA and the same authenticated API/database. GitHub Pages alone cannot run this backend.
 
 On iPhone, open Safari → Share → Add to Home Screen. Android Chrome offers Install app / Add to Home screen. HTTPS and microphone permission are required. Actual device permission, available voices and autoplay policies vary; the Listen button always offers explicit playback. Browser support was checked in desktop Chrome with a mobile viewport and synthetic microphone, not on a physical iPhone.
 
@@ -15,7 +15,7 @@ During a conversation the microphone, editable reply and Send stay at the bottom
 In the existing **Web application** OAuth client, add this **Authorized JavaScript origin**:
 
 ```
-https://falachatapp.netlify.app
+https://fala-api.vercel.app
 ```
 
 Use the same Google project and web client ID already configured in `GOOGLE_WEB_CLIENT_ID`. This GIS callback flow needs no redirect URI. Add a future custom domain separately before using sign-in there. Deploy-preview domains are not automatically authorized.
@@ -40,7 +40,7 @@ If OpenAI handles under-13 personal data, its guidance requires approved Zero Da
 
 References: [Google internal testing](https://support.google.com/googleplay/android-developer/answer/9845334), [Google target audience](https://support.google.com/googleplay/android-developer/answer/9867159), [Family Link app controls](https://support.google.com/families/answer/7103028), [OpenAI under-18 guidance](https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance).
 
-After the Netlify rename, use the new origin in the Google Web client and update saved links. Browser cookies and push subscriptions belong to the old origin: sign in and reconnect notifications on the new site. Android 0.11.0 preserves an existing device session only for this specific approved rename; other origin changes still require sign-in.
+For the Vercel move, add the new origin to the existing Google Web client and update saved links; keep the old origin during transition. Browser cookies and push subscriptions belong to the old origin: sign in and reconnect notifications on the new site. Android 0.14.4 preserves the existing device session for the approved old Fala origins; arbitrary origin changes still require sign-in. The old Netlify service worker is retired locally so the next visit can follow the website redirect.
 
 ## Planned child accounts
 

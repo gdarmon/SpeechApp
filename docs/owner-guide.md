@@ -67,7 +67,7 @@ The version, such as **0.14.0**, appears in the app. The build number, such as *
 
 ## Knowing whether an update is available
 
-- **Website:** open [Fala](https://falachatapp.netlify.app/app/), check the displayed version and exercise the change.
+- **Website:** open [Fala](https://fala-api.vercel.app/app/), check the displayed version and exercise the change.
 - **Internal Testing:** check the successful upload receipt for the intended version and build number.
 - **Closed Testing:** also check Google's review lifecycle. Acceptance into a track does not necessarily mean testers can already install it.
 - **Phone:** the Google account must be eligible for the track, and the installed app must be updated. An updated browser does not prove that the phone received a new Android binary.
