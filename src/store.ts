@@ -186,10 +186,11 @@ export class Store {
   }
 
   async append(id: string, input: TurnInput, reply: Reply) {
-    await this.query(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply)
-      SELECT $1::uuid,$2,$3::text::jsonb,$4,$5,$6,$7,$8::text::jsonb FROM fala.sessions WHERE id=$1::uuid AND user_id=$9::uuid`,
+    const [saved] = await this.query<{ id: number }>(`INSERT INTO fala.turns(session_id,request_id,request,text,help,language,speech_ms,reply)
+      SELECT $1::uuid,$2,$3::text::jsonb,$4,$5,$6,$7,$8::text::jsonb FROM fala.sessions WHERE id=$1::uuid AND user_id=$9::uuid RETURNING id`,
       [id, input.request_id, JSON.stringify(input), input.text, input.help, input.language, input.speech_ms, JSON.stringify(reply), this.userId]);
     await new Rewards(this, this.userId).recordReply(id, input.request_id);
+    return saved.id;
   }
 
   async finish(id: string, feedback: Feedback, demo: boolean) {

@@ -151,6 +151,17 @@ export class CompatibleProvider implements AIProvider {
     const limits = coachingLimits(context);
     const language = context.support_language === "he-IL" ? "HEBREW" : "ENGLISH";
     const action = ["start", "help", "continue"].includes(String(context.action)) ? String(context.action).toUpperCase() : "START";
+    const previousQuestions = [context.opening as { text?: string } | undefined,
+      ...((context.turns as { reply?: { text?: string } }[] | undefined) ?? []).map(turn => turn.reply)]
+      .map(reply => reply?.text).filter((text): text is string => Boolean(text));
+    // Make dialogue advancement explicit next to the current task. Otherwise a
+    // small model can keep reproducing a valid opening from the nested history.
+    const dialogue = action === "CONTINUE" && previousQuestions.length ? {
+      answered_question: previousQuestions.at(-1),
+      learner_answer: (context.input as { text?: string } | undefined)?.text,
+      earlier_questions: previousQuestions.slice(0, -1),
+      next_step: "Respond to this answer, then ask a different relevant follow-up. Reuse familiar words, not an already-answered question. A request to repeat or clarify is the exception.",
+    } : undefined;
     const instruction = `\nPractice level ${limits.level}: ${limits.title}. Goal: ${limits.goal} Target learner answer: ${limits.answer_goal}. `
       + `Spoken text maximum ${limits.text_words} words / ${limits.text_chars} characters; each answer idea maximum ${limits.idea_words} words / ${limits.idea_chars} characters. `
       + `\nThis reply: action=${action}; all translations and feedback messages MUST be in ${language}. `
@@ -158,7 +169,7 @@ export class CompatibleProvider implements AIProvider {
       + (context.last_turn === true ? "This is the final answer: close with no question and an empty suggestions array."
         : `Give two translated ideas that directly answer this question using familiar frames. Length limits are ceilings, not a quota; never pad an answer. Help/correction phrases maximum ${Math.min(10, limits.idea_words)} words. The learner has answered ${Number(context.practice_round) || 0} of 10 questions. Follow teaching.task and recycle its focus; it is not time for a farewell.`)
       + (learnerHasNoCord(context) ? "\nCurrent learner fact: they DO NOT HAVE A CORDA. Rank is earned, never chosen. Do not offer any cord/color, ask if they want one, or ask its color. Continue about their own class practice or teacher, with one concrete question at this level. The optional focus term and possession frames must yield to this fact." : "");
-    return this.complete(partnerPrompt(context) + instruction, context, coachingReplySchema(context));
+    return this.complete(partnerPrompt(context) + instruction, { ...context, ...(dialogue ? { dialogue } : {}) }, coachingReplySchema(context));
   }
   feedback(context: Record<string, unknown>) {
     const words = Array.isArray(context.vocabulary_words) ? context.vocabulary_words as string[] : null;

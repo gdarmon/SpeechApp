@@ -305,9 +305,14 @@ $('send').onclick = () => {
   const input = pendingTurn, id = session.id;
   $('draft').blur(); voice.stop();
   void task(async current => {
-    await post(`/sessions/${id}/turns`, input); if (current !== epoch) return;
-    const saved = await api(`/sessions/${id}`); if (current !== epoch) return;
-    session = saved; renderSession(); listen();
+    const saved = await post(`/sessions/${id}/turns`, input, { turn: true }); if (current !== epoch) return;
+    if (saved.turnId) {
+      if (!session.turns.some(turn => turn.request_id === input.request_id)) session.turns.push({ ...input, id: saved.turnId, reply: saved.reply });
+    } else {
+      // Support an older API during a rolling deployment.
+      session = await api(`/sessions/${id}`); if (current !== epoch) return;
+    }
+    renderSession(); listen();
   }, 'Fala is thinking…');
 };
 function review(report) {

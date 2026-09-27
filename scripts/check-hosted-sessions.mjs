@@ -1,6 +1,7 @@
 // Real session pipeline, dedicated synthetic accounts, operator-only adapter.
 // Generated text is used transiently to choose a suggested reply, never logged.
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { readFile, writeFile } from 'node:fs/promises';
 import { percentile } from './lib/latency.mjs';
 const url = new URL(process.env.FALA_URL || 'https://invalid.invalid');
@@ -54,7 +55,7 @@ async function wave(phase, action) {
   await Promise.all(actors.map(async (actor, index) => {
     if (actor.failed) return;
     try { await action(actor, index); }
-    catch { actor.failed = true; failures.push({ index, phase }); }
+    catch (error) { actor.failed = true; failures.push({ index, phase, reason: /^(invalid_session|missing_suggestion|retry_changed|wrong_turn_count|review_too_long|http_\d+|connection_or_response_failed)$/.test(error.message) ? error.message : 'check_failed' }); }
   }));
   console.log(JSON.stringify({ phase, ...summary(samples.filter(row => row.phase === phase)), failed_actors: actors.filter(actor => actor.failed).length }));
 }
@@ -78,7 +79,7 @@ try {
       actor.reply = await request(actor, index, `turn_${turn}`, `/sessions/${actor.session}/turns`, 'POST', body);
       if (turn === 1) {
         const replay = await request(actor, index, 'retry', `/sessions/${actor.session}/turns`, 'POST', body);
-        if (JSON.stringify(replay) !== JSON.stringify(actor.reply)) throw Error('retry_changed');
+        if (!isDeepStrictEqual(replay, actor.reply)) throw Error('retry_changed');
       }
     });
   }

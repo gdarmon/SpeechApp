@@ -45,7 +45,7 @@ try {
   const rewards = rewardFixture();
   rewards.profile.walkthrough_seen = false;
   rewards.profile.instructor = "bateba"; rewards.xp = 480; rewards.instructors[1].unlocked = true; rewards.profile.reduce_motion = true;
-  let saved, dropGet = false, postCount = 0; const speechRequests = [], reports = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
+  let saved, dropGet = false, postCount = 0, turnReloads = 0; const speechRequests = [], reports = [], ids = [], words = [{ word: 'ginga', translation: 'תנועת בסיס' }];
   const reply = { text: 'Você conhece a ginga?', translation: 'מכירים את הג׳ינגה?', suggested_replies: [{ text: 'Sim, conheço.', translation: 'כן, אני מכיר.' }, { text: 'Ainda não.', translation: 'עדיין לא.' }] };
   const wav = Buffer.alloc(44 + 16000); wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40);
   await page.route('**/*', async route => {
@@ -64,10 +64,11 @@ try {
       if (postCount === 3) return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'ai_rate_limited', retry_after_seconds: 1, detail: 'Wait one second.' }) });
       if (!saved.turns.some(turn => turn.request_id === input.request_id)) saved.turns.push({ ...input, id: saved.turns.length + 1, reply: { ...reply, text: 'Você gosta do martelo?', translation: 'אוהבים את המרטלו?', suggested_replies: [{ text: 'Sim, gosto.', translation: 'כן, אני אוהב.' }], turn_feedback: { kind: 'ok', message: 'יופי!' } } });
       if (postCount === 1) dropGet = true;
+      if (postCount >= 4) return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Fala-Turn-Id': String(saved.turns.at(-1).id) }, body: JSON.stringify(saved.turns.at(-1).reply) });
       return send(saved.turns.at(-1).reply);
     }
     if (path.endsWith('/finish')) { rewards.xp = 530; rewards.instructors[2].unlocked = true; return send({ summary: 'כל הכבוד!', vocabulary: words, pointers: ['נסו בלי ההצעה.'] }); }
-    if (path === '/sessions/session-fixture') { if (dropGet) { dropGet = false; return route.abort(); } return send(saved); }
+    if (path === '/sessions/session-fixture') { turnReloads++; if (dropGet) { dropGet = false; return route.abort(); } return send(saved); }
     return route.continue();
   });
   await page.goto(`${base}/app/`); await page.locator('#home').waitFor({ state: 'visible' });
@@ -243,6 +244,7 @@ try {
     if (i === 1) { assert.equal(ids[2], ids[3]); assert.equal(saved.turns.length, 2); }
   }
   assert.equal(saved.turns.length, 10); assert.equal(await page.locator('#microphone').isVisible(), false);
+  assert.equal(turnReloads, 2, 'Modern turn responses must render without another session request; only the legacy lost-GET/retry flow reloads');
   await page.locator('#complete').click(); await page.locator('#review').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.word').count(), 1);
   await page.getByText('וסורה נפתח',{exact:true}).waitFor();

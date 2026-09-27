@@ -73,7 +73,7 @@ export class Sessions {
   }
 
   async turn(id: string, input: TurnInput) {
-    return this.store.generate<Reply>(async tx => {
+    return this.store.generate<{ reply: Reply; turnId: number | undefined }>(async tx => {
       const snapshot = await tx.snapshot(id);
       const { session, learner } = snapshot;
       if (!session) throw new AppError(404, "Conversation not found.");
@@ -81,7 +81,7 @@ export class Sessions {
       if (previous) {
         const { request } = previous as typeof previous & { request: TurnInput };
         if (!isDeepStrictEqual(request, input)) throw new AppError(409, "This request ID was already used with different content.");
-        return { cached: previous.reply };
+        return { cached: { reply: previous.reply, turnId: previous.id } };
       }
       if (session.ended_at) throw new AppError(409, "This conversation has ended. Start a new one.");
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
@@ -96,8 +96,8 @@ export class Sessions {
           action: input.help ? "help" : "continue", input });
         return async commit => {
           await unchanged(commit, snapshot, id);
-          await commit.append(id, input, reply);
-          return reply;
+          const turnId = await commit.append(id, input, reply);
+          return { reply, turnId };
         };
       } };
     });

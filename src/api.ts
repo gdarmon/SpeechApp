@@ -182,7 +182,10 @@ export function createHandler(dependencies: Dependencies) {
         if (match[2] === "turns" && request.method === "POST") {
           const input = turnSchema.parse(await body(request));
           await store.budget();
-          return respond(await sessions.turn(id, input));
+          const saved = await sessions.turn(id, input);
+          const response = respond(saved.reply);
+          if (saved.turnId !== undefined) response.headers.set("X-Fala-Turn-Id", String(saved.turnId));
+          return response;
         }
         if (match[2] === "finish" && request.method === "POST") {
           const input = finishSchema.parse(await body(request));

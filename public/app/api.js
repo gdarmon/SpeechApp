@@ -6,7 +6,13 @@ export async function apiRequest(path, options = {}) {
     response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', redirect: 'error', ...options,
       signal: AbortSignal.timeout(20000) });
   } catch { throw new Error('The connection was interrupted. Your answer is still here. Try again when you’re online.'); }
-  if (response.ok) return options.audio ? response.arrayBuffer() : response.json();
+  if (response.ok) {
+    if (options.audio) return response.arrayBuffer();
+    const data = await response.json();
+    if (!options.turn) return data;
+    const turnId = Number(response.headers.get('X-Fala-Turn-Id'));
+    return { reply: data, turnId: Number.isSafeInteger(turnId) && turnId > 0 ? turnId : null };
+  }
   const error = await response.json().catch(() => ({}));
   const failure = new Error(error.code === 'ai_rate_limited'
     ? "We couldn't get a reply. Your answer is still here. Please try again."

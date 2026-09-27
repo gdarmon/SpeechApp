@@ -327,6 +327,8 @@ describe("Netlify API against PostgreSQL", () => {
     expect(saved.turns).toHaveLength(1); expect(saved.turns[0].help).toBe(0);
     expect(saved.opening).toEqual(first.data.opening);
     expect(saved.turns[0].reply).toEqual(a.data);
+    expect(a.headers.get('X-Fala-Turn-Id')).toBe(String(saved.turns[0].id));
+    expect(replay.headers.get('X-Fala-Turn-Id')).toBe(a.headers.get('X-Fala-Turn-Id'));
     expect(saved.request).toBeUndefined(); expect(saved.turns[0].request).toBeUndefined();
   });
   it("repairs double-encoded conversation JSON without losing retry IDs, feedback, or memory", async () => {
