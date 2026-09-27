@@ -1,0 +1,1 @@
+Faster conversation handling under load. Replies no longer hold database connections while AI responds. Safer retries prevent duplicate answers and rewards.

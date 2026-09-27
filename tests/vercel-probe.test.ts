@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import adapter, { createProbeHandler, probeDatabase } from "../deploy/vercel-probe/handler.js";
 import type { createHandler } from "../src/api.js";
 import type { Database } from "../src/database.js";
+import { createSessionProbe, isolatedSessionDatabase } from "../deploy/vercel-probe/sessions.js";
+import { settingsFromEnv } from "../src/config.js";
 
 const token = "operator-test-token-at-least-32-characters";
 function request(path: string, method = "GET", credential: string | null = token) {
@@ -10,6 +12,43 @@ function request(path: string, method = "GET", credential: string | null = token
     ...(method === "POST" ? { body: JSON.stringify({ route: "primary" }) } : {}) });
 }
 describe("isolated hosting probe", () => {
+  it("maps session SQL and nested transactions only to the private synthetic schema", async () => {
+    const query = vi.fn().mockResolvedValue([]);
+    const database: Database = { query, transaction: action => action({ query }), close: async () => {} };
+    const isolated = isolatedSessionDatabase(database);
+    await isolated.query("SELECT * FROM fala.users WHERE email=$1", ["private-sentinel"]);
+    await isolated.transaction(tx => tx.query("DELETE FROM fala.generation_claims WHERE user_id=$1", ["synthetic-id"]));
+    expect(query.mock.calls).toEqual([
+      ["SELECT * FROM fala_latency_probe.users WHERE email=$1", ["private-sentinel"]],
+      ["DELETE FROM fala_latency_probe.generation_claims WHERE user_id=$1", ["synthetic-id"]],
+    ]);
+  });
+
+  it("keeps session probes behind the operator guard and rejects arbitrary paths and real-account lookup", async () => {
+    const query = vi.fn().mockResolvedValue([]);
+    const database: Database = { query, transaction: action => action({ query }), close: async () => {} };
+    const config = settingsFromEnv({ FALA_TOKEN: token, DATABASE_URL: "postgres://localhost/fala" });
+    const sessions = createSessionProbe(() => config, () => database);
+    const shared = vi.fn(), probe = createProbeHandler(shared, () => token, undefined, sessions);
+    function input(body: unknown, operator: string | null = token) {
+      return new Request("https://probe.example/diagnostics/session", { method: "POST", headers: {
+        ...(operator ? { Authorization: `Bearer ${operator}` } : {}),
+        "X-Fala-Test-Learner": `fala_${"a".repeat(43)}`, "Content-Type": "application/json",
+      }, body: JSON.stringify(body) });
+    }
+    expect((await probe(input({ method: "GET", path: "/sessions" }, null))).status).toBe(401);
+    for (const path of ["/diagnostics", "/account", "https://elsewhere.test/sessions", "/sessions?override=fala"]) {
+      expect((await probe(input({ method: "GET", path }))).status).toBe(422);
+    }
+    expect((await probe(input({ method: "POST", path: "/sessions", body: { text: "x".repeat(25000) } }))).status).toBe(413);
+    expect(query).not.toHaveBeenCalled();
+    expect((await probe(input({ method: "GET", path: "/sessions" }))).status).toBe(401);
+    expect(query).toHaveBeenCalledOnce();
+    expect(query.mock.calls[0][0]).toContain("fala_latency_probe.device_sessions");
+    expect(query.mock.calls[0][0]).not.toMatch(/\bfala\./);
+    expect(shared).not.toHaveBeenCalled();
+  });
+
   it("logs only a fixed database-failure category without credentials, SQL or driver messages", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {

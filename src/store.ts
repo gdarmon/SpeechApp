@@ -16,21 +16,21 @@ SELECT
   (SELECT to_jsonb(s) FROM fala.sessions s WHERE id = $1::uuid) AS session,
   COALESCE((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.id) FROM fala.turns t WHERE session_id=$1::uuid), '[]'::jsonb) AS turns,
   (SELECT feedback->'assessment' FROM fala.sessions WHERE NOT demo AND feedback->'assessment' <> 'null'::jsonb
-    ORDER BY ended_at DESC LIMIT 1) AS assessment,
+    ORDER BY ended_at DESC, id DESC LIMIT 1) AS assessment,
   COALESCE((SELECT jsonb_agg(to_jsonb(m)) FROM (
     SELECT DISTINCT ON (key) correction, observed_at, count(*) OVER (PARTITION BY key)::int AS occurrences
     FROM fala.evidence ORDER BY key, observed_at DESC
   ) m), '[]'::jsonb) AS memory,
-  COALESCE((SELECT jsonb_agg(to_jsonb(h)) FROM (
+  COALESCE((SELECT jsonb_agg(to_jsonb(h) ORDER BY h.natural) FROM (
     SELECT t.reply->>'practice_phrase' AS natural, count(DISTINCT t.session_id)::int AS occurrences,
       max(s.started_at) AS last_seen, (array_agg(s.topic ORDER BY s.started_at DESC))[1] AS topic
     FROM fala.turns t JOIN fala.sessions s ON s.id=t.session_id
     WHERE t.help AND NOT s.demo AND COALESCE(t.reply->>'practice_phrase','') <> ''
     GROUP BY t.reply->>'practice_phrase'
   ) h), '[]'::jsonb) AS help_patterns,
-  COALESCE((SELECT jsonb_agg(topic) FROM (SELECT topic FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC LIMIT 5) r), '[]'::jsonb) AS recent_topics,
-  COALESCE((SELECT jsonb_agg(text) FROM (SELECT opening->>'text' AS text FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC LIMIT 5) r), '[]'::jsonb) AS recent_openings,
-  COALESCE((SELECT jsonb_agg(to_jsonb(l)) FROM (
+  COALESCE((SELECT jsonb_agg(topic) FROM (SELECT topic FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC, id DESC LIMIT 5) r), '[]'::jsonb) AS recent_topics,
+  COALESCE((SELECT jsonb_agg(text) FROM (SELECT opening->>'text' AS text FROM fala.sessions WHERE NOT demo ORDER BY started_at DESC, id DESC LIMIT 5) r), '[]'::jsonb) AS recent_openings,
+  COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.id) FROM (
     SELECT request->'resolved_lesson'->>'id' AS id, count(*)::int AS visits, max(started_at) AS last_used
     FROM fala.sessions WHERE NOT demo AND request->'resolved_lesson'->>'id' IS NOT NULL
     GROUP BY request->'resolved_lesson'->>'id'
@@ -81,6 +81,10 @@ export class Store {
   }
 
   async mutate<T>(action: (store: Store) => Promise<T>): Promise<T> {
+    return this.locked(action);
+  }
+
+  private async locked<T>(action: (store: Store) => Promise<T>, claimId?: string): Promise<T> {
     // Transaction-scoped locks work with Supabase's transaction pooler; process mutexes do not.
     // One learner, one mutating request. Never hold a lock between spoken turns.
     return this.db.transaction(async tx => {
@@ -88,10 +92,46 @@ export class Store {
       const [row] = await store.query<{ locked: boolean }>(`SELECT pg_try_advisory_xact_lock(hashtextextended($1,7310491701)) AS locked,
         set_config('statement_timeout','8000',true), set_config('idle_in_transaction_session_timeout','45000',true)`, [this.userId]);
       if (!row.locked) throw new AppError(409, "Another conversation request is still processing. Retry shortly.");
-      const exists = await store.query("SELECT id FROM fala.users WHERE id=$1::uuid", [this.userId]);
-      if (!exists.length) throw new AppError(401, "Please sign in to Fala again.");
+      const [account] = await store.query<{ id: string; claim_id: string | null; active: boolean | null }>(`
+        SELECT u.id,c.claim_id,c.expires_at>clock_timestamp() AS active FROM fala.users u
+        LEFT JOIN fala.generation_claims c ON c.user_id=u.id WHERE u.id=$1::uuid`, [this.userId]);
+      if (!account) throw new AppError(401, "Please sign in to Fala again.");
+      if (claimId ? account.claim_id !== claimId || !account.active : account.active) {
+        throw new AppError(409, "Another conversation request is processing or this request expired. Retry with the same request ID.");
+      }
       return action(store);
     });
+  }
+
+  async generate<T>(prepare: (store: Store) => Promise<
+    { cached: T } | { run: () => Promise<(store: Store) => Promise<T>> }
+  >): Promise<T> {
+    const claimId = randomUUID();
+    const prepared = await this.locked(async store => {
+      const plan = await prepare(store);
+      if (!("cached" in plan)) await store.query(`
+        INSERT INTO fala.generation_claims(user_id,claim_id,expires_at)
+        VALUES($1::uuid,$2::uuid,clock_timestamp()+interval '45 seconds')
+        ON CONFLICT(user_id) DO UPDATE SET claim_id=EXCLUDED.claim_id,expires_at=EXCLUDED.expires_at`,
+      [this.userId, claimId]);
+      return plan;
+    });
+    if ("cached" in prepared) return prepared.cached;
+    try {
+      // No transaction/connection is held while awaiting the provider.
+      const commit = await prepared.run();
+      return await this.locked(async store => {
+        const result = await commit(store);
+        await store.query("DELETE FROM fala.generation_claims WHERE user_id=$1::uuid AND claim_id=$2::uuid", [this.userId, claimId]);
+        return result;
+      }, claimId);
+    } catch (error) {
+      // A failed process leaves a bounded lease. A late cleanup cannot remove
+      // the claim acquired by a newer request, even after expiry/takeover.
+      try { await this.query("DELETE FROM fala.generation_claims WHERE user_id=$1::uuid AND claim_id=$2::uuid", [this.userId, claimId]); }
+      catch { /* Preserve the original error; the claim still expires. */ }
+      throw error;
+    }
   }
 
   async budget() {

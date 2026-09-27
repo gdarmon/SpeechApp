@@ -141,6 +141,8 @@ describe.skipIf(!databaseUrl)("full sessions sharing one production database poo
       expect(history.data[0].id).toBe(actor.session);
     }));
     expect(violations).toEqual([]); expect(aiCalls).toBe(learners * 12);
+    expect(maxActiveAI).toBeGreaterThan(1);
+    expect(await database.query("SELECT user_id FROM fala.generation_claims")).toHaveLength(0);
     const [counts] = await database.query<{ sessions: number; turns: number }>(
       "SELECT (SELECT count(*)::int FROM fala.sessions) AS sessions, (SELECT count(*)::int FROM fala.turns) AS turns");
     expect(counts).toEqual({ sessions: learners, turns: learners * 10 });

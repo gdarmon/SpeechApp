@@ -1,6 +1,6 @@
 import {config as netlifyRoutes} from "../netlify/functions/api.js";
 import { readFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { createHandler } from "../src/api.js";
@@ -29,7 +29,8 @@ const reportMigration = await readFile(new URL("../supabase/migrations/202609210
 const walkthroughMigration = await readFile(new URL("../supabase/migrations/202609230001_walkthrough.sql", import.meta.url), "utf8");
 const rewardRulesMigration = await readFile(new URL("../supabase/migrations/202609230002_reward_rules.sql", import.meta.url), "utf8");
 const languageMigration = await readFile(new URL("../supabase/migrations/202609250001_language_reminders.sql", import.meta.url), "utf8");
-const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration + languageMigration;
+const claimsMigration = await readFile(new URL("../supabase/migrations/202609270001_generation_claims.sql", import.meta.url), "utf8");
+const migration = firstMigration + secondMigration + repairMigration + rewardsMigration + instructorMigration + reportMigration + walkthroughMigration + rewardRulesMigration + languageMigration + claimsMigration;
 let pg: { exec(sql: string): Promise<unknown>; query<T = Record<string, unknown>>(sql: string, values?: Parameter[]): Promise<{ rows: T[] }> };
 let db: Database;
 let coach: Coach;
@@ -77,12 +78,12 @@ beforeAll(async () => {
     const wrap = (client: Pick<PGlite, "query">): Executor => ({ query: async <T>(sql: string, values: Parameter[] = []) => (await client.query<T>(sql, values)).rows });
     db = { ...wrap(embedded), transaction: fn => embedded.transaction(tx => fn(wrap(tx))), close: () => embedded.close() };
   }
-  await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
+  await pg.exec("DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; END $$;");
   await pg.exec(migration);
 }, 30000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
-  await pg.exec("TRUNCATE fala.content_reports, fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits, fala.reward_events, fala.reward_profiles, fala.reminder_deliveries RESTART IDENTITY;");
+  await pg.exec("TRUNCATE fala.generation_claims, fala.content_reports, fala.sessions, fala.turns, fala.evidence, fala.rate_limit, fala.usage_limits, fala.reward_events, fala.reward_profiles, fala.reminder_deliveries RESTART IDENTITY;");
   coach = new Coach(); handler = instance();
 });
 
@@ -313,7 +314,13 @@ describe("Netlify API against PostgreSQL", () => {
     expect((await call("/sessions", "POST", { ...input, topic: "Travel" })).status).toBe(409);
     const body = { request_id: randomUUID(), text: correction.said };
     const [a, b] = await Promise.all([call(`/sessions/${first.data.id}/turns`, "POST", body), call(`/sessions/${first.data.id}/turns`, "POST", body, instance())]);
-    expect(a.status).toBe(200); expect(b.status).toBe(200); expect(b.data).toEqual(a.data);
+    expect(a.status).toBe(200);
+    // A duplicate arriving during generation can receive a retryable conflict;
+    // retrying its original ID must return the one saved answer, without AI.
+    expect([200, 409]).toContain(b.status);
+    const replay = await call(`/sessions/${first.data.id}/turns`, "POST", body, instance());
+    expect(replay.status).toBe(200); expect(replay.data).toEqual(a.data);
+    if (b.status === 200) expect(b.data).toEqual(a.data);
     expect(coach.calls.length).toBe(2);
     expect((await call(`/sessions/${first.data.id}/turns`, "POST", { ...body, text: "Outra coisa" })).status).toBe(409);
     const saved = (await call(`/sessions/${first.data.id}`)).data;
@@ -341,6 +348,113 @@ describe("Netlify API against PostgreSQL", () => {
       expect((await call("/progress")).data.memory[0]).toMatchObject(report.corrections[0]);
     }
   });
+  function gate() {
+    let release!: () => void;
+    const promise = new Promise<void>(resolve => { release = resolve; });
+    return { promise, release };
+  }
+  async function syntheticAccount() {
+    const id = randomUUID(), token = `fala_${randomBytes(32).toString("base64url")}`;
+    await db.query("INSERT INTO fala.users(id,email) VALUES($1::uuid,'synthetic@example.invalid')", [id]);
+    await db.query("INSERT INTO fala.device_sessions(token_hash,user_id,expires_at) VALUES($1,$2::uuid,now()+interval '1 hour')",
+      [createHash("sha256").update(token).digest("hex"), id]);
+    return { id, token };
+  }
+
+  it("releases the shared connection during AI while claims guard duplicates and account mutations across handlers", async () => {
+    const other = await syntheticAccount();
+    const entered = gate(), release = gate(), original = coach.reply.bind(coach);
+    vi.spyOn(coach, "reply").mockImplementationOnce(async context => {
+      entered.release(); await release.promise; return original(context);
+    });
+    const input = { request_id: randomUUID() };
+    const pending = start(input);
+    await entered.promise;
+    try {
+      expect((await call("/sessions", "POST", input, instance())).status).toBe(409);
+      expect((await call("/learner", "DELETE", undefined, instance())).status).toBe(409);
+      const independent = await call("/sessions", "POST", input, instance(), other.token);
+      expect(independent.status).toBe(200);
+      expect((await db.query("SELECT user_id FROM fala.generation_claims")).length).toBe(1);
+    } finally { release.release(); }
+    const completed = await pending;
+    expect(completed.status).toBe(200);
+    const replay = (await start(input)).data;
+    expect(replay.id).toBe(completed.data.id); expect(replay.opening).toEqual(completed.data.opening);
+    expect(new Date(replay.started_at).getTime()).toBe(new Date(completed.data.started_at).getTime());
+    expect(coach.calls).toHaveLength(2);
+    expect(await db.query("SELECT user_id FROM fala.generation_claims")).toHaveLength(0);
+  });
+
+  it("fences an expired generation and its cleanup after another handler takes over the account", async () => {
+    const firstEntered = gate(), firstRelease = gate(), nextEntered = gate(), nextRelease = gate();
+    const original = coach.reply.bind(coach);
+    vi.spyOn(coach, "reply")
+      .mockImplementationOnce(async context => { firstEntered.release(); await firstRelease.promise; return original(context); })
+      .mockImplementationOnce(async context => { nextEntered.release(); await nextRelease.promise; return original(context); });
+    const abandoned = { request_id: randomUUID() }, replacement = { request_id: randomUUID() };
+    const first = start(abandoned);
+    await firstEntered.promise;
+    await db.query("UPDATE fala.generation_claims SET expires_at=clock_timestamp()-interval '1 second'");
+    const next = call("/sessions", "POST", replacement, instance());
+    await nextEntered.promise;
+    const [claim] = await db.query<{ claim_id: string }>("SELECT claim_id FROM fala.generation_claims");
+    try {
+      firstRelease.release();
+      expect((await first).status).toBe(409);
+      expect(await db.query("SELECT claim_id FROM fala.generation_claims")).toEqual([claim]);
+      expect((await start()).status).toBe(409);
+    } finally { firstRelease.release(); nextRelease.release(); }
+    expect((await next).status).toBe(200);
+    expect((await call("/sessions")).data).toHaveLength(1);
+    expect(await db.query("SELECT user_id FROM fala.generation_claims")).toHaveLength(0);
+  });
+
+  it("rejects a late answer after an external conversation change without persisting it or rewards", async () => {
+    const session = (await start()).data;
+    const entered = gate(), release = gate(), original = coach.reply.bind(coach);
+    vi.spyOn(coach, "reply").mockImplementationOnce(async context => {
+      entered.release(); await release.promise; return original(context);
+    });
+    const input = { request_id: randomUUID(), text: "Eu gosto de café." };
+    const pending = call(`/sessions/${session.id}/turns`, "POST", input);
+    await entered.promise;
+    try { await db.query("UPDATE fala.sessions SET topic='Changed externally' WHERE id=$1::uuid", [session.id]); }
+    finally { release.release(); }
+    expect((await pending).status).toBe(409);
+    expect((await call(`/sessions/${session.id}`)).data.turns).toHaveLength(0);
+    expect(await db.query("SELECT user_id FROM fala.reward_events")).toHaveLength(0);
+    expect((await call(`/sessions/${session.id}/turns`, "POST", input)).status).toBe(200);
+    expect((await call(`/sessions/${session.id}/turns`, "POST", input)).status).toBe(200);
+    expect((await call(`/sessions/${session.id}`)).data.turns).toHaveLength(1);
+  });
+
+  it("rejects expired claims without takeover and recovers the same request ID", async () => {
+    const entered = gate(), release = gate(), original = coach.reply.bind(coach);
+    vi.spyOn(coach, "reply").mockImplementationOnce(async context => { entered.release(); await release.promise; return original(context); });
+    const input = { request_id: randomUUID() }, pending = start(input);
+    await entered.promise;
+    try { await db.query("UPDATE fala.generation_claims SET expires_at=clock_timestamp()-interval '1 second'"); }
+    finally { release.release(); }
+    expect((await pending).status).toBe(409);
+    expect((await call("/sessions")).data).toHaveLength(0);
+    expect((await start(input)).status).toBe(200);
+  });
+
+  it("cannot recreate an account deleted while its generation was running", async () => {
+    const actor = await syntheticAccount(), entered = gate(), release = gate(), original = coach.reply.bind(coach);
+    vi.spyOn(coach, "reply").mockImplementationOnce(async context => { entered.release(); await release.promise; return original(context); });
+    const pending = call("/sessions", "POST", { request_id: randomUUID() }, instance(), actor.token);
+    await entered.promise;
+    try {
+      expect((await call("/account", "DELETE", undefined, instance(), actor.token)).status).toBe(409);
+      await db.query("DELETE FROM fala.users WHERE id=$1::uuid", [actor.id]);
+    } finally { release.release(); }
+    expect((await pending).status).toBe(401);
+    expect(await db.query("SELECT id FROM fala.sessions WHERE user_id=$1::uuid", [actor.id])).toHaveLength(0);
+    expect(await db.query("SELECT user_id FROM fala.generation_claims")).toHaveLength(0);
+  });
+
   it("rolls back provider failures and permits a safe retry", async () => {
     const session = (await start()).data;
     coach.fail = true;

@@ -3,6 +3,8 @@ import { createHandler } from "../../src/api.js";
 import { settingsFromEnv, type Settings } from "../../src/config.js";
 import { connectDatabase, type Database } from "../../src/database.js";
 import { createRuntimeTracker } from "../../src/runtime.js";
+import { createSessionProbe } from "./sessions.js";
+import type { RuntimeObservation } from "../../src/runtime.js";
 
 const hash = (value: string) => createHash("sha256").update(value).digest();
 const reject = (status: number, detail: string) => Response.json({ detail }, {
@@ -39,14 +41,15 @@ export function probeDatabase(database: Database): Database {
 // An isolated hosting comparison, not an alternative learner API. Reject all
 // learner credentials/routes before the shared handler can read their account.
 export function createProbeHandler(handler: ReturnType<typeof createHandler>,
-  operatorToken: () => string, runtime = createRuntimeTracker()) {
+  operatorToken: () => string, runtime = createRuntimeTracker(),
+  sessions?: (request: Request, runtime: RuntimeObservation) => Promise<Response>) {
   return async (request: Request) => {
     const invocation = runtime();
     const url = new URL(request.url);
     // Use one concrete Vercel function rather than relying on a framework's
     // catch-all filename routing for nested URLs. Preserve the POST body.
     if (url.pathname === "/api/probe") {
-      const endpoints: Record<string, string> = { health: "/health", diagnostics: "/diagnostics", ai: "/diagnostics/ai" };
+      const endpoints: Record<string, string> = { health: "/health", diagnostics: "/diagnostics", ai: "/diagnostics/ai", session: "/diagnostics/session" };
       const endpoint = url.searchParams.get("endpoint") || "";
       if (!Object.hasOwn(endpoints, endpoint)) return reject(404, "Endpoint or method not found.");
       url.pathname = endpoints[endpoint];
@@ -55,7 +58,7 @@ export function createProbeHandler(handler: ReturnType<typeof createHandler>,
     }
     const path = new URL(request.url).pathname.replace(/^\/api(?=\/)/, "").replace(/\/$/, "");
     const allowed = request.method === "GET" && ["/health", "/diagnostics"].includes(path)
-      || request.method === "POST" && path === "/diagnostics/ai";
+      || request.method === "POST" && (path === "/diagnostics/ai" || path === "/diagnostics/session" && Boolean(sessions));
     if (!allowed) return reject(404, "Endpoint or method not found.");
     if (path !== "/health") {
       const token = operatorToken();
@@ -64,7 +67,7 @@ export function createProbeHandler(handler: ReturnType<typeof createHandler>,
         return reject(401, "Operator access required.");
       }
     }
-    return handler(request, "operator-probe", invocation);
+    return path === "/diagnostics/session" ? sessions!(request, invocation) : handler(request, "operator-probe", invocation);
   };
 }
 
@@ -76,4 +79,5 @@ const handler = createHandler({
   region: () => process.env.VERCEL_REGION || "local/unknown",
 });
 
-export default { fetch: createProbeHandler(handler, () => process.env.FALA_TOKEN || "") };
+export default { fetch: createProbeHandler(handler, () => process.env.FALA_TOKEN || "", createRuntimeTracker(),
+  createSessionProbe(() => settings ??= settingsFromEnv(), () => database ??= probeDatabase(connectDatabase(settings ??= settingsFromEnv())))) };

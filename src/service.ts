@@ -18,6 +18,13 @@ const coachedCorrections = (session: Session) => session.turns.flatMap(turn => {
   return !turn.help && point?.kind === "correction" && turn.text.includes(point.said) ? [point] : [];
 });
 
+async function unchanged(store: Store, expected: Awaited<ReturnType<Store["snapshot"]>>, id: string | null = null) {
+  // Also fence writes from an older in-flight deployment or external deletion.
+  if (!isDeepStrictEqual(await store.snapshot(id), expected)) {
+    throw new AppError(409, "The conversation changed while preparing this reply. Retry with the same request ID.");
+  }
+}
+
 function context(kind: string, topic: string, learner: LearnerContext, session?: Session, question = 0) {
   return { kind, topic, profile: learner.assessment, recent_topics: learner.recent_topics,
     recent_openings: session ? undefined : learner.recent_openings,
@@ -41,71 +48,89 @@ export class Sessions {
   constructor(private store: Store, private ai: AIProvider) {}
 
   async start(input: Start) {
-    return this.store.mutate(async tx => {
+    return this.store.generate<Session>(async tx => {
       const previous = await tx.started(input.request_id);
       if (previous) {
         const { resolved_level: _resolved, resolved_lesson: _lesson, ...original } = previous.request;
         if (!isDeepStrictEqual(original, input)) throw new AppError(409, "This request ID was already used with different content.");
-        return previous;
+        return { cached: previous };
       }
-      const { learner } = await tx.snapshot();
+      const snapshot = await tx.snapshot();
+      const { learner } = snapshot;
       const level = practiceLevel(input.practice_level ?? learner.practice.level);
       const choice = this.ai.demo ? undefined : chooseLesson(input.topic, learner.lessons ?? []);
       const lesson = lessonContext(choice, 0, input.support_language, level.level);
-      const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), lesson, practice: level,
-        teaching: teachingPlan(level.level), support_language: input.support_language ?? "en-US", action: "start" });
-      if (lesson) reply.topic = `ABADÁ capoeira · ${lesson.title}`;
-      return tx.create(input, reply, this.ai.demo, level.level, choice);
+      return { run: async () => {
+        const reply = await this.ai.reply({ ...context(input.kind, input.topic, learner), lesson, practice: level,
+          teaching: teachingPlan(level.level), support_language: input.support_language ?? "en-US", action: "start" });
+        if (lesson) reply.topic = `ABADÁ capoeira · ${lesson.title}`;
+        return async commit => {
+          await unchanged(commit, snapshot);
+          return commit.create(input, reply, this.ai.demo, level.level, choice);
+        };
+      } };
     });
   }
 
   async turn(id: string, input: TurnInput) {
-    return this.store.mutate(async tx => {
-      const { session, learner } = await tx.snapshot(id);
+    return this.store.generate<Reply>(async tx => {
+      const snapshot = await tx.snapshot(id);
+      const { session, learner } = snapshot;
       if (!session) throw new AppError(404, "Conversation not found.");
       const previous = session.turns.find(t => t.request_id === input.request_id);
       if (previous) {
         const { request } = previous as typeof previous & { request: TurnInput };
         if (!isDeepStrictEqual(request, input)) throw new AppError(409, "This request ID was already used with different content.");
-        return previous.reply;
+        return { cached: previous.reply };
       }
       if (session.ended_at) throw new AppError(409, "This conversation has ended. Start a new one.");
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
       if (session.turns.length >= 80) throw new AppError(409, "Please finish this session and start a new conversation.");
       const round = session.turns.filter(t => !t.help).length + (input.help ? 0 : 1);
-      const reply = await this.ai.reply({ ...context(session.kind, session.topic, learner, session, round),
-        capoeira_reference: mentionedCapoeiraTerms(`${session.request.topic} ${session.topic}`,
-          [input.text, session.turns.at(-1)?.reply.text ?? session.opening.text], session.request.support_language),
-        practice_round: round,
-        last_turn: !input.help && session.turns.filter(t => !t.help).length >= PRACTICE_TURNS - 1,
-        action: input.help ? "help" : "continue", input });
-      await tx.append(id, input, reply);
-      return reply;
+      return { run: async () => {
+        const reply = await this.ai.reply({ ...context(session.kind, session.topic, learner, session, round),
+          capoeira_reference: mentionedCapoeiraTerms(`${session.request.topic} ${session.topic}`,
+            [input.text, session.turns.at(-1)?.reply.text ?? session.opening.text], session.request.support_language),
+          practice_round: round,
+          last_turn: !input.help && session.turns.filter(t => !t.help).length >= PRACTICE_TURNS - 1,
+          action: input.help ? "help" : "continue", input });
+        return async commit => {
+          await unchanged(commit, snapshot, id);
+          await commit.append(id, input, reply);
+          return reply;
+        };
+      } };
     });
   }
 
   async finish(id: string, input: Finish) {
-    return this.store.mutate(async tx => {
-      const { session, learner } = await tx.snapshot(id);
+    return this.store.generate<Feedback>(async tx => {
+      const snapshot = await tx.snapshot(id);
+      const { session, learner } = snapshot;
       if (!session) throw new AppError(404, "Conversation not found.");
-      if (session.feedback) return compactFeedback(session.feedback, session);
+      if (session.feedback) return { cached: compactFeedback(session.feedback, session) };
       if (session.demo !== this.ai.demo) throw new AppError(409, "The server mode changed. Start a new conversation.");
       const counts = sessionVocabulary(session);
       const seenBefore = await tx.previouslySeenWords(id, [...counts.keys()]);
       const words = focusWords(session, counts, seenBefore);
-      const feedback = await this.ai.feedback({ ...context(session.kind, session.topic, learner, session),
-        turns: session.turns.map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply) })),
-        action: "feedback", self_report: input.confidence, vocabulary_words: words,
-        ...(session.turns.some(t => t.reply.turn_feedback) ? { coached_corrections: coachedCorrections(session) } : {}) });
-      const result = sanitizeFeedback(feedback, session, input);
-      const translations = new Map(feedback.vocabulary.map(item => [item.word.normalize("NFC").toLowerCase(), item.translation]));
-      result.vocabulary = words.map(word => ({ word, translation: (session.request.resolved_lesson ?
-        capoeiraTerm(word)?.[session.request.support_language === "he-IL" ? "he" : "en"] : undefined) ?? translations.get(word) ?? "",
-        occurrences: counts.get(word)!, seen_before: seenBefore.has(word) }));
-      result.vocabulary_total = counts.size;
-      result.practice_result = practiceResult(session);
-      await tx.finish(id, result, session.demo);
-      return result;
+      return { run: async () => {
+        const feedback = await this.ai.feedback({ ...context(session.kind, session.topic, learner, session),
+          turns: session.turns.map(t => ({ text: t.text, help: t.help, source: t.source, assisted: t.assisted, reply: partnerContext(t.reply) })),
+          action: "feedback", self_report: input.confidence, vocabulary_words: words,
+          ...(session.turns.some(t => t.reply.turn_feedback) ? { coached_corrections: coachedCorrections(session) } : {}) });
+        const result = sanitizeFeedback(feedback, session, input);
+        const translations = new Map(feedback.vocabulary.map(item => [item.word.normalize("NFC").toLowerCase(), item.translation]));
+        result.vocabulary = words.map(word => ({ word, translation: (session.request.resolved_lesson ?
+          capoeiraTerm(word)?.[session.request.support_language === "he-IL" ? "he" : "en"] : undefined) ?? translations.get(word) ?? "",
+          occurrences: counts.get(word)!, seen_before: seenBefore.has(word) }));
+        result.vocabulary_total = counts.size;
+        result.practice_result = practiceResult(session);
+        return async commit => {
+          await unchanged(commit, snapshot, id);
+          await commit.finish(id, result, session.demo);
+          return result;
+        };
+      } };
     });
   }
 }
