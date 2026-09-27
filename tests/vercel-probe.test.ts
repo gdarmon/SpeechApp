@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import adapter, { createProbeHandler } from "../deploy/vercel-probe/handler.js";
+import adapter, { createProbeHandler, probeDatabase } from "../deploy/vercel-probe/handler.js";
 import type { createHandler } from "../src/api.js";
+import type { Database } from "../src/database.js";
 
 const token = "operator-test-token-at-least-32-characters";
 function request(path: string, method = "GET", credential: string | null = token) {
@@ -9,6 +10,25 @@ function request(path: string, method = "GET", credential: string | null = token
     ...(method === "POST" ? { body: JSON.stringify({ route: "primary" }) } : {}) });
 }
 describe("isolated hosting probe", () => {
+  it("logs only a fixed database-failure category without credentials, SQL or driver messages", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      for (const [error, category] of [
+        [{ code: "28P01", message: "private-password private-host" }, "credentials_rejected"],
+        [{ code: "XX000", message: "Tenant or user not found: private-user" }, "pooler_account_not_found"],
+        [{ code: "private-secret", message: "private-details" }, "unknown"],
+      ] as const) {
+        const original = { query: vi.fn().mockRejectedValue(error), transaction: vi.fn(), close: vi.fn() } as Database;
+        const observed = probeDatabase(original);
+        await expect(observed.query("private-sql", ["private-value"])).rejects.toBe(error);
+        expect(log).toHaveBeenLastCalledWith(JSON.stringify({ event: "fala_probe_database_failure", category }));
+        expect(observed.transaction).toBe(original.transaction);
+        expect(observed.close).toBe(original.close);
+      }
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private-");
+    } finally { log.mockRestore(); }
+  });
+
   it("serves health without configuring or connecting to a database", async () => {
     const response = await adapter.fetch(request("/api/health", "GET", null));
     expect(response.status).toBe(200);
