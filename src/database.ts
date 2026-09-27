@@ -10,7 +10,7 @@ export function connectDatabase(settings: Settings): Database {
   // Never let a connection-string sslmode silently override the server policy.
   url.searchParams.delete("sslmode");
   const sql = postgres(url.toString(), {
-    max: 1, prepare: false, connect_timeout: 5, idle_timeout: 20, max_lifetime: 300,
+    max: 1, prepare: false, connect_timeout: 5, idle_timeout: 60, max_lifetime: 300,
     ssl: settings.localDatabase ? false : settings.databaseCa
       ? { ca: settings.databaseCa, rejectUnauthorized: true } : "require",
     connection: { application_name: "fala-netlify" },

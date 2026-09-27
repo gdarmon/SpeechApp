@@ -19,7 +19,7 @@ android {
             }
         }
         versionName = "0.14.4"
-        buildConfigField("String", "API_BASE_URL", "\"https://falachatapp.netlify.app\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://fala-api.vercel.app\"")
     }
     signingConfigs {
         create("upload") {

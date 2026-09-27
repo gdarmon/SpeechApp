@@ -1,1 +1,1 @@
-Faster conversation handling under load. Replies no longer hold database connections while AI responds. Safer retries prevent duplicate answers and rewards.
+Faster conversation handling and a new Vercel service. Web replies appear without an extra reload. Safer retries prevent duplicate answers and rewards. Familiar questions can return after spaced practice, and final answers close the lesson correctly.

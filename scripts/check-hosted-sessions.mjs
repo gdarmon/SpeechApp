@@ -9,7 +9,7 @@ const token = process.env.FALA_TOKEN, manifest = process.env.FALA_SESSION_FIXTUR
 const gap = Number(process.env.FALA_SESSION_GAP_MS || 35000);
 if (process.env.FALA_RUN_SESSION_CHECK !== 'true' || !token || !manifest
   || url.protocol !== 'https:' || url.username || url.password || url.search || url.hash
-  || !/^fala-latency-probe-[a-z0-9-]+\.vercel\.app$/.test(url.hostname)
+  || !(/^fala-latency-probe-[a-z0-9-]+\.vercel\.app$/.test(url.hostname) || url.hostname === 'fala-api.vercel.app')
   || !/^artifacts\/session-fixtures-[0-9a-f-]{36}\.json$/.test(manifest)
   || !Number.isInteger(gap) || gap < 0 || gap > 60000) throw Error('Use an authorized isolated Vercel probe, its private fixture manifest, and explicit session-check opt-in.');
 const fixture = JSON.parse(await readFile(manifest, 'utf8'));
@@ -39,6 +39,10 @@ async function request(actor, index, phase, path, method = 'GET', body, expected
     row.input_tokens = Number(response.headers.get('x-fala-probe-input-tokens') || 0);
     row.output_tokens = Number(response.headers.get('x-fala-probe-output-tokens') || 0);
     row.ai_calls = Number(response.headers.get('x-fala-probe-ai-calls') || 0);
+    row.error_code = typeof data?.code === 'string' && /^ai_[a-z_]+$/.test(data.code) ? data.code : null;
+    const runtime = JSON.parse(response.headers.get('x-fala-probe-runtime') || '{}');
+    row.instance_id = /^[0-9a-f-]{36}$/.test(runtime.instance_id || '') ? runtime.instance_id : null;
+    row.invocation_number = Number.isSafeInteger(runtime.invocation_number) ? runtime.invocation_number : null;
     row.ok = response.status === expected && response.headers.get('x-fala-probe-mode') === 'isolated-session';
     if (!row.ok) { row.error = `http_${response.status}`; throw Error(row.error); }
     return data;

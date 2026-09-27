@@ -19,25 +19,25 @@ export const subscriptionSchema=z.strictObject({
 });
 export async function saveSubscription(db:Executor,user:string,input:z.infer<typeof subscriptionSchema>) {
   if(!process.env.FALA_VAPID_PUBLIC_KEY || !process.env.FALA_VAPID_PRIVATE_KEY) throw new AppError(503,'Web reminders are not configured yet.');
-  const [count]=await db.query<{n:number}>('SELECT count(*)::int AS n FROM fala.push_subscriptions WHERE user_id=$1::uuid AND endpoint<>$2',[user,input.endpoint]);
+  const [count]=await db.query<{n:number}>("SELECT count(*)::int AS n FROM fala.push_subscriptions WHERE user_id=$1::uuid AND endpoint<>$2 AND subscription->>'vapid_public_key'=$3",[user,input.endpoint,process.env.FALA_VAPID_PUBLIC_KEY]);
   if(count.n>=3) throw new AppError(409,'Reminders are already connected on three browsers. Disconnect one first.');
   await db.query(`INSERT INTO fala.push_subscriptions(endpoint,user_id,subscription) VALUES($1,$2::uuid,$3::text::jsonb)
-    ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,subscription=EXCLUDED.subscription,created_at=now()`,[input.endpoint,user,JSON.stringify(input)]);
+    ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,subscription=EXCLUDED.subscription,created_at=now()`,[input.endpoint,user,JSON.stringify({...input,vapid_public_key:process.env.FALA_VAPID_PUBLIC_KEY})]);
   return {subscribed:true};
 }
 export type Sender=(subscription:webpush.PushSubscription,payload:string)=>Promise<unknown>;
 export async function deliverReminders(db:Database,now=new Date(),send:Sender=(subscription,payload)=>webpush.sendNotification(subscription,payload,{
   TTL:1800,timeout:4000,urgency:'normal',vapidDetails:{subject:'mailto:gdarmon@gmail.com',publicKey:process.env.FALA_VAPID_PUBLIC_KEY!,privateKey:process.env.FALA_VAPID_PRIVATE_KEY!},
-})) {
+}),publicKey=process.env.FALA_VAPID_PUBLIC_KEY||'') {
   // Bounded batches keep a scheduled invocation within Netlify's execution limit.
   const due=await db.query<{user_id:string}>(`SELECT p.user_id FROM fala.reward_profiles p
-    WHERE p.reminder_enabled AND EXISTS(SELECT 1 FROM fala.push_subscriptions s WHERE s.user_id=p.user_id)
+    WHERE p.reminder_enabled AND EXISTS(SELECT 1 FROM fala.push_subscriptions s WHERE s.user_id=p.user_id AND COALESCE(s.subscription->>'vapid_public_key','')=$2)
     AND (extract(hour FROM ($1::timestamptz AT TIME ZONE p.timezone))*60+extract(minute FROM ($1::timestamptz AT TIME ZONE p.timezone))) BETWEEN p.reminder_minute AND p.reminder_minute+59
     AND NOT EXISTS(SELECT 1 FROM fala.reminder_deliveries d WHERE d.user_id=p.user_id AND d.local_date=($1::timestamptz AT TIME ZONE p.timezone)::date)
     AND NOT EXISTS(SELECT 1 FROM fala.reward_events e WHERE e.user_id=p.user_id AND e.kind='reply'
       AND e.occurred_at >= (date_trunc('day',$1::timestamptz AT TIME ZONE p.timezone) AT TIME ZONE p.timezone)
       AND e.occurred_at < ((date_trunc('day',$1::timestamptz AT TIME ZONE p.timezone)+interval '1 day') AT TIME ZONE p.timezone))
-    ORDER BY p.user_id LIMIT 20`,[now.toISOString()]);
+    ORDER BY p.user_id LIMIT 20`,[now.toISOString(),publicKey]);
   let delivered=0;
   // Four workers; use only the most recently connected browser to avoid duplicate alerts.
   async function deliver(user:string) {
@@ -46,7 +46,7 @@ export async function deliverReminders(db:Database,now=new Date(),send:Sender=(s
       return lock.locked?new Rewards(tx,user,now).claimReminder():{notify:false};
     });
     if(!claimed.notify || !('day' in claimed))return;
-    const rows=await db.query<{endpoint:string;subscription:webpush.PushSubscription}>('SELECT endpoint,subscription FROM fala.push_subscriptions WHERE user_id=$1::uuid ORDER BY created_at DESC LIMIT 1',[user]);
+    const rows=await db.query<{endpoint:string;subscription:webpush.PushSubscription}>("SELECT endpoint,subscription FROM fala.push_subscriptions WHERE user_id=$1::uuid AND COALESCE(subscription->>'vapid_public_key','')=$2 ORDER BY created_at DESC LIMIT 1",[user,publicKey]);
     const results=await Promise.all(rows.map(async row=>{
       if(!allowedPushEndpoint(row.endpoint))return false;
       try {await send(row.subscription,JSON.stringify({title:claimed.title,body:claimed.body,tag:`fala-practice-${claimed.day}`}));return true;}

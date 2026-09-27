@@ -314,3 +314,14 @@ it('does not add points to a legacy session that already exceeds the new lesson 
   await reply(id);
   expect(await new Rewards(db,a,now).snapshot()).toMatchObject({xp:20,today_xp:0});
 });
+
+it('does not claim or send reminders for subscriptions made with another website key',async()=>{
+  await new Rewards(db,a,now).settings({timezone:'Asia/Jerusalem',reminder_enabled:true});
+  const endpoint='https://fcm.googleapis.com/fcm/send/old-key';
+  await db.query('INSERT INTO fala.push_subscriptions(endpoint,user_id,subscription) VALUES($1,$2::uuid,$3::jsonb)',[endpoint,a,JSON.stringify({endpoint,keys:{},vapid_public_key:'old-key'})]);
+  let attempts=0;
+  expect(await deliverReminders(db,now,async()=>{attempts++;},'new-key')).toEqual({delivered:0});
+  expect(attempts).toBe(0);
+  expect(await db.query('SELECT * FROM fala.reminder_deliveries WHERE user_id=$1::uuid',[a])).toEqual([]);
+  expect(await deliverReminders(db,now,async()=>{attempts++;},'old-key')).toEqual({delivered:1});
+});
