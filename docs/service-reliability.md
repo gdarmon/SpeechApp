@@ -69,6 +69,8 @@ If billing/model access fails, use the existing provider console and authorized 
 
 ## Detailed latency investigation
 
+The later [invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) adds an important control: confirmed existing application instances still had multi-second pre-function delays. Its instrumented draft exposes only operator-visible instance IDs, immutable invocation counters and module age. These describe application reuse, not platform cold-start duration. The detailed probe now preserves those whitelisted observations and summarizes them per wave; older deployments have no such observations. No production rollout of the instrumentation is claimed.
+
 The [26 September investigation](latency-investigation-2026-09-26.md) matched the reproduced long tail to delayed hosting invocation, including requests whose platform execution was only a few milliseconds longer than Fala's handler. Raising AI quotas alone does not address that evidence. The following maintained checks separate network, handler and provider time without changing a learner's history:
 
 ```bash

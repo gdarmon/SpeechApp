@@ -1,5 +1,7 @@
 # Live latency test with Netlify Observability — 27 September 2026
 
+Follow-up: the [invocation-reuse experiment](latency-invocation-reuse-2026-09-27.md) tested the support chatbot's cold-start hypothesis on a separate instrumented draft and reproduced long pre-function delays on confirmed reused application instances.
+
 ## Result
 
 The owner watched the Netlify Observability dashboard while a new 50-request synthetic burst ran at **09:13:01–09:13:09 Israel time (06:13 UTC)**. All requests succeeded, but none finished within three seconds. Client median was **5.286 seconds**, p95 **7.157 seconds**. We then extracted the dashboard's request details for **all 50 exact request IDs**, including each request's total duration and its `api` function operation.
