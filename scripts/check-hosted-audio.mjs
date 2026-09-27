@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 const base = new URL(process.env.FALA_URL || 'https://invalid.invalid');
 const manifest = process.env.FALA_SESSION_FIXTURE, token = process.env.FALA_TOKEN;
 if (process.env.FALA_RUN_AUDIO_CHECK !== 'true' || !token || base.protocol !== 'https:'
-  || !/^fala-latency-probe-[a-z0-9-]+\.vercel\.app$/.test(base.hostname)
+  || !(/^fala-latency-probe-[a-z0-9-]+\.vercel\.app$/.test(base.hostname) || base.hostname === 'fala-api.vercel.app')
   || base.username || base.password || base.search || base.hash
   || !/^artifacts\/session-fixtures-[0-9a-f-]{36}\.json$/.test(manifest || '')) throw Error('Explicit audio opt-in and an isolated probe fixture are required.');
 const fixture = JSON.parse(await readFile(manifest, 'utf8'));

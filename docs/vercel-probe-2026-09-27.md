@@ -1,5 +1,8 @@
 # Vercel deployment and AI hosting comparison — 27 September 2026
 
+Historical probe record. Subsequent implementation and full-session results are recorded in [0.14.4](releases/0.14.4.md); statements below about pending work describe the state at this experiment.
+
+
 ## Current result
 
 The owner's Transaction pooler update resolved database access. The isolated Vercel probe now serves authenticated synthetic AI requests, with the same shared handler and configured model as the Netlify baseline. The comparison below separates generation time from the remaining request path. A full learner conversation or voice-capacity test has not run on Vercel.

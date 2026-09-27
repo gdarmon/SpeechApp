@@ -1,5 +1,8 @@
 # Isolated Vercel hosting comparison
 
+Historical probe record. Subsequent implementation and full-session results are recorded in [0.14.4](releases/0.14.4.md); statements below about pending work describe the state at this experiment.
+
+
 Status on 27 September 2026: the separate Vercel Hobby project is deployed and the owner's Transaction pooler update resolved database access. All 400 fixed synthetic AI requests succeeded across two runs per host in reversed order. Second-wave p95 was 2.40–2.45 seconds on Vercel versus 4.01–4.12 on Netlify, with similar AI medians; the first Vercel wave still missed the three-second gate. See the [deployment and measurement receipt](vercel-probe-2026-09-27.md) for component timings and remaining limits. Fala users continue to use Netlify 0.14.3; this experiment does not enable learner routes on Vercel. Full conversation/voice capacity remains untested on Vercel.
 
 ## Why this experiment
